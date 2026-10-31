@@ -19,8 +19,8 @@ export interface Market {
 export function ema(values: number[], period: number): number {
   if (values.length === 0) return 0;
   const k = 2 / (period + 1);
-  let e = values[0];
-  for (let i = 1; i < values.length; i++) e = values[i] * k + e * (1 - k);
+  let e = values[0] ?? 0;
+  for (let i = 1; i < values.length; i++) e = (values[i] ?? 0) * k + e * (1 - k);
   return e;
 }
 
@@ -29,14 +29,14 @@ export function rsi(values: number[], period = 14): number {
   let gain = 0;
   let loss = 0;
   for (let i = 1; i <= period; i++) {
-    const d = values[i] - values[i - 1];
+    const d = (values[i] ?? 0) - (values[i - 1] ?? 0);
     if (d >= 0) gain += d;
     else loss -= d;
   }
   let ag = gain / period;
   let al = loss / period;
   for (let i = period + 1; i < values.length; i++) {
-    const d = values[i] - values[i - 1];
+    const d = (values[i] ?? 0) - (values[i - 1] ?? 0);
     ag = (ag * (period - 1) + Math.max(d, 0)) / period;
     al = (al * (period - 1) + Math.max(-d, 0)) / period;
   }

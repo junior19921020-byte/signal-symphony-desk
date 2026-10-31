@@ -40,7 +40,7 @@ export function statusFor(a: Agent, m: Market | null): string {
 }
 
 function Room({ idx }: { idx: number }) {
-  const [cx, cy] = CENTERS[idx];
+  const [cx, cy] = CENTERS[idx] ?? [300, 200];
   const top = p(cx, cy, -1, -1);
   const right = p(cx, cy, 1, -1);
   const bottom = p(cx, cy, 1, 1);
@@ -53,7 +53,7 @@ function Room({ idx }: { idx: number }) {
       <polygon points={pts([top, right, [right[0], right[1] - h], [top[0], top[1] - h]])} fill="#26354d" />
       <polygon points={pts([top, right, bottom, left])} fill="#151d2b" stroke="#3b4c66" strokeWidth={1} />
       <text x={bottom[0]} y={bottom[1] + 11} textAnchor="middle" fontSize={9} fill="#d4af37" fontWeight={700}>
-        {ROOMS[idx].toUpperCase()}
+        {(ROOMS[idx] ?? "").toUpperCase()}
       </text>
     </g>
   );
@@ -108,7 +108,7 @@ function Rest() {
       <polygon points="282,200 300,209 300,215 282,206" fill="#5a1f0c" />
       <polygon points="300,209 318,200 318,206 300,215" fill="#9a3412" />
       <rect x={283} y={186} width={6} height={12} fill="#9a3412" />
-      {[[265, 205], [335, 205]].map(([x, y]) => (
+      {([[265, 205], [335, 205]] as [number, number][]).map(([x, y]) => (
         <g key={x}>
           <rect x={x - 3} y={y - 4} width={6} height={6} fill="#78350f" />
           <circle cx={x} cy={y - 9} r={6} fill="#16a34a" />
@@ -127,7 +127,7 @@ export function OfficeMap({ agents, market, onSelect }: { agents: Agent[]; marke
   return (
     <svg viewBox="0 0 600 420" className="w-full h-auto block select-none">
       {order.map((idx) => {
-        const [cx, cy] = CENTERS[idx];
+        const [cx, cy] = CENTERS[idx] ?? [300, 200];
         const inRoom = agents.filter((a) => a.room === idx);
         return (
           <g key={idx}>
