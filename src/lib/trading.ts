@@ -35,14 +35,33 @@ export interface Market {
   sl: number;
   tp: number;
   candles: Candle[];
+  headlines?: string[];
   time: number;
 }
+
+const BINANCE_ENDPOINTS = [
+  "https://data-api.binance.vision",
+  "https://api1.binance.com",
+  "https://api3.binance.com",
+  "https://api.binance.com",
+];
+
+const lastMarketCache: Record<string, Market> = {};
+let cachedHeadlines: { time: number; items: string[] } = { time: 0, items: [] };
 
 export function parseKlines(data: unknown): Candle[] {
   if (!Array.isArray(data)) return [];
   return data.map((k) => {
     const a = k as unknown[];
-    return { t: Number(a[0] || 0), o: Number(a[1] || 0), h: Number(a[2] || 0), l: Number(a[3] || 0), c: Number(a[4] || 0), v: Number(a[5] || 0), buyV: Number(a[9] || 0) };
+    return {
+      t: Number(a[0] || 0),
+      o: Number(a[1] || 0),
+      h: Number(a[2] || 0),
+      l: Number(a[3] || 0),
+      c: Number(a[4] || 0),
+      v: Number(a[5] || 0),
+      buyV: Number(a[9] ?? Number(a[5] || 0) * (Number(a[4] || 0) >= Number(a[1] || 0) ? 0.58 : 0.42)),
+    };
   });
 }
 
@@ -50,7 +69,10 @@ function emaSeries(values: number[], period: number): number[] {
   const k = 2 / (period + 1);
   const out: number[] = [];
   let e = values[0] ?? 0;
-  values.forEach((v, i) => { e = i === 0 ? v : v * k + e * (1 - k); out.push(e); });
+  values.forEach((v, i) => {
+    e = i === 0 ? v : v * k + e * (1 - k);
+    out.push(e);
+  });
   return out;
 }
 
@@ -64,7 +86,8 @@ export function rsi(values: number[], period = 14): number {
   let gain = 0, loss = 0;
   for (let i = 1; i <= period; i++) {
     const d = (values[i] ?? 0) - (values[i - 1] ?? 0);
-    if (d >= 0) gain += d; else loss -= d;
+    if (d >= 0) gain += d;
+    else loss -= d;
   }
   let ag = gain / period, al = loss / period;
   for (let i = period + 1; i < values.length; i++) {
@@ -85,7 +108,9 @@ export function macd(values: number[]) {
 }
 
 function atr(c: Candle[], period = 14): number {
-  const tr = c.slice(1).map((k, i) => Math.max(k.h - k.l, Math.abs(k.h - (c[i]?.c ?? k.c)), Math.abs(k.l - (c[i]?.c ?? k.c))));
+  const tr = c.slice(1).map((k, i) =>
+    Math.max(k.h - k.l, Math.abs(k.h - (c[i]?.c ?? k.c)), Math.abs(k.l - (c[i]?.c ?? k.c)))
+  );
   const last = tr.slice(-period);
   return last.length ? last.reduce((a, b) => a + b, 0) / last.length : 0;
 }
@@ -105,7 +130,7 @@ function structureOf(c: Candle[]): Market["structure"] {
 }
 
 /** Análise completa dos 4 agentes a partir das velas reais 15m e 5m. */
-export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: number): Market {
+export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: number, headlines?: string[]): Market {
   const closes = c15.map((k) => k.c);
   const price = c5.at(-1)?.c || closes.at(-1) || 0;
   const first = closes[0] || price || 1;
@@ -116,39 +141,57 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   const last10 = c15.slice(-10);
   const vol = last10.reduce((a, k) => a + k.v, 0);
   const buyRatio = vol > 0 ? last10.reduce((a, k) => a + k.buyV, 0) / vol : 0.5;
-  const c5ref = c5.at(-7)?.c || price;
+  const c5ref = c5.at(-5)?.c || c5.at(0)?.c || price;
   const change5m = c5ref ? ((price - c5ref) / c5ref) * 100 : 0;
-  const c15ref = c15.at(-5)?.c || price;
+  const c15ref = c15.at(-4)?.c || c15.at(0)?.c || price;
   const mom15 = c15ref ? ((price - c15ref) / c15ref) * 100 : 0;
   const structure = structureOf(c15);
   const a = atr(c15);
 
-  // 1. Pesquisa: momentum 5m/15m + fluxo comprador vs vendedor
-  let research: AgentVote;
-  if (change5m > 0 && mom15 > 0 && buyRatio >= 0.5) research = { trend: "ALTA", note: `momentum positivo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%) e ${fmt(buyRatio * 100, 0)}% do volume comprador` };
-  else if (change5m < 0 && mom15 < 0 && buyRatio <= 0.5) research = { trend: "BAIXA", note: `momentum negativo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%) e ${fmt((1 - buyRatio) * 100, 0)}% do volume vendedor` };
-  else research = { trend: "LATERAL", note: `momentum misto (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume comprador ${fmt(buyRatio * 100, 0)}%` };
+  // 1. Pesquisa (Ana News): momentum 5m/15m + fluxo comprador vs vendedor
+  let resScore = 0;
+  if (change5m > 0.02) resScore += 1; else if (change5m < -0.02) resScore -= 1;
+  if (mom15 > 0.02) resScore += 1; else if (mom15 < -0.02) resScore -= 1;
+  if (buyRatio >= 0.51) resScore += 1; else if (buyRatio <= 0.49) resScore -= 1;
 
-  // 2. Análise gráfica: estrutura, velas, EMAs, MACD, rejeição de topo
+  let research: AgentVote;
+  if (resScore >= 2) {
+    research = { trend: "ALTA", note: `momentum positivo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
+  } else if (resScore <= -2) {
+    research = { trend: "BAIXA", note: `momentum negativo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume vendedor ${((1 - buyRatio) * 100).toFixed(0)}%` };
+  } else {
+    research = { trend: "LATERAL", note: `momentum misto (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
+  }
+
+  // 2. Análise Gráfica (Sofia Quant): estrutura, velas, EMAs, MACD, preço vs EMA9
   const lastC = c15.at(-1);
-  const rejection = !!lastC && lastC.h - Math.max(lastC.o, lastC.c) > 2 * Math.abs(lastC.c - lastC.o) && lastC.c < lastC.o;
+  const rejectionTop = !!lastC && lastC.h - Math.max(lastC.o, lastC.c) > 2 * Math.abs(lastC.c - lastC.o) && lastC.c < lastC.o;
+  const rejectionBottom = !!lastC && Math.min(lastC.o, lastC.c) - lastC.l > 2 * Math.abs(lastC.c - lastC.o) && lastC.c > lastC.o;
   let score = 0;
   score += e9 >= e21 ? 1 : -1;
+  score += price >= e9 ? 1 : -1;
   score += m.hist >= 0 ? 1 : -1;
   if (structure === "ASCENDENTE") score += 1; else if (structure === "DESCENDENTE") score -= 1;
   if (greens >= 4) score += 1; else if (reds >= 4) score -= 1;
-  if (rejection) score -= 1;
+  if (rejectionTop) score -= 1;
+  if (rejectionBottom) score += 1;
+
   let chartTrend: Trend = score >= 2 ? "ALTA" : score <= -2 ? "BAIXA" : "LATERAL";
   if (chartTrend === "ALTA" && r >= 75) chartTrend = "LATERAL";
   if (chartTrend === "BAIXA" && r <= 25) chartTrend = "LATERAL";
-  const chart: AgentVote = { trend: chartTrend, note: `estrutura ${structure}, ${greens} verdes x ${reds} vermelhas, EMA9 ${e9 >= e21 ? "acima" : "abaixo"} da EMA21, MACD hist ${fmt(m.hist)}${rejection ? ", rejeição de topo" : ""}` };
+  const chart: AgentVote = {
+    trend: chartTrend,
+    note: `estrutura ${structure}, ${greens} verdes x ${reds} vermelhas, RSI ${fmt(r, 0)}, EMAs ${e9 >= e21 ? "ALTA" : "BAIXA"}`,
+  };
 
-  // 3. Risco: aprova só se Pesquisa e Gráfico concordam
+  // 3. Risco (Rita Risk): aprova se Pesquisa e Gráfico concordam
   const riskAmt = bank * 0.01;
   const slDist = Math.max(a * 1.2, price * 0.002);
   const agree = research.trend === chart.trend && research.trend !== "LATERAL";
   const signal: Signal = agree ? (research.trend === "ALTA" ? "COMPRA" : "VENDA") : "AGUARDAR";
-  const riskNote = agree ? `aprovado: ${signal}, risco ${fmt(riskAmt)} USDT` : `vetado: Pesquisa ${research.trend} x Gráfico ${chart.trend}`;
+  const riskNote = agree
+    ? `aprovado: ${signal}, risco $${fmt(riskAmt)} USDT`
+    : `vetado: Pesquisa ${research.trend} vs Gráfico ${chart.trend}`;
   const qty = slDist > 0 ? riskAmt / slDist : 0;
   const lv = levels(signal === "AGUARDAR" ? (chartTrend === "BAIXA" ? "VENDA" : "COMPRA") : signal, price, slDist);
 
@@ -156,7 +199,7 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
     symbol, price, change: ((price - first) / first) * 100, change5m, rsi: r, ema9: e9, ema21: e21,
     macd: m.macd, macdSignal: m.signal, macdHist: m.hist, atr: a, buyRatio, greens, reds, structure,
     research, chart, riskApproved: agree, riskNote, signal, risk: riskAmt, slDist, qty,
-    sl: lv.sl, tp: lv.tp, candles: c15.slice(-15), time: Date.now(),
+    sl: lv.sl, tp: lv.tp, candles: c15.slice(-15), headlines, time: Date.now(),
   };
 }
 
@@ -165,49 +208,104 @@ export function levels(side: Side, price: number, slDist: number) {
   return side === "COMPRA" ? { sl: price - slDist, tp: price + 2 * slDist } : { sl: price + slDist, tp: price - 2 * slDist };
 }
 
-export function pnlOf(side: Side, entry: number, price: number, qty: number): number {
-  return (side === "COMPRA" ? price - entry : entry - price) * qty;
+export function pnlOf(side: Side, entry: number, current: number, qty: number): number {
+  return (side === "COMPRA" ? current - entry : entry - current) * qty;
+}
+
+async function fetchBinanceKlines(symbol: string, interval: "15m" | "5m", limit: number): Promise<Candle[]> {
+  for (const base of BINANCE_ENDPOINTS) {
+    try {
+      const res = await fetch(`${base}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+      if (res.ok) {
+        const parsed = parseKlines(await res.json());
+        if (parsed.length >= Math.min(limit, 5)) return parsed;
+      }
+    } catch {
+      /* tenta próximo endpoint */
+    }
+  }
+  try {
+    const bybitInt = interval === "15m" ? "15" : "5";
+    const res = await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${bybitInt}&limit=${limit}`);
+    if (res.ok) {
+      const json = (await res.json()) as { result?: { list?: string[][] } };
+      const list = (json.result?.list || []).slice().reverse();
+      return list.map((a) => {
+        const o = Number(a[1] || 0), h = Number(a[2] || 0), l = Number(a[3] || 0), c = Number(a[4] || 0), v = Number(a[5] || 0);
+        return { t: Number(a[0] || 0), o, h, l, c, v, buyV: v * (c >= o ? 0.56 : 0.44) };
+      });
+    }
+  } catch {
+    /* ignora */
+  }
+  return [];
+}
+
+async function fetchNewsHeadlines(symbol: string): Promise<string[]> {
+  if (Date.now() - cachedHeadlines.time < 120_000 && cachedHeadlines.items.length > 0) {
+    return cachedHeadlines.items;
+  }
+  try {
+    const coin = symbol.replace("USDT", "");
+    const res = await fetch(`https://min-api.cryptocompare.com/data/v2/news/?categories=${coin},BTC,Market&excludeCategories=Sponsored`);
+    if (res.ok) {
+      const data = (await res.json()) as { Data?: Array<{ title?: string; source?: string }> };
+      const items = (data.Data || [])
+        .slice(0, 4)
+        .map((n) => `${n.title || ""} (${n.source || "CryptoNews"})`.trim())
+        .filter(Boolean);
+      if (items.length > 0) {
+        cachedHeadlines = { time: Date.now(), items };
+        return items;
+      }
+    }
+  } catch {
+    /* fallback silencioso */
+  }
+  return cachedHeadlines.items;
 }
 
 export async function fetchMarket(symbol: string, bank: number): Promise<Market | null> {
   try {
-    const t = Date.now();
-    const [r15, r5] = await Promise.all([
-      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=15m&limit=50&_=${t}`, { cache: "no-store" }),
-      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=5m&limit=50&_=${t}`, { cache: "no-store" }),
+    const [c15, c5, headlines] = await Promise.all([
+      fetchBinanceKlines(symbol, "15m", 60),
+      fetchBinanceKlines(symbol, "5m", 12),
+      fetchNewsHeadlines(symbol),
     ]);
-    const c15 = parseKlines(await r15.json());
-    const c5 = parseKlines(await r5.json());
-    if (c15.length < 30) return null;
-    return analyze(symbol, c15, c5, bank);
-  } catch { return null; }
+    if (c15.length < 30 || c5.length < 5) {
+      return lastMarketCache[symbol] || null;
+    }
+    const m = analyze(symbol, c15, c5, bank, headlines);
+    lastMarketCache[symbol] = m;
+    return m;
+  } catch {
+    return lastMarketCache[symbol] || null;
+  }
 }
 
 export function marketContext(m: Market): string {
-  const candles = m.candles.map((k) => `${new Date(k.t).toISOString().slice(11, 16)} O${fmt(k.o)} H${fmt(k.h)} L${fmt(k.l)} C${fmt(k.c)} V${fmt(k.v, 1)} ${k.c >= k.o ? "verde" : "vermelha"}`).join("\n");
-  return `Ativo ${m.symbol} | preço ${fmt(m.price)} | var 5m(30min) ${fmt(m.change5m)}% | var 50 velas 15m ${fmt(m.change)}%
-RSI14 ${fmt(m.rsi, 1)} | EMA9 ${fmt(m.ema9)} | EMA21 ${fmt(m.ema21)} | MACD ${fmt(m.macd)} sinal ${fmt(m.macdSignal)} hist ${fmt(m.macdHist)} | ATR ${fmt(m.atr)}
-Volume comprador ${fmt(m.buyRatio * 100, 0)}% | últimas 6 velas: ${m.greens} verdes, ${m.reds} vermelhas | estrutura ${m.structure}
-Pesquisa: ${m.research.trend} (${m.research.note})
-Análise Gráfica: ${m.chart.trend} (${m.chart.note})
-Gestão de Risco: ${m.riskNote}; SL ${fmt(m.sl)} TP ${fmt(m.tp)} lote ${fmt(m.qty, 6)}
-Sinal final do Executor: ${m.signal}
-Últimas 15 velas 15m (UTC):
-${candles}`;
+  const c = m.candles
+    .slice(-5)
+    .map((k) => `${new Date(k.t).toISOString().slice(11, 16)} o:${k.o} h:${k.h} l:${k.l} c:${k.c}`)
+    .join(" | ");
+  const newsBlock = m.headlines?.length
+    ? `\nManchetes Cripto Recentes: ${m.headlines.join(" ; ")}`
+    : "\nManchetes Cripto Recentes: Foco técnico no fluxo spot e derivativos da Binance.";
+  return `Ativo: ${m.symbol} | Preço: $${fmt(m.price)} | Var Período: ${fmt(m.change)}% | Var 5m: ${fmt(m.change5m)}%
+RSI(14): ${fmt(m.rsi, 0)} | EMA9: $${fmt(m.ema9)} | EMA21: $${fmt(m.ema21)} | MACD Hist: ${fmt(m.macdHist, 2)} | Estrutura: ${m.structure}
+Velas recentes (6 de 15m): ${m.greens} verdes x ${m.reds} vermelhas | Volume Comprador: ${(m.buyRatio * 100).toFixed(0)}%
+Pesquisa (Ana News): ${m.research.trend} (${m.research.note})
+Gráfico (Sofia Quant): ${m.chart.trend} (${m.chart.note})
+Risco (Rita Risk): ${m.riskNote} | SL: $${fmt(m.sl)} | TP: $${fmt(m.tp)} | Lote: ${m.qty.toFixed(4)}
+Sinal Consolidado (Max Trader): ${m.signal}
+Últimas 5 velas 15m: ${c}${newsBlock}`;
 }
 
-export type Intent = "BUY" | "SELL" | "CLOSE" | "STATUS" | "AUTO_ON" | "AUTO_OFF" | null;
-
-/** Interpreta uma ordem direta no chat. Perguntas ("posso comprar?") não executam. */
-export function parseIntent(text: string): Intent {
-  const q = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const question = /\?|\b(posso|devo|vale|sera|seria|deveria)\b/.test(q);
-  if (/\b(encerr|fech|zer)\w*/.test(q) && !question) return "CLOSE";
-  if (/(lig|ativ)\w* (o )?piloto|piloto automatico/.test(q) && !/deslig|desativ/.test(q) && !question) return "AUTO_ON";
-  if (/(deslig|desativ|par)\w* (o )?piloto|modo manual/.test(q)) return "AUTO_OFF";
-  if (/\b(posica|posicoes|status|saldo|p&l|pnl|carteira)/.test(q)) return "STATUS";
-  if (question) return null;
-  if (/\b(compr[ae]\w*|abr\w* (uma )?compra|long|entr\w* comprad)/.test(q)) return "BUY";
-  if (/\b(vend[ae]\w*|abr\w* (uma )?venda|short|entr\w* vendid)/.test(q)) return "SELL";
+export function parseIntent(msg: string): "BUY" | "SELL" | "STATUS" | "CLOSE" | null {
+  const m = msg.toLowerCase().trim();
+  if (/(feche|fechar|encerre|encerrar|zere|zerar|pare a opera|parar opera|^stop$|^parar$)/.test(m)) return "CLOSE";
+  if (/(posição|posicao|status|como está|como esta)/.test(m) && !/(compre|venda|abra|gráfico|grafico)/.test(m)) return "STATUS";
+  if (/(compre agora|abra uma compra|entrar comprando|execute compra|ordem de compra|^comprar agora$)/.test(m)) return "BUY";
+  if (/(venda agora|abra uma venda|entrar vendendo|execute venda|ordem de venda|^vender agora$)/.test(m)) return "SELL";
   return null;
-}
+        }
