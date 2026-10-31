@@ -206,52 +206,46 @@ function Index() {
   const [notice, setNotice] = useState("");
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(""), 4000); return () => clearTimeout(t); }, [notice]);
 
-  // Ordem disparada pelo chat de qualquer agente
-  const handleCommand = (q: string, agent: Agent): string | null => {
+  // Ordem disparada pelo chat de qualquer agente (retorna o fato executado; a IA comenta depois)
+  const handleCommand = (q: string, agent: Agent, m: Market | null): string | null => {
     const intent = parseIntent(q);
     if (!intent) return null;
-    const voice = ROLE_VOICE[agent.room] ?? ROLE_VOICE[3]!;
     const sym = settings.symbol;
-    const price = liveRef.current || market?.price || 0;
+    const price = m?.price || liveRef.current || 0;
     if (intent === "STATUS") {
       const mine = posRef.current.filter((p) => p.symbol === sym);
-      if (!mine.length) return `${agent.name}: Não temos posição aberta em ${sym}. Saldo realizado: ${fmt(balance, 2)} USDT.`;
-      const list = mine.map((p) => { const pnl = (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty; return `${p.side} @ ${fmt(p.entry, 2)} (P&L ${fmt(pnl, 2)} USDT, SL ${fmt(p.sl, 2)}, TP ${fmt(p.tp, 2)})`; }).join("; ");
-      return `${agent.name}: Temos ${mine.length} posição(ões) em ${sym}: ${list}. Saldo realizado: ${fmt(balance, 2)} USDT.`;
+      if (!mine.length) return `Nenhuma posição aberta em ${sym}. Saldo realizado ${fmt(balance)} USDT.`;
+      return `${mine.length} posição(ões) em ${sym}: ` + mine.map((p) => `${p.side} @ ${fmt(p.entry)} P&L ${fmt(pnlOf(p.side, p.entry, price, p.qty))} USDT SL ${fmt(p.sl)} TP ${fmt(p.tp)}`).join("; ") + `. Saldo realizado ${fmt(balance)} USDT.`;
     }
     if (intent === "CLOSE") {
       const ids = posRef.current.filter((p) => p.symbol === sym).map((p) => p.id);
-      if (!ids.length) return `${agent.name}: Não há posições abertas para encerrar.`;
+      if (!ids.length) return "Não havia posições abertas para encerrar.";
       closePositions(ids, price, "MANUAL");
       setNotice(`✓ ${agent.name} encerrou ${ids.length} posição(ões) em ${sym}`);
-      return `${agent.name}: Feito. Encerrei ${ids.length} posição(ões) em ${sym} a ${fmt(price, 2)}. O resultado já entrou no Saldo Realizado e no histórico.`;
+      return `Encerradas ${ids.length} posição(ões) em ${sym} a ${fmt(price)}.`;
     }
-    if (intent === "AUTO_ON" || intent === "AUTO_OFF") {
-      if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return `${agent.name}: Entendido, piloto em modo Manual. Nenhuma ordem nova será aberta sozinha.`; }
-      stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`);
-      return `${agent.name}: Piloto automático ligado a cada 15 minutos. Vou revisar e operar a cada ciclo.`;
-    }
-    if (price <= 0) return `${agent.name}: Ainda não tenho preço de ${sym}. Rode um ciclo e repita a ordem.`;
+    if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return "Piloto colocado em modo Manual."; }
+    if (intent === "AUTO_ON") { stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`); return "Piloto automático ligado a cada 15 minutos."; }
+    if (price <= 0 || !m) return "Sem preço da Binance; ordem não executada.";
     const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
-    if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `${agent.name}: Já temos uma ${side} aberta em ${sym}; bloqueei a ordem repetida para não dobrar o risco.`;
-    const risk = settings.bank * 0.01;
-    const qty = risk / (price * 0.0032);
-    const sl = side === "COMPRA" ? price * (1 - 0.0032) : price * (1 + 0.0032);
-    const tp = side === "COMPRA" ? price * (1 + 0.0064) : price * (1 - 0.0064);
+    if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `Já existe ${side} aberta em ${sym}; ordem repetida bloqueada.`;
+    const { sl, tp } = levels(side, price, m.slDist);
+    const qty = m.qty;
     const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty };
     posRef.current = [...posRef.current, np].slice(-20);
     setPositions(posRef.current);
-    setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price, 2)} pelo chat.`);
-    setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price, 2)}`);
-    const aligned = market && market.signal !== side ? ` Atenção: o sinal técnico atual é ${market.signal}, operação a seu comando.` : "";
-    return `${agent.name}: Ordem executada na conta demo. ${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price, 2)}, Stop Loss ${fmt(sl, 2)}, Take Profit ${fmt(tp, 2)}. ${voice(side, market, qty)}${aligned}`;
+    setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price)} pelo chat.`);
+    setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price)}`);
+    const warn = m.signal !== side ? ` Atenção: o consenso dos agentes é ${m.signal}; ordem executada por comando direto do usuário.` : "";
+    return `${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price)}, SL ${fmt(sl)}, TP ${fmt(tp)}.${warn}`;
   };
 
   const execute = () => {
-    if (!market) return;
-    if (positions.some((p) => p.symbol === market.symbol && p.side === market.signal)) { setLog(`Já existe ${market.signal} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
-    const qty = market.risk / (market.price * 0.0032);
-    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side: market.signal, entry: market.price, sl: market.sl, tp: market.tp, qty }].slice(-20));
+    if (!market || market.signal === "AGUARDAR") return;
+    const side: Side = market.signal;
+    if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
+    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty }].slice(-20));
+    setNotice(`✓ ${side} executada: ${market.symbol} @ ${fmt(market.price)}`);
   };
 
   const hire = () => {
@@ -322,24 +316,25 @@ function Index() {
       </section>
 
       {market && (
-        <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : "border-red-500 bg-red-950/40"}`}>
+        <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : market.signal === "VENDA" ? "border-red-500 bg-red-950/40" : "border-slate-500 bg-slate-900"}`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#d4af37]">SINAL APROVADO • {market.symbol}</span>
-            <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : "bg-red-500"}`}>{market.signal}</span>
+            <span className="text-xs font-bold text-[#d4af37]">{market.signal === "AGUARDAR" ? "SEM CONSENSO" : "SINAL APROVADO"} • {market.symbol}</span>
+            <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span>
           </div>
-          <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • Variação {fmt(market.change)}%</p>
+          <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {fmt(market.buyRatio * 100, 0)}%</p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-            <div>Entrada: <b>{fmt(market.price)}</b></div><div>RSI14: <b>{fmt(market.rsi, 1)}</b></div>
-            <div className="text-red-400">Stop: <b>{fmt(market.sl)}</b></div><div className="text-green-400">Take: <b>{fmt(market.tp)}</b></div>
+            <div>RSI14: <b>{fmt(market.rsi, 1)}</b></div><div>MACD hist: <b>{fmt(market.macdHist)}</b></div>
             <div>EMA9: <b>{fmt(market.ema9)}</b></div><div>EMA21: <b>{fmt(market.ema21)}</b></div>
-            <div className="col-span-2">Risco: <b>{fmt(market.risk)} USDT</b> (1% da banca)</div>
+            {market.signal !== "AGUARDAR" && <><div className="text-red-400">Stop: <b>{fmt(market.sl)}</b></div><div className="text-green-400">Take: <b>{fmt(market.tp)}</b></div>
+            <div className="col-span-2">Lote: <b>{fmt(market.qty, 6)}</b> • Risco <b>{fmt(market.risk)} USDT</b> (1%)</div></>}
           </div>
-          <p className="mt-2 text-xs text-slate-300">
-            {market.signal === "COMPRA"
-              ? `EMA9 (${fmt(market.ema9)}) ≥ EMA21 (${fmt(market.ema21)}) indica tendência de alta e RSI ${fmt(market.rsi, 1)} < 70 mostra espaço para subir. Stop 0.32% e alvo 0.64% (2:1).`
-              : `${market.ema9 < market.ema21 ? `EMA9 (${fmt(market.ema9)}) < EMA21 (${fmt(market.ema21)}) indica tendência de baixa` : `RSI ${fmt(market.rsi, 1)} ≥ 70 indica sobrecompra`}. Operação vendida com stop 0.32% e alvo 0.64% (2:1).`}
-          </p>
-          <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar na Conta Demo ✓</button>
+          <ul className="mt-2 space-y-0.5 text-xs text-slate-300">
+            <li>🔎 Pesquisa: <b>{market.research.trend}</b> — {market.research.note}</li>
+            <li>📈 Gráfico: <b>{market.chart.trend}</b> — {market.chart.note}</li>
+            <li>🛡 Risco: {market.riskNote}</li>
+            <li>⚡ Execução: {market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
+          </ul>
+          {market.signal !== "AGUARDAR" && <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
         </section>
       )}
 
