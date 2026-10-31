@@ -33,10 +33,10 @@ function p(cx: number, cy: number, u: number, v: number, hw = HW, hh = HH): [num
 
 export function statusFor(a: Agent, m: Market | null): string {
   if (!m) return "Aguardando...";
-  if (a.room === 0) return `Contexto ${m.change >= 0 ? "▲" : "▼"} ${fmt(Math.abs(m.change), 1)}%`;
-  if (a.room === 1) return `RSI ${fmt(m.rsi, 0)} • ${m.ema9 >= m.ema21 ? "Alta" : "Baixa"}`;
-  if (a.room === 2) return `Risco ${fmt(m.risk, 0)} USDT`;
-  return `Sinal: ${m.signal} ${m.signal === "COMPRA" ? "✓" : "✗"}`;
+  if (a.room === 0) return `Momentum ${m.research.trend}`;
+  if (a.room === 1) return `Gráfico ${m.chart.trend} • RSI ${fmt(m.rsi, 0)}`;
+  if (a.room === 2) return m.riskApproved ? "Risco ✓ aprovado" : "Risco ✗ vetado";
+  return `Sinal: ${m.signal}`;
 }
 
 function Room({ idx }: { idx: number }) {

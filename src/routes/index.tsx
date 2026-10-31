@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OfficeMap, ROOMS, statusFor, type Agent } from "@/components/OfficeMap";
-import { buildMarket, fmt, localAnswer, parseIntent, ROLE_VOICE, type Market, type Side } from "@/lib/trading";
+import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
+import { agentChat } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -399,10 +400,10 @@ function Index() {
         <ChatModal
           agent={agents.find((a) => a.id === selected.id) || selected}
           market={market}
-          apiKey={settings.apiKey}
           messages={chats[selected.id] || []}
           setMessages={(fn) => setChats((c) => ({ ...c, [selected.id]: fn(c[selected.id] || []).slice(-20) }))}
-          onCommand={(q) => handleCommand(q, agents.find((a) => a.id === selected.id) || selected)}
+          onCommand={(q, m) => handleCommand(q, agents.find((a) => a.id === selected.id) || selected, m)}
+          onRefresh={refreshMarket}
           onPrompt={(prompt) => setAgents((as) => as.map((a) => (a.id === selected.id ? { ...a, prompt } : a)))}
           onClose={() => setSelected(null)}
         />
@@ -434,9 +435,10 @@ function SettingsModal({ settings, onSave, onClose }: { settings: Settings; onSa
   );
 }
 
-function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onCommand, onClose }: {
-  agent: Agent; market: Market | null; apiKey: string; messages: Msg[];
-  setMessages: (fn: (m: Msg[]) => Msg[]) => void; onPrompt: (p: string) => void; onCommand: (q: string) => string | null; onClose: () => void;
+function ChatModal({ agent, market, messages, setMessages, onPrompt, onCommand, onRefresh, onClose }: {
+  agent: Agent; market: Market | null; messages: Msg[];
+  setMessages: (fn: (m: Msg[]) => Msg[]) => void; onPrompt: (p: string) => void;
+  onCommand: (q: string, m: Market | null) => string | null; onRefresh: () => Promise<Market | null>; onClose: () => void;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -448,27 +450,17 @@ function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onC
     if (!q || busy) return;
     setText("");
     setMessages((m) => [...m, { from: "user", text: q }]);
-    const done = onCommand(q);
-    if (done) { setMessages((m) => [...m, { from: "agent", text: done }]); return; }
     setBusy(true);
+    const fresh = await onRefresh(); // velas reais no segundo da pergunta
+    const action = onCommand(q, fresh) || "";
+    const context = fresh ? marketContext(fresh) : "Não foi possível ler a Binance agora; não invente números.";
     let answer = "";
-    if (apiKey) {
-      try {
-        const ctx = market
-          ? `Dados ao vivo ${market.symbol}: preço ${fmt(market.price)}, variação ${fmt(market.change)}%, RSI14 ${fmt(market.rsi, 1)}, EMA9 ${fmt(market.ema9)}, EMA21 ${fmt(market.ema21)}, sinal ${market.signal}, stop ${fmt(market.sl)}, take ${fmt(market.tp)}, risco ${fmt(market.risk)} USDT.`
-          : "Sem dados de mercado ainda.";
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: `${agent.prompt}\n${ctx}\nResponda em português, curto e objetivo.\nPergunta: ${q}` }] }] }),
-        });
-        if (r.ok) {
-          const d = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-          answer = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        }
-      } catch { /* fallback local */ }
+    try {
+      const r = await agentChat({ data: { system: agent.prompt, role: agent.role, question: q, context, action } });
+      answer = r.ok ? r.text : `⚠ ${r.error}${action ? ` Ação executada: ${action}` : ""}`;
+    } catch {
+      answer = `⚠ IA indisponível no momento.${action ? ` Ação executada: ${action}` : ""}`;
     }
-    if (!answer) answer = localAnswer(q, agent.name, agent.role, market);
     setMessages((m) => [...m, { from: "agent", text: answer }]);
     setBusy(false);
   };
