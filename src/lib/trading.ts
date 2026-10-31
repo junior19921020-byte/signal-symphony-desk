@@ -90,3 +90,26 @@ export function localAnswer(question: string, agentName: string, role: string, m
   const rsiTxt = m.rsi >= 70 ? "sobrecomprado" : m.rsi <= 30 ? "sobrevendido" : "neutro";
   return `${agentName}: Diagnóstico de ${m.symbol} — ${trend}, RSI ${rsiTxt}. ${nums}. Variação (40 velas 15m): ${fmt(m.change, 2)}%. Sinal atual: ${m.signal}. ${levels}.`;
 }
+
+export type Intent = "BUY" | "SELL" | "CLOSE" | "STATUS" | "AUTO_ON" | "AUTO_OFF" | null;
+
+/** Interpreta uma ordem direta no chat. Perguntas ("posso comprar?") não executam. */
+export function parseIntent(text: string): Intent {
+  const q = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const question = /\?|\b(posso|devo|vale|sera|seria|deveria)\b/.test(q);
+  if (/\b(encerr|fech|zer)\w*/.test(q) && !question) return "CLOSE";
+  if (/(lig|ativ)\w* (o )?piloto|piloto automatico/.test(q) && !/deslig|desativ/.test(q) && !question) return "AUTO_ON";
+  if (/(deslig|desativ|par)\w* (o )?piloto|modo manual/.test(q)) return "AUTO_OFF";
+  if (/\b(posica|posicoes|status|saldo|p&l|pnl|carteira)/.test(q)) return "STATUS";
+  if (question) return null;
+  if (/\b(compr[ae]\w*|abr\w* (uma )?compra|long|entr\w* comprad)/.test(q)) return "BUY";
+  if (/\b(vend[ae]\w*|abr\w* (uma )?venda|short|entr\w* vendid)/.test(q)) return "SELL";
+  return null;
+}
+
+export const ROLE_VOICE = [
+  (s: Side, m: Market | null) => `Do lado macro, ${m && m.change >= 0 ? "o fluxo das últimas horas é comprador" : "o fluxo recente é vendedor"}; ${s === "COMPRA" ? "apoio a entrada comprada" : "faz sentido a posição vendida"}.`,
+  (_s: Side, m: Market | null) => m ? `No M15, RSI ${fmt(m.rsi, 1)} e EMA9 ${m.ema9 >= m.ema21 ? "acima" : "abaixo"} da EMA21.` : "Ainda sem velas M15 carregadas.",
+  (_s: Side, m: Market | null, qty?: number) => `Lote calculado em ${fmt(qty, 6)} para risco de ${fmt(m?.risk, 2)} USDT (1% da banca).`,
+  () => "Ordem disparada no terminal sem slippage.",
+];
