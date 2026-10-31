@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OfficeMap, ROOMS, statusFor, type Agent } from "@/components/OfficeMap";
-import { buildMarket, fmt, localAnswer, type Market, type Side } from "@/lib/trading";
+import { buildMarket, fmt, localAnswer, parseIntent, ROLE_VOICE, type Market, type Side } from "@/lib/trading";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -206,6 +206,50 @@ function Index() {
   const closeOne = (id: string) => closePositions([id], liveRef.current, "MANUAL");
   const closeAll = () => closePositions(posRef.current.filter((p) => p.symbol === settings.symbol).map((p) => p.id), liveRef.current, "MANUAL");
 
+  const [notice, setNotice] = useState("");
+  useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(""), 4000); return () => clearTimeout(t); }, [notice]);
+
+  // Ordem disparada pelo chat de qualquer agente
+  const handleCommand = (q: string, agent: Agent): string | null => {
+    const intent = parseIntent(q);
+    if (!intent) return null;
+    const voice = ROLE_VOICE[agent.room] ?? ROLE_VOICE[3]!;
+    const sym = settings.symbol;
+    const price = liveRef.current || market?.price || 0;
+    if (intent === "STATUS") {
+      const mine = posRef.current.filter((p) => p.symbol === sym);
+      if (!mine.length) return `${agent.name}: Não temos posição aberta em ${sym}. Saldo realizado: ${fmt(balance, 2)} USDT.`;
+      const list = mine.map((p) => { const pnl = (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty; return `${p.side} @ ${fmt(p.entry, 2)} (P&L ${fmt(pnl, 2)} USDT, SL ${fmt(p.sl, 2)}, TP ${fmt(p.tp, 2)})`; }).join("; ");
+      return `${agent.name}: Temos ${mine.length} posição(ões) em ${sym}: ${list}. Saldo realizado: ${fmt(balance, 2)} USDT.`;
+    }
+    if (intent === "CLOSE") {
+      const ids = posRef.current.filter((p) => p.symbol === sym).map((p) => p.id);
+      if (!ids.length) return `${agent.name}: Não há posições abertas para encerrar.`;
+      closePositions(ids, price, "MANUAL");
+      setNotice(`✓ ${agent.name} encerrou ${ids.length} posição(ões) em ${sym}`);
+      return `${agent.name}: Feito. Encerrei ${ids.length} posição(ões) em ${sym} a ${fmt(price, 2)}. O resultado já entrou no Saldo Realizado e no histórico.`;
+    }
+    if (intent === "AUTO_ON" || intent === "AUTO_OFF") {
+      if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return `${agent.name}: Entendido, piloto em modo Manual. Nenhuma ordem nova será aberta sozinha.`; }
+      stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`);
+      return `${agent.name}: Piloto automático ligado a cada 15 minutos. Vou revisar e operar a cada ciclo.`;
+    }
+    if (price <= 0) return `${agent.name}: Ainda não tenho preço de ${sym}. Rode um ciclo e repita a ordem.`;
+    const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
+    if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `${agent.name}: Já temos uma ${side} aberta em ${sym}; bloqueei a ordem repetida para não dobrar o risco.`;
+    const risk = settings.bank * 0.01;
+    const qty = risk / (price * 0.0032);
+    const sl = side === "COMPRA" ? price * (1 - 0.0032) : price * (1 + 0.0032);
+    const tp = side === "COMPRA" ? price * (1 + 0.0064) : price * (1 - 0.0064);
+    const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty };
+    posRef.current = [...posRef.current, np].slice(-20);
+    setPositions(posRef.current);
+    setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price, 2)} pelo chat.`);
+    setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price, 2)}`);
+    const aligned = market && market.signal !== side ? ` Atenção: o sinal técnico atual é ${market.signal}, operação a seu comando.` : "";
+    return `${agent.name}: Ordem executada na conta demo. ${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price, 2)}, Stop Loss ${fmt(sl, 2)}, Take Profit ${fmt(tp, 2)}. ${voice(side, market, qty)}${aligned}`;
+  };
+
   const execute = () => {
     if (!market) return;
     if (positions.some((p) => p.symbol === market.symbol && p.side === market.signal)) { setLog(`Já existe ${market.signal} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
@@ -355,6 +399,10 @@ function Index() {
         }} />
       )}
 
+      {notice && (
+        <div className="fixed left-1/2 top-4 z-[60] -translate-x-1/2 rounded-lg border border-green-400 bg-slate-900 px-4 py-2 text-sm font-semibold text-green-300 shadow-lg">{notice}</div>
+      )}
+
       {selected && (
         <ChatModal
           agent={agents.find((a) => a.id === selected.id) || selected}
@@ -362,6 +410,7 @@ function Index() {
           apiKey={settings.apiKey}
           messages={chats[selected.id] || []}
           setMessages={(fn) => setChats((c) => ({ ...c, [selected.id]: fn(c[selected.id] || []).slice(-20) }))}
+          onCommand={(q) => handleCommand(q, agents.find((a) => a.id === selected.id) || selected)}
           onPrompt={(prompt) => setAgents((as) => as.map((a) => (a.id === selected.id ? { ...a, prompt } : a)))}
           onClose={() => setSelected(null)}
         />
@@ -393,9 +442,9 @@ function SettingsModal({ settings, onSave, onClose }: { settings: Settings; onSa
   );
 }
 
-function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onClose }: {
+function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onCommand, onClose }: {
   agent: Agent; market: Market | null; apiKey: string; messages: Msg[];
-  setMessages: (fn: (m: Msg[]) => Msg[]) => void; onPrompt: (p: string) => void; onClose: () => void;
+  setMessages: (fn: (m: Msg[]) => Msg[]) => void; onPrompt: (p: string) => void; onCommand: (q: string) => string | null; onClose: () => void;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -407,6 +456,8 @@ function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onC
     if (!q || busy) return;
     setText("");
     setMessages((m) => [...m, { from: "user", text: q }]);
+    const done = onCommand(q);
+    if (done) { setMessages((m) => [...m, { from: "agent", text: done }]); return; }
     setBusy(true);
     let answer = "";
     if (apiKey) {
@@ -443,7 +494,7 @@ function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onC
         <label className="mt-2 text-xs text-slate-400">System Prompt</label>
         <textarea value={agent.prompt} onChange={(e) => onPrompt(e.target.value)} rows={2} className="rounded bg-slate-800 p-2 text-xs" />
         <div className="mt-2 min-h-32 flex-1 space-y-2 overflow-y-auto rounded bg-slate-950 p-2">
-          {messages.length === 0 && <p className="text-xs text-slate-500">Pergunte: "Posso comprar?", "Qual o stop?", "Como está o mercado?"</p>}
+          {messages.length === 0 && <p className="text-xs text-slate-500">Ordens: "Compre agora", "Abra uma venda", "Qual é a nossa posição?", "Encerre tudo"</p>}
           {messages.map((m, i) => (
             <div key={i} className={`max-w-[85%] whitespace-pre-wrap rounded-lg p-2 text-sm ${m.from === "user" ? "ml-auto bg-yellow-400 text-slate-900" : "bg-slate-800"}`}>{m.text}</div>
           ))}
