@@ -155,7 +155,7 @@ function Index() {
     if (room === undefined) return;
     const n = agents.length;
     const name = `${NAMES[n % NAMES.length]} ${ROOMS[room].split(" ")[0]}`;
-    setAgents((as) => [...as, { id: `a${Date.now()}`, name, role: ROLES[room], room, color: COLORS[n % COLORS.length], hair: n % 2 ? "#1c1917" : "#a16207", prompt: `Você é ${name}, ${ROLES[room]} da mesa de operações.` }]);
+    setAgents((as) => [...as, { id: `a${Date.now()}`, name, role: ROLES[room] ?? "", room, color: COLORS[n % COLORS.length] ?? "#f97316", hair: n % 2 ? "#1c1917" : "#a16207", prompt: `Você é ${name}, ${ROLES[room]} da mesa de operações.` }]);
   };
 
   const floating = positions.filter((p) => p.symbol === settings.symbol).reduce((s, p) => s + (p.side === "COMPRA" ? live - p.entry : p.entry - live) * p.qty, 0);
