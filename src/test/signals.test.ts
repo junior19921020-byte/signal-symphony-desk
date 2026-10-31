@@ -9,12 +9,12 @@ const mk = (closes: number[], buyShare: number): Candle[] =>
 
 describe("sinais", () => {
   it("queda forte gera VENDA", () => {
-    const c = Array.from({ length: 50 }, (_, i) => 1000 - i * 5);
+    const c = Array.from({ length: 50 }, (_, i) => 1000 - i * 1 + (i % 2 ? 4 : 0));
     expect(analyze("BTCUSDT", mk(c, 0.3), mk(c, 0.3), 10000).signal).toBe("VENDA");
   });
   it("alta gera COMPRA", () => {
-    const c = Array.from({ length: 50 }, (_, i) => 1000 + i * 2 + (i % 2 ? 1 : 0));
-    expect(analyze("BTCUSDT", mk(c, 0.7), mk(c, 0.7), 10000).signal).not.toBe("VENDA");
+    const c = Array.from({ length: 50 }, (_, i) => 1000 + i * 1 - (i % 2 ? 4 : 0));
+    expect(analyze("BTCUSDT", mk(c, 0.7), mk(c, 0.7), 10000).signal).toBe("COMPRA");
   });
   it("lateral/divergência gera AGUARDAR", () => {
     const c = Array.from({ length: 50 }, (_, i) => 1000 + (i % 2 ? 3 : -3));
