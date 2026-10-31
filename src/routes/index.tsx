@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 
 interface Msg { from: "user" | "agent"; text: string }
 interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number }
-interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" }
+interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number }
 interface Settings { apiKey: string; symbol: string; bank: number }
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -56,6 +56,11 @@ function Index() {
   const [selected, setSelected] = useState<Agent | null>(null);
   const [chats, setChats] = useState<Record<string, Msg[]>>({});
   const [ready, setReady] = useState(false);
+  const [nextRunAt, setNextRunAt] = useState<number>(0);
+  const [log, setLog] = useState<string>("");
+  const posRef = useRef<Position[]>([]);
+  const liveRef = useRef<number>(0);
+  const stopRef = useRef(false);
 
   useEffect(() => {
     setAgents(load("td_agents", DEFAULT_AGENTS));
@@ -64,12 +69,34 @@ function Index() {
     setBalance(load("td_balance", s.bank));
     setPositions(load("td_positions", []));
     setTrades(load("td_trades", []));
+    setAuto(load("td_auto", "manual"));
+    setNextRunAt(load("td_next_run", 0));
     setReady(true);
   }, []);
   useEffect(() => { if (ready) save("td_agents", agents); }, [agents, ready]);
   useEffect(() => { if (ready) save("td_balance", balance); }, [balance, ready]);
   useEffect(() => { if (ready) save("td_positions", positions); }, [positions, ready]);
   useEffect(() => { if (ready) save("td_trades", trades); }, [trades, ready]);
+  useEffect(() => { if (ready) save("td_auto", auto); }, [auto, ready]);
+  useEffect(() => { if (ready) save("td_next_run", nextRunAt); }, [nextRunAt, ready]);
+  useEffect(() => { posRef.current = positions; }, [positions]);
+  useEffect(() => { liveRef.current = live; }, [live]);
+
+  const closePositions = useCallback((ids: string[], price: number, result: Trade["result"]) => {
+    if (!ids.length || price <= 0) return;
+    const cur = posRef.current;
+    const closing = cur.filter((p) => ids.includes(p.id));
+    if (!closing.length) return;
+    const done: Trade[] = closing.map((p) => ({
+      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(),
+      pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
+    }));
+    const keep = cur.filter((p) => !ids.includes(p.id));
+    posRef.current = keep;
+    setPositions(keep);
+    setTrades((t) => [...t, ...done].slice(-50));
+    setBalance((b) => b + done.reduce((x, c) => x + c.pnl, 0));
+  }, []);
 
   const runCycle = useCallback(async () => {
     setLoading(true);
@@ -80,31 +107,69 @@ function Index() {
       if (Array.isArray(data)) {
         const closes = data.map((k: unknown) => Number((k as unknown[])[4] || 0));
         const m = buildMarket(settings.symbol, closes, settings.bank);
+        if (stopRef.current) { setLoading(false); return; }
         setMarket(m);
         setLive(m.price);
+        // IA avalia posições abertas antes de abrir novas
+        const mine = posRef.current.filter((p) => p.symbol === m.symbol);
+        const toClose = mine.filter((p) => p.side !== m.signal).map((p) => p.id);
+        closePositions(toClose, m.price, "IA");
+        let adjusted = 0;
+        const kept = posRef.current.map((p) => {
+          if (p.symbol !== m.symbol) return p;
+          const gain = p.side === "COMPRA" ? m.price - p.entry : p.entry - m.price;
+          const half = Math.abs(p.tp - p.entry) / 2;
+          const beyond = p.side === "COMPRA" ? p.sl < p.entry : p.sl > p.entry;
+          if (gain >= half && beyond) { adjusted++; return { ...p, sl: p.entry }; }
+          return p;
+        });
+        if (adjusted) { posRef.current = kept; setPositions(kept); }
+        const hasSame = kept.some((p) => p.symbol === m.symbol && p.side === m.signal);
+        const parts: string[] = [];
+        if (toClose.length) parts.push(`${toClose.length} encerrada(s) pela IA (sinal virou ${m.signal})`);
+        if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
+        if (hasSame) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
+        else if (autoRef.current !== "manual") {
+          const qty = m.risk / (m.price * 0.0032);
+          const np: Position = { id: String(Date.now()), symbol: m.symbol, side: m.signal, entry: m.price, sl: m.sl, tp: m.tp, qty };
+          posRef.current = [...posRef.current, np].slice(-20);
+          setPositions(posRef.current);
+          parts.push(`nova ${m.signal} aberta pelo piloto`);
+        }
+        setLog(parts.length ? `Revisão da IA: ${parts.join("; ")}.` : "Revisão da IA: nenhuma posição aberta para revisar.");
       } else setError("Resposta inválida da Binance.");
     } catch {
       setError("Não foi possível acessar a Binance agora.");
     }
     setLoading(false);
-  }, [settings.symbol, settings.bank]);
+  }, [settings.symbol, settings.bank, closePositions]);
+  const autoRef = useRef(auto);
+  useEffect(() => { autoRef.current = auto; }, [auto]);
 
   const runRef = useRef(runCycle);
   useEffect(() => { runRef.current = runCycle; }, [runCycle]);
 
   // Piloto automático
   useEffect(() => {
+    if (!ready) return;
     const total = AUTO[auto] || 0;
-    setCount(total);
-    if (!total) return;
-    const id = setInterval(() => {
-      setCount((c) => {
-        if (c <= 1) { void runRef.current(); return total; }
-        return c - 1;
-      });
-    }, 1000);
+    if (!total) { setCount(0); return; }
+    let next = load<number>("td_next_run", 0);
+    if (!next || next - Date.now() > total * 1000) { next = Date.now() + total * 1000; setNextRunAt(next); }
+    const step = () => {
+      const left = Math.ceil((next - Date.now()) / 1000);
+      if (left <= 0) {
+        next = Date.now() + total * 1000;
+        setNextRunAt(next);
+        setCount(total);
+        stopRef.current = false;
+        void runRef.current();
+      } else setCount(left);
+    };
+    step();
+    const id = setInterval(step, 1000);
     return () => clearInterval(id);
-  }, [auto]);
+  }, [auto, ready]);
 
   // Preço ao vivo a cada 5s
   useEffect(() => {
@@ -122,30 +187,28 @@ function Index() {
     return () => { alive = false; clearInterval(id); };
   }, [settings.symbol]);
 
-  // Fechamento automático TP/SL
+  // Monitoramento SL/TP a cada preço ao vivo
   useEffect(() => {
     if (!live) return;
-    const closing: Trade[] = [];
-    const keep: Position[] = [];
+    const tp: string[] = [];
+    const sl: string[] = [];
     for (const p of positions) {
-      if (p.symbol !== settings.symbol) { keep.push(p); continue; }
-      const hitTp = p.side === "COMPRA" ? live >= p.tp : live <= p.tp;
-      const hitSl = p.side === "COMPRA" ? live <= p.sl : live >= p.sl;
-      if (hitTp || hitSl) {
-        const exit = hitTp ? p.tp : p.sl;
-        const pnl = (p.side === "COMPRA" ? exit - p.entry : p.entry - exit) * p.qty;
-        closing.push({ id: p.id, side: p.side, entry: p.entry, exit, pnl, result: hitTp ? "TP" : "SL" });
-      } else keep.push(p);
+      if (p.symbol !== settings.symbol) continue;
+      if (p.side === "COMPRA") { if (live <= p.sl) sl.push(p.id); else if (live >= p.tp) tp.push(p.id); }
+      else { if (live >= p.sl) sl.push(p.id); else if (live <= p.tp) tp.push(p.id); }
     }
-    if (closing.length) {
-      setPositions(keep);
-      setTrades((t) => [...t, ...closing].slice(-20));
-      setBalance((b) => b + closing.reduce((s, c) => s + c.pnl, 0));
-    }
-  }, [live, positions, settings.symbol]);
+    closePositions(sl, live, "SL");
+    closePositions(tp, live, "TP");
+  }, [live, positions, settings.symbol, closePositions]);
+
+  const running = loading || auto !== "manual";
+  const stopAll = () => { stopRef.current = true; setAuto("manual"); setNextRunAt(0); setLoading(false); };
+  const closeOne = (id: string) => closePositions([id], liveRef.current, "MANUAL");
+  const closeAll = () => closePositions(posRef.current.filter((p) => p.symbol === settings.symbol).map((p) => p.id), liveRef.current, "MANUAL");
 
   const execute = () => {
     if (!market) return;
+    if (positions.some((p) => p.symbol === market.symbol && p.side === market.signal)) { setLog(`Já existe ${market.signal} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
     const qty = market.risk / (market.price * 0.0032);
     setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side: market.signal, entry: market.price, sl: market.sl, tp: market.tp, qty }].slice(-20));
   };
@@ -197,16 +260,23 @@ function Index() {
       </section>
 
       <section className="mt-4 space-y-2">
-        <button onClick={() => void runCycle()} disabled={loading} className="w-full rounded-lg bg-green-500 py-3 font-bold text-slate-900 disabled:opacity-60">
-          {loading ? "Buscando dados..." : "▶ Rodar Ciclo de Operação"}
-        </button>
+        {running ? (
+          <button onClick={stopAll} className="w-full rounded-lg bg-red-500 py-3 font-bold text-slate-100">
+            ■ Parar Operação{loading ? " (buscando dados...)" : ""}
+          </button>
+        ) : (
+          <button onClick={() => { stopRef.current = false; void runCycle(); }} className="w-full rounded-lg bg-green-500 py-3 font-bold text-slate-900">
+            ▶ Rodar Ciclo de Operação
+          </button>
+        )}
         <div className="flex gap-2">
           <button onClick={() => setShowSettings(true)} className="flex-1 rounded-lg border border-slate-700 bg-slate-800 py-2 text-sm">⚙ Configurações Globais</button>
-          <select value={auto} onChange={(e) => setAuto(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-800 px-2 text-sm">
+          <select value={auto} onChange={(e) => { setNextRunAt(0); save("td_next_run", 0); setAuto(e.target.value); }} className="rounded-lg border border-slate-700 bg-slate-800 px-2 text-sm">
             <option value="manual">Piloto: Manual</option><option value="1m">Piloto: 1m</option><option value="5m">Piloto: 5m</option><option value="15m">Piloto: 15m</option>
           </select>
         </div>
         {auto !== "manual" && <p className="text-center text-xs text-slate-400">Próximo ciclo em {Math.floor(count / 60)}:{String(count % 60).padStart(2, "0")}</p>}
+        {log && <p className="text-center text-xs text-[#d4af37]">{log}</p>}
         {error && <p className="text-center text-xs text-red-400">{error}</p>}
       </section>
 
@@ -243,12 +313,14 @@ function Index() {
         </div>
         <div className="mt-3 space-y-1">
           {positions.length === 0 && <p className="text-xs text-slate-500">Nenhuma posição aberta.</p>}
+          {positions.length > 1 && <button onClick={closeAll} className="w-full rounded bg-red-600 py-1.5 text-xs font-bold">Encerrar Todas</button>}
           {positions.map((p) => {
             const pnl = p.symbol === settings.symbol ? (p.side === "COMPRA" ? live - p.entry : p.entry - live) * p.qty : 0;
             return (
               <div key={p.id} className="rounded border border-slate-700 p-2 text-xs">
                 <div className="flex justify-between"><b className={p.side === "COMPRA" ? "text-green-400" : "text-red-400"}>{p.side} {p.symbol}</b><b className={pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(pnl)} USDT</b></div>
                 <div className="text-slate-400">Entrada {fmt(p.entry)} • SL {fmt(p.sl)} • TP {fmt(p.tp)} • Qtd {fmt(p.qty, 5)}</div>
+                <button onClick={() => closeOne(p.id)} disabled={p.symbol !== settings.symbol || !live} className="mt-1 w-full rounded bg-red-500/80 py-1 font-bold disabled:opacity-40">Encerrar</button>
               </div>
             );
           })}
@@ -257,7 +329,7 @@ function Index() {
           <div className="mt-3 space-y-1">
             {trades.slice().reverse().map((t) => (
               <div key={t.id} className="flex justify-between text-xs text-slate-300">
-                <span>{t.side} {fmt(t.entry)} → {fmt(t.exit)} ({t.result})</span>
+                <span>{t.side} {fmt(t.entry)} → {fmt(t.exit)} ({{ TP: "Take Profit", SL: "Stop Loss", IA: "Encerrada pela IA", MANUAL: "Manual" }[t.result] ?? t.result})</span>
                 <b className={t.pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(t.pnl)}</b>
               </div>
             ))}
