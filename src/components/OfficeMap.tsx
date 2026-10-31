@@ -123,10 +123,11 @@ function Rest() {
 }
 
 export function OfficeMap({ agents, market, onSelect }: { agents: Agent[]; market: Market | null; onSelect: (a: Agent) => void }) {
-  const order = [0, 2, 1, 3];
+  const order = [0, 2, 1, -1, 3];
   return (
     <svg viewBox="0 0 600 420" className="w-full h-auto block select-none">
       {order.map((idx) => {
+        if (idx === -1) return <Rest key="rest" />;
         const [cx, cy] = CENTERS[idx] ?? [300, 200];
         const inRoom = agents.filter((a) => a.room === idx);
         return (
@@ -145,7 +146,6 @@ export function OfficeMap({ agents, market, onSelect }: { agents: Agent[]; marke
           </g>
         );
       })}
-      <Rest />
     </svg>
   );
 }
