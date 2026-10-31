@@ -48,6 +48,11 @@ const BINANCE_ENDPOINTS = [
 
 const lastMarketCache: Record<string, Market> = {};
 let cachedHeadlines: { time: number; items: string[] } = { time: 0, items: [] };
+let lastNotifiedKey = "";
+let lastNotifiedAt = 0;
+let bgWorkerStarted = false;
+let activeSymbol = "BTCUSDT";
+let activeBank = 10000;
 
 export function parseKlines(data: unknown): Candle[] {
   if (!Array.isArray(data)) return [];
@@ -212,6 +217,82 @@ export function pnlOf(side: Side, entry: number, current: number, qty: number): 
   return (side === "COMPRA" ? current - entry : entry - current) * qty;
 }
 
+/** Alerta sonoro + vibração + Notificação Nativa quando surge oportunidade de COMPRA ou VENDA */
+function notifyOpportunity(m: Market) {
+  if (typeof window === "undefined" || m.signal === "AGUARDAR") return;
+  const key = `${m.symbol}-${m.signal}`;
+  const now = Date.now();
+  // Evita repetir a mesma notificação em menos de 10 minutos
+  if (key === lastNotifiedKey && now - lastNotifiedAt < 600_000) return;
+  lastNotifiedKey = key;
+  lastNotifiedAt = now;
+
+  const title = `🚨 Oportunidade de ${m.signal} em ${m.symbol}!`;
+  const body = `Entrada: $${fmt(m.price)} | SL: $${fmt(m.sl)} | TP: $${fmt(m.tp)}\nSofia Quant: ${m.chart.note}\nAna News: ${m.research.note}`;
+
+  try {
+    if ("vibrate" in navigator) navigator.vibrate([250, 120, 250]);
+  } catch { /* */ }
+
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(m.signal === "COMPRA" ? 880 : 660, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    }
+  } catch { /* */ }
+
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body, tag: key, renotify: true });
+    }
+  } catch { /* */ }
+}
+
+/** Inicia Web Worker em segundo plano para monitorar o gráfico mesmo com a aba minimizada */
+function ensureBackgroundScanner() {
+  if (typeof window === "undefined" || bgWorkerStarted) return;
+  bgWorkerStarted = true;
+
+  // Solicita permissão de notificação no primeiro toque do usuário na tela
+  const askPerm = () => {
+    try {
+      if ("Notification" in window && Notification.permission === "default") {
+        void Notification.requestPermission();
+      }
+    } catch { /* */ }
+    window.removeEventListener("click", askPerm);
+    window.removeEventListener("touchstart", askPerm);
+  };
+  window.addEventListener("click", askPerm);
+  window.addEventListener("touchstart", askPerm);
+
+  try {
+    const workerCode = `
+      setInterval(() => {
+        postMessage("tick");
+      }, 45000);
+    `;
+    const blob = new Blob([workerCode], { type: "application/javascript" });
+    const worker = new Worker(URL.createObjectURL(blob));
+    worker.onmessage = () => {
+      void fetchMarket(activeSymbol, activeBank);
+    };
+  } catch {
+    setInterval(() => {
+      void fetchMarket(activeSymbol, activeBank);
+    }, 45000);
+  }
+}
+
 async function fetchBinanceKlines(symbol: string, interval: "15m" | "5m", limit: number): Promise<Candle[]> {
   for (const base of BINANCE_ENDPOINTS) {
     try {
@@ -266,6 +347,10 @@ async function fetchNewsHeadlines(symbol: string): Promise<string[]> {
 }
 
 export async function fetchMarket(symbol: string, bank: number): Promise<Market | null> {
+  activeSymbol = symbol || activeSymbol;
+  activeBank = bank || activeBank;
+  ensureBackgroundScanner();
+
   try {
     const [c15, c5, headlines] = await Promise.all([
       fetchBinanceKlines(symbol, "15m", 60),
@@ -277,6 +362,7 @@ export async function fetchMarket(symbol: string, bank: number): Promise<Market 
     }
     const m = analyze(symbol, c15, c5, bank, headlines);
     lastMarketCache[symbol] = m;
+    notifyOpportunity(m);
     return m;
   } catch {
     return lastMarketCache[symbol] || null;
@@ -308,4 +394,4 @@ export function parseIntent(msg: string): "BUY" | "SELL" | "STATUS" | "CLOSE" | 
   if (/(compre agora|abra uma compra|entrar comprando|execute compra|ordem de compra|^comprar agora$)/.test(m)) return "BUY";
   if (/(venda agora|abra uma venda|entrar vendendo|execute venda|ordem de venda|^vender agora$)/.test(m)) return "SELL";
   return null;
-        }
+}
