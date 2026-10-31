@@ -2,7 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 
 export async function askAgent(input: { system: string; role: string; question: string; context: string; action: string }) {
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) return { ok: false as const, error: "IA não configurada." };
   const provider = createOpenAI({
     baseURL: "https://ai.gateway.lovable.dev/v1",
