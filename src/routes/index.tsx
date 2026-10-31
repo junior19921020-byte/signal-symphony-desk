@@ -101,48 +101,45 @@ function Index() {
   const runCycle = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${settings.symbol}&interval=15m&limit=40`);
-      const data = (await r.json()) as unknown;
-      if (Array.isArray(data)) {
-        const closes = data.map((k: unknown) => Number((k as unknown[])[4] || 0));
-        const m = buildMarket(settings.symbol, closes, settings.bank);
-        if (stopRef.current) { setLoading(false); return; }
-        setMarket(m);
-        setLive(m.price);
-        // IA avalia posições abertas antes de abrir novas
-        const mine = posRef.current.filter((p) => p.symbol === m.symbol);
-        const toClose = mine.filter((p) => p.side !== m.signal).map((p) => p.id);
-        closePositions(toClose, m.price, "IA");
-        let adjusted = 0;
-        const kept = posRef.current.map((p) => {
-          if (p.symbol !== m.symbol) return p;
-          const gain = p.side === "COMPRA" ? m.price - p.entry : p.entry - m.price;
-          const half = Math.abs(p.tp - p.entry) / 2;
-          const beyond = p.side === "COMPRA" ? p.sl < p.entry : p.sl > p.entry;
-          if (gain >= half && beyond) { adjusted++; return { ...p, sl: p.entry }; }
-          return p;
-        });
-        if (adjusted) { posRef.current = kept; setPositions(kept); }
-        const hasSame = kept.some((p) => p.symbol === m.symbol && p.side === m.signal);
-        const parts: string[] = [];
-        if (toClose.length) parts.push(`${toClose.length} encerrada(s) pela IA (sinal virou ${m.signal})`);
-        if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
-        if (hasSame) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
-        else if (autoRef.current !== "manual") {
-          const qty = m.risk / (m.price * 0.0032);
-          const np: Position = { id: String(Date.now()), symbol: m.symbol, side: m.signal, entry: m.price, sl: m.sl, tp: m.tp, qty };
-          posRef.current = [...posRef.current, np].slice(-20);
-          setPositions(posRef.current);
-          parts.push(`nova ${m.signal} aberta pelo piloto`);
-        }
-        setLog(parts.length ? `Revisão da IA: ${parts.join("; ")}.` : "Revisão da IA: nenhuma posição aberta para revisar.");
-      } else setError("Resposta inválida da Binance.");
-    } catch {
-      setError("Não foi possível acessar a Binance agora.");
+    const m = await fetchMarket(settings.symbol, settings.bank);
+    if (!m) { setError("Não foi possível ler as velas da Binance agora."); setLoading(false); return; }
+    if (stopRef.current) { setLoading(false); return; }
+    setMarket(m);
+    setLive(m.price);
+    const mine = posRef.current.filter((p) => p.symbol === m.symbol);
+    const toClose = m.signal === "AGUARDAR" ? [] : mine.filter((p) => p.side !== m.signal).map((p) => p.id);
+    closePositions(toClose, m.price, "IA");
+    let adjusted = 0;
+    const kept = posRef.current.map((p) => {
+      if (p.symbol !== m.symbol) return p;
+      const gain = p.side === "COMPRA" ? m.price - p.entry : p.entry - m.price;
+      const half = Math.abs(p.tp - p.entry) / 2;
+      const beyond = p.side === "COMPRA" ? p.sl < p.entry : p.sl > p.entry;
+      if (gain >= half && beyond) { adjusted++; return { ...p, sl: p.entry }; }
+      return p;
+    });
+    if (adjusted) { posRef.current = kept; setPositions(kept); }
+    const parts: string[] = [];
+    if (toClose.length) parts.push(`${toClose.length} encerrada(s) pela IA (sinal virou ${m.signal})`);
+    if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
+    if (m.signal === "AGUARDAR") parts.push(`AGUARDAR — ${m.riskNote}`);
+    else if (kept.some((p) => p.symbol === m.symbol && p.side === m.signal)) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
+    else if (autoRef.current !== "manual") {
+      const side: Side = m.signal;
+      const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty };
+      posRef.current = [...posRef.current, np].slice(-20);
+      setPositions(posRef.current);
+      parts.push(`nova ${m.signal} aberta pelo Max Trader`);
     }
+    setLog(`Revisão da IA: ${parts.length ? parts.join("; ") : "nenhuma posição para revisar"}.`);
     setLoading(false);
   }, [settings.symbol, settings.bank, closePositions]);
+
+  const refreshMarket = useCallback(async () => {
+    const m = await fetchMarket(settings.symbol, settings.bank);
+    if (m) { setMarket(m); setLive(m.price); }
+    return m;
+  }, [settings.symbol, settings.bank]);
   const autoRef = useRef(auto);
   useEffect(() => { autoRef.current = auto; }, [auto]);
 
