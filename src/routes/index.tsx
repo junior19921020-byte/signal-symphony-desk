@@ -154,7 +154,7 @@ function Index() {
     const room = [0, 1, 2, 3].find((r) => agents.filter((a) => a.room === r).length < 4);
     if (room === undefined) return;
     const n = agents.length;
-    const name = `${NAMES[n % NAMES.length]} ${ROOMS[room].split(" ")[0]}`;
+    const name = `${NAMES[n % NAMES.length]} ${(ROOMS[room] ?? "").split(" ")[0]}`;
     setAgents((as) => [...as, { id: `a${Date.now()}`, name, role: ROLES[room] ?? "", room, color: COLORS[n % COLORS.length] ?? "#f97316", hair: n % 2 ? "#1c1917" : "#a16207", prompt: `Você é ${name}, ${ROLES[room]} da mesa de operações.` }]);
   };
 
