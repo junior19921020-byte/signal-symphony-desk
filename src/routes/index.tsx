@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OfficeMap, ROOMS, statusFor, type Agent } from "@/components/OfficeMap";
-import { buildMarket, fmt, localAnswer, parseIntent, ROLE_VOICE, type Market, type Side } from "@/lib/trading";
+import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
+import { agentChat } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -101,48 +102,45 @@ function Index() {
   const runCycle = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${settings.symbol}&interval=15m&limit=40`);
-      const data = (await r.json()) as unknown;
-      if (Array.isArray(data)) {
-        const closes = data.map((k: unknown) => Number((k as unknown[])[4] || 0));
-        const m = buildMarket(settings.symbol, closes, settings.bank);
-        if (stopRef.current) { setLoading(false); return; }
-        setMarket(m);
-        setLive(m.price);
-        // IA avalia posições abertas antes de abrir novas
-        const mine = posRef.current.filter((p) => p.symbol === m.symbol);
-        const toClose = mine.filter((p) => p.side !== m.signal).map((p) => p.id);
-        closePositions(toClose, m.price, "IA");
-        let adjusted = 0;
-        const kept = posRef.current.map((p) => {
-          if (p.symbol !== m.symbol) return p;
-          const gain = p.side === "COMPRA" ? m.price - p.entry : p.entry - m.price;
-          const half = Math.abs(p.tp - p.entry) / 2;
-          const beyond = p.side === "COMPRA" ? p.sl < p.entry : p.sl > p.entry;
-          if (gain >= half && beyond) { adjusted++; return { ...p, sl: p.entry }; }
-          return p;
-        });
-        if (adjusted) { posRef.current = kept; setPositions(kept); }
-        const hasSame = kept.some((p) => p.symbol === m.symbol && p.side === m.signal);
-        const parts: string[] = [];
-        if (toClose.length) parts.push(`${toClose.length} encerrada(s) pela IA (sinal virou ${m.signal})`);
-        if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
-        if (hasSame) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
-        else if (autoRef.current !== "manual") {
-          const qty = m.risk / (m.price * 0.0032);
-          const np: Position = { id: String(Date.now()), symbol: m.symbol, side: m.signal, entry: m.price, sl: m.sl, tp: m.tp, qty };
-          posRef.current = [...posRef.current, np].slice(-20);
-          setPositions(posRef.current);
-          parts.push(`nova ${m.signal} aberta pelo piloto`);
-        }
-        setLog(parts.length ? `Revisão da IA: ${parts.join("; ")}.` : "Revisão da IA: nenhuma posição aberta para revisar.");
-      } else setError("Resposta inválida da Binance.");
-    } catch {
-      setError("Não foi possível acessar a Binance agora.");
+    const m = await fetchMarket(settings.symbol, settings.bank);
+    if (!m) { setError("Não foi possível ler as velas da Binance agora."); setLoading(false); return; }
+    if (stopRef.current) { setLoading(false); return; }
+    setMarket(m);
+    setLive(m.price);
+    const mine = posRef.current.filter((p) => p.symbol === m.symbol);
+    const toClose = m.signal === "AGUARDAR" ? [] : mine.filter((p) => p.side !== m.signal).map((p) => p.id);
+    closePositions(toClose, m.price, "IA");
+    let adjusted = 0;
+    const kept = posRef.current.map((p) => {
+      if (p.symbol !== m.symbol) return p;
+      const gain = p.side === "COMPRA" ? m.price - p.entry : p.entry - m.price;
+      const half = Math.abs(p.tp - p.entry) / 2;
+      const beyond = p.side === "COMPRA" ? p.sl < p.entry : p.sl > p.entry;
+      if (gain >= half && beyond) { adjusted++; return { ...p, sl: p.entry }; }
+      return p;
+    });
+    if (adjusted) { posRef.current = kept; setPositions(kept); }
+    const parts: string[] = [];
+    if (toClose.length) parts.push(`${toClose.length} encerrada(s) pela IA (sinal virou ${m.signal})`);
+    if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
+    if (m.signal === "AGUARDAR") parts.push(`AGUARDAR — ${m.riskNote}`);
+    else if (kept.some((p) => p.symbol === m.symbol && p.side === m.signal)) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
+    else if (autoRef.current !== "manual") {
+      const side: Side = m.signal;
+      const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty };
+      posRef.current = [...posRef.current, np].slice(-20);
+      setPositions(posRef.current);
+      parts.push(`nova ${m.signal} aberta pelo Max Trader`);
     }
+    setLog(`Revisão da IA: ${parts.length ? parts.join("; ") : "nenhuma posição para revisar"}.`);
     setLoading(false);
   }, [settings.symbol, settings.bank, closePositions]);
+
+  const refreshMarket = useCallback(async () => {
+    const m = await fetchMarket(settings.symbol, settings.bank);
+    if (m) { setMarket(m); setLive(m.price); }
+    return m;
+  }, [settings.symbol, settings.bank]);
   const autoRef = useRef(auto);
   useEffect(() => { autoRef.current = auto; }, [auto]);
 
@@ -209,52 +207,46 @@ function Index() {
   const [notice, setNotice] = useState("");
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(""), 4000); return () => clearTimeout(t); }, [notice]);
 
-  // Ordem disparada pelo chat de qualquer agente
-  const handleCommand = (q: string, agent: Agent): string | null => {
+  // Ordem disparada pelo chat de qualquer agente (retorna o fato executado; a IA comenta depois)
+  const handleCommand = (q: string, agent: Agent, m: Market | null): string | null => {
     const intent = parseIntent(q);
     if (!intent) return null;
-    const voice = ROLE_VOICE[agent.room] ?? ROLE_VOICE[3]!;
     const sym = settings.symbol;
-    const price = liveRef.current || market?.price || 0;
+    const price = m?.price || liveRef.current || 0;
     if (intent === "STATUS") {
       const mine = posRef.current.filter((p) => p.symbol === sym);
-      if (!mine.length) return `${agent.name}: Não temos posição aberta em ${sym}. Saldo realizado: ${fmt(balance, 2)} USDT.`;
-      const list = mine.map((p) => { const pnl = (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty; return `${p.side} @ ${fmt(p.entry, 2)} (P&L ${fmt(pnl, 2)} USDT, SL ${fmt(p.sl, 2)}, TP ${fmt(p.tp, 2)})`; }).join("; ");
-      return `${agent.name}: Temos ${mine.length} posição(ões) em ${sym}: ${list}. Saldo realizado: ${fmt(balance, 2)} USDT.`;
+      if (!mine.length) return `Nenhuma posição aberta em ${sym}. Saldo realizado ${fmt(balance)} USDT.`;
+      return `${mine.length} posição(ões) em ${sym}: ` + mine.map((p) => `${p.side} @ ${fmt(p.entry)} P&L ${fmt(pnlOf(p.side, p.entry, price, p.qty))} USDT SL ${fmt(p.sl)} TP ${fmt(p.tp)}`).join("; ") + `. Saldo realizado ${fmt(balance)} USDT.`;
     }
     if (intent === "CLOSE") {
       const ids = posRef.current.filter((p) => p.symbol === sym).map((p) => p.id);
-      if (!ids.length) return `${agent.name}: Não há posições abertas para encerrar.`;
+      if (!ids.length) return "Não havia posições abertas para encerrar.";
       closePositions(ids, price, "MANUAL");
       setNotice(`✓ ${agent.name} encerrou ${ids.length} posição(ões) em ${sym}`);
-      return `${agent.name}: Feito. Encerrei ${ids.length} posição(ões) em ${sym} a ${fmt(price, 2)}. O resultado já entrou no Saldo Realizado e no histórico.`;
+      return `Encerradas ${ids.length} posição(ões) em ${sym} a ${fmt(price)}.`;
     }
-    if (intent === "AUTO_ON" || intent === "AUTO_OFF") {
-      if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return `${agent.name}: Entendido, piloto em modo Manual. Nenhuma ordem nova será aberta sozinha.`; }
-      stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`);
-      return `${agent.name}: Piloto automático ligado a cada 15 minutos. Vou revisar e operar a cada ciclo.`;
-    }
-    if (price <= 0) return `${agent.name}: Ainda não tenho preço de ${sym}. Rode um ciclo e repita a ordem.`;
+    if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return "Piloto colocado em modo Manual."; }
+    if (intent === "AUTO_ON") { stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`); return "Piloto automático ligado a cada 15 minutos."; }
+    if (price <= 0 || !m) return "Sem preço da Binance; ordem não executada.";
     const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
-    if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `${agent.name}: Já temos uma ${side} aberta em ${sym}; bloqueei a ordem repetida para não dobrar o risco.`;
-    const risk = settings.bank * 0.01;
-    const qty = risk / (price * 0.0032);
-    const sl = side === "COMPRA" ? price * (1 - 0.0032) : price * (1 + 0.0032);
-    const tp = side === "COMPRA" ? price * (1 + 0.0064) : price * (1 - 0.0064);
+    if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `Já existe ${side} aberta em ${sym}; ordem repetida bloqueada.`;
+    const { sl, tp } = levels(side, price, m.slDist);
+    const qty = m.qty;
     const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty };
     posRef.current = [...posRef.current, np].slice(-20);
     setPositions(posRef.current);
-    setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price, 2)} pelo chat.`);
-    setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price, 2)}`);
-    const aligned = market && market.signal !== side ? ` Atenção: o sinal técnico atual é ${market.signal}, operação a seu comando.` : "";
-    return `${agent.name}: Ordem executada na conta demo. ${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price, 2)}, Stop Loss ${fmt(sl, 2)}, Take Profit ${fmt(tp, 2)}. ${voice(side, market, qty)}${aligned}`;
+    setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price)} pelo chat.`);
+    setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price)}`);
+    const warn = m.signal !== side ? ` Atenção: o consenso dos agentes é ${m.signal}; ordem executada por comando direto do usuário.` : "";
+    return `${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price)}, SL ${fmt(sl)}, TP ${fmt(tp)}.${warn}`;
   };
 
   const execute = () => {
-    if (!market) return;
-    if (positions.some((p) => p.symbol === market.symbol && p.side === market.signal)) { setLog(`Já existe ${market.signal} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
-    const qty = market.risk / (market.price * 0.0032);
-    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side: market.signal, entry: market.price, sl: market.sl, tp: market.tp, qty }].slice(-20));
+    if (!market || market.signal === "AGUARDAR") return;
+    const side: Side = market.signal;
+    if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
+    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty }].slice(-20));
+    setNotice(`✓ ${side} executada: ${market.symbol} @ ${fmt(market.price)}`);
   };
 
   const hire = () => {
@@ -325,24 +317,25 @@ function Index() {
       </section>
 
       {market && (
-        <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : "border-red-500 bg-red-950/40"}`}>
+        <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : market.signal === "VENDA" ? "border-red-500 bg-red-950/40" : "border-slate-500 bg-slate-900"}`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#d4af37]">SINAL APROVADO • {market.symbol}</span>
-            <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : "bg-red-500"}`}>{market.signal}</span>
+            <span className="text-xs font-bold text-[#d4af37]">{market.signal === "AGUARDAR" ? "SEM CONSENSO" : "SINAL APROVADO"} • {market.symbol}</span>
+            <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span>
           </div>
-          <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • Variação {fmt(market.change)}%</p>
+          <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {fmt(market.buyRatio * 100, 0)}%</p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-            <div>Entrada: <b>{fmt(market.price)}</b></div><div>RSI14: <b>{fmt(market.rsi, 1)}</b></div>
-            <div className="text-red-400">Stop: <b>{fmt(market.sl)}</b></div><div className="text-green-400">Take: <b>{fmt(market.tp)}</b></div>
+            <div>RSI14: <b>{fmt(market.rsi, 1)}</b></div><div>MACD hist: <b>{fmt(market.macdHist)}</b></div>
             <div>EMA9: <b>{fmt(market.ema9)}</b></div><div>EMA21: <b>{fmt(market.ema21)}</b></div>
-            <div className="col-span-2">Risco: <b>{fmt(market.risk)} USDT</b> (1% da banca)</div>
+            {market.signal !== "AGUARDAR" && <><div className="text-red-400">Stop: <b>{fmt(market.sl)}</b></div><div className="text-green-400">Take: <b>{fmt(market.tp)}</b></div>
+            <div className="col-span-2">Lote: <b>{fmt(market.qty, 6)}</b> • Risco <b>{fmt(market.risk)} USDT</b> (1%)</div></>}
           </div>
-          <p className="mt-2 text-xs text-slate-300">
-            {market.signal === "COMPRA"
-              ? `EMA9 (${fmt(market.ema9)}) ≥ EMA21 (${fmt(market.ema21)}) indica tendência de alta e RSI ${fmt(market.rsi, 1)} < 70 mostra espaço para subir. Stop 0.32% e alvo 0.64% (2:1).`
-              : `${market.ema9 < market.ema21 ? `EMA9 (${fmt(market.ema9)}) < EMA21 (${fmt(market.ema21)}) indica tendência de baixa` : `RSI ${fmt(market.rsi, 1)} ≥ 70 indica sobrecompra`}. Operação vendida com stop 0.32% e alvo 0.64% (2:1).`}
-          </p>
-          <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar na Conta Demo ✓</button>
+          <ul className="mt-2 space-y-0.5 text-xs text-slate-300">
+            <li>🔎 Pesquisa: <b>{market.research.trend}</b> — {market.research.note}</li>
+            <li>📈 Gráfico: <b>{market.chart.trend}</b> — {market.chart.note}</li>
+            <li>🛡 Risco: {market.riskNote}</li>
+            <li>⚡ Execução: {market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
+          </ul>
+          {market.signal !== "AGUARDAR" && <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
         </section>
       )}
 
@@ -407,10 +400,10 @@ function Index() {
         <ChatModal
           agent={agents.find((a) => a.id === selected.id) || selected}
           market={market}
-          apiKey={settings.apiKey}
           messages={chats[selected.id] || []}
           setMessages={(fn) => setChats((c) => ({ ...c, [selected.id]: fn(c[selected.id] || []).slice(-20) }))}
-          onCommand={(q) => handleCommand(q, agents.find((a) => a.id === selected.id) || selected)}
+          onCommand={(q, m) => handleCommand(q, agents.find((a) => a.id === selected.id) || selected, m)}
+          onRefresh={refreshMarket}
           onPrompt={(prompt) => setAgents((as) => as.map((a) => (a.id === selected.id ? { ...a, prompt } : a)))}
           onClose={() => setSelected(null)}
         />
@@ -442,9 +435,10 @@ function SettingsModal({ settings, onSave, onClose }: { settings: Settings; onSa
   );
 }
 
-function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onCommand, onClose }: {
-  agent: Agent; market: Market | null; apiKey: string; messages: Msg[];
-  setMessages: (fn: (m: Msg[]) => Msg[]) => void; onPrompt: (p: string) => void; onCommand: (q: string) => string | null; onClose: () => void;
+function ChatModal({ agent, market, messages, setMessages, onPrompt, onCommand, onRefresh, onClose }: {
+  agent: Agent; market: Market | null; messages: Msg[];
+  setMessages: (fn: (m: Msg[]) => Msg[]) => void; onPrompt: (p: string) => void;
+  onCommand: (q: string, m: Market | null) => string | null; onRefresh: () => Promise<Market | null>; onClose: () => void;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -456,27 +450,17 @@ function ChatModal({ agent, market, apiKey, messages, setMessages, onPrompt, onC
     if (!q || busy) return;
     setText("");
     setMessages((m) => [...m, { from: "user", text: q }]);
-    const done = onCommand(q);
-    if (done) { setMessages((m) => [...m, { from: "agent", text: done }]); return; }
     setBusy(true);
+    const fresh = await onRefresh(); // velas reais no segundo da pergunta
+    const action = onCommand(q, fresh) || "";
+    const context = fresh ? marketContext(fresh) : "Não foi possível ler a Binance agora; não invente números.";
     let answer = "";
-    if (apiKey) {
-      try {
-        const ctx = market
-          ? `Dados ao vivo ${market.symbol}: preço ${fmt(market.price)}, variação ${fmt(market.change)}%, RSI14 ${fmt(market.rsi, 1)}, EMA9 ${fmt(market.ema9)}, EMA21 ${fmt(market.ema21)}, sinal ${market.signal}, stop ${fmt(market.sl)}, take ${fmt(market.tp)}, risco ${fmt(market.risk)} USDT.`
-          : "Sem dados de mercado ainda.";
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: `${agent.prompt}\n${ctx}\nResponda em português, curto e objetivo.\nPergunta: ${q}` }] }] }),
-        });
-        if (r.ok) {
-          const d = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-          answer = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        }
-      } catch { /* fallback local */ }
+    try {
+      const r = await agentChat({ data: { system: agent.prompt, role: agent.role, question: q, context, action } });
+      answer = r.ok ? r.text : `⚠ ${r.error}${action ? ` Ação executada: ${action}` : ""}`;
+    } catch {
+      answer = `⚠ IA indisponível no momento.${action ? ` Ação executada: ${action}` : ""}`;
     }
-    if (!answer) answer = localAnswer(q, agent.name, agent.role, market);
     setMessages((m) => [...m, { from: "agent", text: answer }]);
     setBusy(false);
   };
