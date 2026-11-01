@@ -1,3 +1,4 @@
+import { editDemoTargets } from "@/lib/editDemoTargets";
 import { demoProfitTarget } from "@/lib/demoProfitTarget";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -69,6 +70,11 @@ function Index() {
   const [log, setLog] = useState<string>("");
   const [audit, setAudit] = useState<DecisionAudit[]>([]);
   const [tab, setTab] = useState<"desk" | "brain">("desk");
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
+  const [editProfit, setEditProfit] = useState("");
+  const [editRisk, setEditRisk] = useState("");
+  const [editTargetError, setEditTargetError] = useState("");
+  const [targetEdits, setTargetEdits] = useState<{ at: number; id: string; oldTp: number; newTp: number; oldSl: number; newSl: number }[]>([]);
   const posRef = useRef<Position[]>([]);
   const liveRef = useRef<number>(0);
   const stopRef = useRef(false);
@@ -79,6 +85,7 @@ function Index() {
     setSettings(s);
     setBalance(load("td_balance", s.bank));
     setPositions(load("td_positions", []));
+    setTargetEdits(load("td_target_edits", []));
     setTrades(load("td_trades", []));
     setAuto(load("td_auto", "manual"));
     setNextRunAt(load("td_next_run", 0));
@@ -88,6 +95,7 @@ function Index() {
   useEffect(() => { if (ready) save("td_agents", agents); }, [agents, ready]);
   useEffect(() => { if (ready) save("td_balance", balance); }, [balance, ready]);
   useEffect(() => { if (ready) save("td_positions", positions); }, [positions, ready]);
+  useEffect(() => { if (ready) save("td_target_edits", targetEdits); }, [targetEdits, ready]);
   useEffect(() => { if (ready) save("td_trades", trades); }, [trades, ready]);
   useEffect(() => { if (ready) save("td_auto", auto); }, [auto, ready]);
   useEffect(() => { if (ready) save("td_next_run", nextRunAt); }, [nextRunAt, ready]);
@@ -224,6 +232,19 @@ function Index() {
   const running = loading || auto !== "manual";
   const stopAll = () => { stopRef.current = true; setAuto("manual"); setNextRunAt(0); setLoading(false); };
   const closeOne = (id: string) => closePositions([id], liveRef.current, "MANUAL");
+  const saveTargetEdit = (id: string) => {
+    const p = posRef.current.find((item) => item.id === id);
+    if (!p) { setEditTargetError("Posição não encontrada ou já encerrada."); return; }
+    const change = editDemoTargets(p, Number(editProfit), Number(editRisk));
+    if ("error" in change) { setEditTargetError(change.error); return; }
+    const updated = posRef.current.map((item) => item.id === id ? { ...item, tp: change.tp, sl: change.sl } : item);
+    posRef.current = updated;
+    setPositions(updated);
+    setTargetEdits((edits) => [...edits, { at: Date.now(), id, oldTp: p.tp, newTp: change.tp, oldSl: p.sl, newSl: change.sl }].slice(-100));
+    setEditingTargetId(null);
+    setEditTargetError("");
+  };
+
   const closeAll = () => closePositions(posRef.current.filter((p) => p.symbol === settings.symbol).map((p) => p.id), liveRef.current, "MANUAL");
 
   const [notice, setNotice] = useState("");
@@ -400,6 +421,28 @@ function Index() {
                   </div>
                 )}
                 <div className="text-slate-400">Origem: {p.provenance ? `${p.provenance.openedBy} (${p.provenance.openedVia}) • Aprovado: ${p.provenance.approvedBy} • Risco planejado: ${fmt(p.provenance.plannedRisk)} USDT` : "não registrada (posição antiga)"}</div>
+                {target && (
+                  <div className="mt-2">
+                    {editingTargetId === p.id ? (
+                      <div className="space-y-2 rounded border border-amber-600/50 p-2">
+                        <label className="block">Novo lucro-alvo (USDT)
+                          <input aria-label="Novo lucro-alvo em USDT" type="number" min="0.01" step="0.01" value={editProfit} onChange={(e) => setEditProfit(e.target.value)} className="mt-1 w-full rounded bg-slate-700 p-2 text-white" />
+                        </label>
+                        <label className="block">Novo risco máximo (USDT, só pode diminuir)
+                          <input aria-label="Novo risco máximo em USDT" type="number" min="0.01" step="0.01" value={editRisk} onChange={(e) => setEditRisk(e.target.value)} className="mt-1 w-full rounded bg-slate-700 p-2 text-white" />
+                        </label>
+                        <p className="text-slate-400">A alteração atualiza o TP e SL da posição demo. Rita Risk bloqueia aumento do risco. O monitoramento exige a página ativa.</p>
+                        {editTargetError && <p role="alert" className="text-red-400">{editTargetError}</p>}
+                        <div className="flex gap-2">
+                          <button onClick={() => saveTargetEdit(p.id)} className="rounded bg-green-700 px-3 py-2 font-bold">Salvar metas</button>
+                          <button onClick={() => { setEditingTargetId(null); setEditTargetError(""); }} className="rounded bg-slate-600 px-3 py-2">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditingTargetId(p.id); setEditProfit(target.targetProfit.toFixed(2)); setEditRisk(Math.min(target.plannedLoss, p.provenance?.plannedRisk ?? target.plannedLoss).toFixed(2)); setEditTargetError(""); }} className="rounded border border-amber-500 px-3 py-2 text-amber-300">Editar metas demo</button>
+                    )}
+                  </div>
+                )}
                 <button onClick={() => closeOne(p.id)} disabled={p.symbol !== settings.symbol || !live} className="mt-1 w-full rounded bg-red-500/80 py-1 font-bold disabled:opacity-40">Encerrar</button>
               </div>
             );
