@@ -24,8 +24,10 @@ export const Route = createFileRoute("/")({
 });
 
 interface Msg { from: "user" | "agent"; text: string }
-interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number }
-interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number }
+interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number; provenance?: TradeProvenance }
+interface TradeProvenance { openedBy: string; openedVia: "MANUAL" | "CHAT" | "AUTOMATICO"; openedAt: number; approvedBy: "Rita Risk"; plannedRisk: number; riskPercent: number; decision: Side }
+
+interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number; provenance?: TradeProvenance }
 interface Settings { apiKey: string; symbol: string; bank: number }
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -95,7 +97,7 @@ function Index() {
     const closing = cur.filter((p) => ids.includes(p.id));
     if (!closing.length) return;
     const done: Trade[] = closing.map((p) => ({
-      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(),
+      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance,
       pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
     }));
     const keep = cur.filter((p) => !ids.includes(p.id));
@@ -139,7 +141,7 @@ function Index() {
     else if (demoOrderRejection(m, m.signal, m.symbol)) parts.push("ordem bloqueada pela validação de risco");
     else if (autoRef.current !== "manual") {
       const side: Side = m.signal;
-      const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty };
+      const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty, provenance: { openedBy: "Max Trader", openedVia: "AUTOMATICO", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: m.risk, riskPercent: 1, decision: side } };
       posRef.current = [...posRef.current, np].slice(-20);
       setPositions(posRef.current);
       parts.push(`nova ${m.signal} aberta pelo Max Trader`);
@@ -247,7 +249,7 @@ function Index() {
     const { sl, tp } = levels(side, price, m.slDist);
     if (!Number.isFinite(sl) || !Number.isFinite(tp) || (side === "COMPRA" ? !(sl < price && tp > price) : !(sl > price && tp < price))) return "Ordem demo bloqueada: stop ou alvo inválido.";
     const qty = m.qty;
-    const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty };
+    const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty, provenance: { openedBy: agent.name, openedVia: "CHAT", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: m.risk, riskPercent: 1, decision: side } };
     posRef.current = [...posRef.current, np].slice(-20);
     setPositions(posRef.current);
     setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price)} pelo chat.`);
@@ -262,7 +264,7 @@ function Index() {
     if (rejection) { setLog(`Ordem demo bloqueada: ${rejection}`); return; }
     const side: Side = market.signal;
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
-    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty }].slice(-20));
+    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty, provenance: { openedBy: "Operador humano", openedVia: "MANUAL", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: market.risk, riskPercent: 1, decision: side } }].slice(-20));
     setNotice(`✓ ${side} executada: ${market.symbol} @ ${fmt(market.price)}`);
   };
 
@@ -351,7 +353,7 @@ function Index() {
           <div className="rounded bg-slate-800 p-2">Saídas manuais<br /><b>{performance.manualClosures}</b></div>
           <div className="rounded bg-slate-800 p-2">Saídas por TP / SL / IA<br /><b>{performance.automatedClosures}</b></div>
         </div>
-        <p className="mt-2 text-xs text-slate-400">Drawdown: queda máxima do P&L realizado acumulado; não inclui perdas flutuantes. Tipo de saída não identifica quem abriu a operação. Risco planejado e autoria por agente ainda não são registrados no histórico.</p>
+        <p className="mt-2 text-xs text-slate-400">Drawdown: queda máxima do P&L realizado acumulado; não inclui perdas flutuantes. Tipo de saída não identifica quem abriu a operação. Operações anteriores à atualização podem não ter autoria e risco planejado registrados.</p>
       </section>
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
@@ -372,6 +374,7 @@ function Index() {
               <div key={p.id} className="rounded border border-slate-700 p-2 text-xs">
                 <div className="flex justify-between"><b className={p.side === "COMPRA" ? "text-green-400" : "text-red-400"}>{p.side} {p.symbol}</b><b className={pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(pnl)} USDT</b></div>
                 <div className="text-slate-400">Entrada {fmt(p.entry)} • SL {fmt(p.sl)} • TP {fmt(p.tp)} • Qtd {fmt(p.qty, 5)}</div>
+                <div className="text-slate-400">Origem: {p.provenance ? `${p.provenance.openedBy} (${p.provenance.openedVia}) • Aprovado: ${p.provenance.approvedBy} • Risco planejado: ${fmt(p.provenance.plannedRisk)} USDT` : "não registrada (posição antiga)"}</div>
                 <button onClick={() => closeOne(p.id)} disabled={p.symbol !== settings.symbol || !live} className="mt-1 w-full rounded bg-red-500/80 py-1 font-bold disabled:opacity-40">Encerrar</button>
               </div>
             );
@@ -380,9 +383,10 @@ function Index() {
         {trades.length > 0 && (
           <div className="mt-3 space-y-1">
             {trades.slice().reverse().map((t) => (
-              <div key={t.id} className="flex justify-between text-xs text-slate-300">
+              <div key={t.id} className="text-xs text-slate-300"><div className="flex justify-between gap-2">
                 <span>{t.side} {fmt(t.entry)} → {fmt(t.exit)} ({{ TP: "Take Profit", SL: "Stop Loss", IA: "Encerrada pela IA", MANUAL: "Manual" }[t.result] ?? t.result})</span>
-                <b className={t.pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(t.pnl)}</b>
+                <b className={t.pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(t.pnl)}</b></div>
+                <div className="text-[10px] text-slate-500">Origem: {t.provenance ? `${t.provenance.openedBy} (${t.provenance.openedVia}) • Rita Risk • Risco planejado ${fmt(t.provenance.plannedRisk)} USDT` : "não registrada (operação antiga)"}</div>
               </div>
             ))}
           </div>
