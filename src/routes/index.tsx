@@ -335,6 +335,7 @@ function Index() {
   const performance = demoPerformance(trades);
   const dailyRisk = dailyLossStatus(trades, Date.now(), settings.bank);
   const preventiveWarning = market && market.signal !== "AGUARDAR" ? preventiveRiskGate(trades, positions, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank) : null;
+  const riskBlocked = dailyRisk.blocked || !!preventiveWarning;
 
   return (
     <div className="w-full max-w-md mx-auto px-3 pt-4 pb-24 overflow-x-hidden bg-[#0b0e14] text-slate-100 min-h-screen">
@@ -383,7 +384,7 @@ function Index() {
       {market && showSignalCard && (
         <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : market.signal === "VENDA" ? "border-red-500 bg-red-950/40" : "border-slate-500 bg-slate-900"}`}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-bold text-[#d4af37]">{signalUsed ? "SINAL ENCERRADO • NOVA ANÁLISE NECESSÁRIA" : !market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
+            <span className="text-xs font-bold text-[#d4af37]">{signalUsed ? "SINAL ENCERRADO • NOVA ANÁLISE NECESSÁRIA" : riskBlocked ? "SINAL BLOQUEADO PELA RITA RISK" : !market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
             <div className="flex shrink-0 items-center gap-2"><span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span><button type="button" aria-label="Fechar painel do sinal" title="Fechar painel do sinal" onClick={() => setShowSignalCard(false)} className="rounded px-2 py-1 text-lg font-bold text-slate-300 hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400">×</button></div>
           </div>
           <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {market.volumeVerified ? `${fmt(market.buyRatio * 100, 0)}%` : "indisponível (sem dado verificado)"} • Fonte: {market.source ?? "não identificada"} • Último candle: {market.lastCandleAt ? new Date(market.lastCandleAt).toLocaleTimeString("pt-BR") : "indisponível"} • Consulta: {market.fetchedAt ? new Date(market.fetchedAt).toLocaleTimeString("pt-BR") : "indisponível"}</p>
@@ -397,10 +398,10 @@ function Index() {
             <li>🔎 Pesquisa: <b>{market.research.trend}</b> — {market.research.note}</li>
             <li>📈 Gráfico: <b>{market.chart.trend}</b> — {market.chart.note}</li>
             <li>🛡 Risco: {market.riskNote}</li>
-            <li>⚡ Execução: {signalUsed ? "sinal utilizado/encerrado; rode novo ciclo" : market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
+            <li>⚡ Execução: {signalUsed ? "sinal utilizado/encerrado; rode novo ciclo" : riskBlocked ? "BLOQUEADA pela Rita Risk; nenhuma ordem autorizada" : market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : !market.riskApproved ? "não autorizada pela Rita Risk" : `${market.signal} liberada`}</li>
           </ul>
           {preventiveWarning && <p role="alert" className="mt-2 text-xs text-red-400">{preventiveWarning}</p>}
-          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={dailyRisk.blocked || signalUsed || !!preventiveWarning} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40">{signalUsed ? "Sinal encerrado — rode novo ciclo" : dailyRisk.blocked || preventiveWarning ? "Bloqueado pela Rita Risk" : `Executar ${market.signal} na Conta Demo ✓`}</button>}
+          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={riskBlocked || signalUsed} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40">{signalUsed ? "Sinal encerrado — rode novo ciclo" : riskBlocked ? "Bloqueado pela Rita Risk" : `Executar ${market.signal} na Conta Demo ✓`}</button>}
         </section>
       )}
 
