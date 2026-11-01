@@ -1,3 +1,4 @@
+import { DemoExitPanel } from "@/components/DemoExitPanel";
 import { verifyRestoredDemoBackup } from "@/lib/demoBackupIntegrity";
 import { parseRestorableDemoBackup, restoreDemoBackupToStorage } from "@/lib/restoreDemoBackup";
 import { previewDemoBackup, type DemoBackupPreview } from "@/lib/demoBackupPreview";
@@ -561,6 +562,8 @@ function Index() {
         )}
         <p className="mt-2 text-xs text-slate-400">Os mesmos trades aparecem nos dois agrupamentos; não some os resultados das duas seções. Resultados históricos não garantem desempenho futuro.</p>
       </section>
+
+      <DemoExitPanel />
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
         <h2 className="font-bold text-[#d4af37]">Posições Abertas & Histórico de Trades</h2>
