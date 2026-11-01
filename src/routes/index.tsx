@@ -83,6 +83,7 @@ function Index() {
   const [nextRunAt, setNextRunAt] = useState<number>(0);
   const [log, setLog] = useState<string>("");
   const [audit, setAudit] = useState<DecisionAudit[]>([]);
+  const [auditFilter, setAuditFilter] = useState<"TODAS" | "BLOQUEADA" | "APROVADA">("TODAS");
   const [tab, setTab] = useState<"desk" | "brain">("desk");
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editProfit, setEditProfit] = useState("");
@@ -380,6 +381,9 @@ function Index() {
       window.location.reload();
     } catch (err) { setBackupError(err instanceof Error ? err.message : "Não foi possível restaurar o backup."); }
   };
+  const auditVisible = audit.filter((entry) => auditFilter === "TODAS" || entry.decision === auditFilter);
+  const auditBlockedCount = audit.filter((entry) => entry.decision === "BLOQUEADA").length;
+  const auditApprovedCount = audit.filter((entry) => entry.decision === "APROVADA").length;
   const dailyRisk = dailyLossStatus(trades, Date.now(), settings.bank);
   const preventiveWarning = market && market.signal !== "AGUARDAR" ? preventiveRiskGate(trades, positions, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank) : null;
   const riskBlocked = dailyRisk.blocked || !!preventiveWarning;
@@ -414,7 +418,16 @@ function Index() {
       <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Auditoria de decisões demo">
         <h2 className="text-sm font-bold text-[#d4af37]">Auditoria de Decisões (Demo)</h2>
         <p className="mt-1 text-slate-400">Últimas 100 decisões salvas neste navegador; nenhum registro envia ordens.</p>
-        {audit.length === 0 ? <p className="mt-2">Nenhuma análise registrada neste navegador.</p> : <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">{audit.slice(0, 10).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="font-bold">{new Date(entry.at).toLocaleTimeString("pt-BR")} • {entry.symbol} • {entry.decision}</div><div>Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">{entry.reason}</div></div>)}</div>}
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center" aria-label="Resumo das decisões registradas">
+          <div className="rounded bg-slate-800 p-2"><div className="font-bold">{audit.length}</div><div className="text-slate-300">Análises</div></div>
+          <div className="rounded bg-slate-800 p-2"><div className="font-bold text-emerald-300">{auditApprovedCount}</div><div className="text-slate-300">Aprovadas</div></div>
+          <div className="rounded bg-slate-800 p-2"><div className="font-bold text-amber-300">{auditBlockedCount}</div><div className="text-slate-300">Bloqueadas</div></div>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2" aria-label="Filtrar auditoria">
+          {(["TODAS", "BLOQUEADA", "APROVADA"] as const).map((filter) => <button key={filter} type="button" aria-pressed={auditFilter === filter} onClick={() => setAuditFilter(filter)} className={`min-h-10 rounded-lg border px-3 py-2 font-semibold ${auditFilter === filter ? "border-amber-300 bg-amber-400 text-slate-950" : "border-slate-600 bg-slate-800 text-white"}`}>{filter === "TODAS" ? "Todas" : filter === "BLOQUEADA" ? "Bloqueadas" : "Aprovadas"}</button>)}
+        </div>
+        <p className="mt-2 text-slate-400">Esta auditoria registra o consenso técnico e a validação inicial. A aprovação não garante execução: a Rita Risk ainda pode bloquear por limite diário ou risco preventivo. Os registros ficam somente neste navegador.</p>
+        {auditVisible.length === 0 ? <p className="mt-2 text-slate-300">Nenhuma decisão encontrada neste filtro.</p> : <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">{auditVisible.slice(0, 20).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="flex flex-wrap items-center gap-2"><span className="font-bold">{new Date(entry.at).toLocaleString("pt-BR")} • {entry.symbol}</span><span className={`rounded px-2 py-1 font-bold ${entry.decision === "BLOQUEADA" ? "bg-amber-950 text-amber-200" : "bg-emerald-950 text-emerald-200"}`}>{entry.decision}</span></div><div className="mt-1">Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">Origem: {entry.source === "AUTOMATICO" ? "Ciclo automático" : entry.source === "MANUAL" ? "Operador" : "Análise"}</div><div className="mt-1 text-slate-300">Motivo: {entry.reason}</div></div>)}</div>}
       </section>
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
