@@ -58,6 +58,7 @@ function Index() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [market, setMarket] = useState<Market | null>(null);
+  const [showSignalCard, setShowSignalCard] = useState(true);
   const [live, setLive] = useState<number>(0);
   const [quoteAt, setQuoteAt] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -144,6 +145,7 @@ function Index() {
     if (!m) { setError("Não foi possível ler as velas da Binance agora."); setLoading(false); return; }
     if (stopRef.current) { setLoading(false); return; }
     setMarket(m);
+    setShowSignalCard(true);
     signalUsedRef.current = false;
     setSignalUsed(false);
     setLive(m.price);
@@ -184,7 +186,7 @@ function Index() {
 
   const refreshMarket = useCallback(async () => {
     const m = await fetchMarket(settings.symbol, settings.bank);
-    if (m) { setMarket(m); setLive(m.price); }
+    if (m) { setMarket(m); setShowSignalCard(true); setLive(m.price); }
     return m;
   }, [settings.symbol, settings.bank]);
   const autoRef = useRef(auto);
@@ -378,11 +380,11 @@ function Index() {
         {error && <p className="text-center text-xs text-red-400">{error}</p>}
       </section>
 
-      {market && (
+      {market && showSignalCard && (
         <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : market.signal === "VENDA" ? "border-red-500 bg-red-950/40" : "border-slate-500 bg-slate-900"}`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold text-[#d4af37]">{signalUsed ? "SINAL ENCERRADO • NOVA ANÁLISE NECESSÁRIA" : !market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
-            <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span>
+            <div className="flex shrink-0 items-center gap-2"><span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span><button type="button" aria-label="Fechar painel do sinal" title="Fechar painel do sinal" onClick={() => setShowSignalCard(false)} className="rounded px-2 py-1 text-lg font-bold text-slate-300 hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400">×</button></div>
           </div>
           <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {market.volumeVerified ? `${fmt(market.buyRatio * 100, 0)}%` : "indisponível (sem dado verificado)"} • Fonte: {market.source ?? "não identificada"} • Último candle: {market.lastCandleAt ? new Date(market.lastCandleAt).toLocaleTimeString("pt-BR") : "indisponível"} • Consulta: {market.fetchedAt ? new Date(market.fetchedAt).toLocaleTimeString("pt-BR") : "indisponível"}</p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
