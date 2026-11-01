@@ -1,3 +1,4 @@
+export type ExitVariance = { plannedPrice: number; actualPrice: number; plannedPnl: number; actualPnl: number; difference: number };
 import type { Side } from "./trading";
 export function evaluateExitVariance(p: { side: Side; entry: number; sl: number; tp: number; qty: number }, exit: number, reason: "TP" | "SL" | "IA" | "MANUAL") {
   if (![p.entry,p.sl,p.tp,p.qty,exit].every(n=>Number.isFinite(n)&&n>0)) return null;
