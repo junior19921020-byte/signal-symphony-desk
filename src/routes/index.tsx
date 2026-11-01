@@ -4,6 +4,7 @@ import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
 import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
 import { agentChat } from "@/lib/agent.functions";
 import { demoOrderRejection } from "@/lib/demoRisk";
+import { demoPerformance } from "@/lib/demoPerformance";
 import { auditDecision, appendAudit, parseAuditHistory, type DecisionAudit } from "@/lib/decisionAudit";
 import { MemoryEngine } from "@/lib/memoryEngine";
 import { SecondBrainGraph } from "@/components/SecondBrainGraph";
@@ -268,6 +269,7 @@ function Index() {
   const floating = positions.filter((p) => p.symbol === settings.symbol).reduce((s, p) => s + (p.side === "COMPRA" ? live - p.entry : p.entry - live) * p.qty, 0);
   const wins = trades.filter((t) => t.pnl > 0).length;
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
+  const performance = demoPerformance(trades);
 
   return (
     <div className="w-full max-w-md mx-auto px-3 pt-4 pb-24 overflow-x-hidden bg-[#0b0e14] text-slate-100 min-h-screen">
@@ -335,6 +337,22 @@ function Index() {
           {market.signal !== "AGUARDAR" && market.riskApproved && <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
         </section>
       )}
+
+      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label="Desempenho da conta demo">
+        <h2 className="font-bold text-[#d4af37]">Painel de Desempenho (Demo)</h2>
+        <p className="mt-1 text-xs text-slate-400">Calculado apenas sobre operações encerradas salvas neste navegador. Não representa resultados de uma conta real.</p>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <div className="rounded bg-slate-800 p-2">P&L realizado<br /><b className={performance.netPnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(performance.netPnl)} USDT</b></div>
+          <div className="rounded bg-slate-800 p-2">Drawdown realizado máximo<br /><b>{fmt(performance.maxDrawdown)} USDT</b></div>
+          <div className="rounded bg-slate-800 p-2">Ganho médio<br /><b>{fmt(performance.averageWin)} USDT</b></div>
+          <div className="rounded bg-slate-800 p-2">Perda média (valor absoluto)<br /><b>{fmt(performance.averageLoss)} USDT</b></div>
+          <div className="rounded bg-slate-800 p-2">Taxa de acerto<br /><b>{fmt(performance.winRate, 1)}% ({performance.count})</b></div>
+          <div className="rounded bg-slate-800 p-2">Fator de lucro<br /><b>{performance.profitFactor === null ? "N/D" : fmt(performance.profitFactor, 2)}</b></div>
+          <div className="rounded bg-slate-800 p-2">Saídas manuais<br /><b>{performance.manualClosures}</b></div>
+          <div className="rounded bg-slate-800 p-2">Saídas por TP / SL / IA<br /><b>{performance.automatedClosures}</b></div>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Drawdown: queda máxima do P&L realizado acumulado; não inclui perdas flutuantes. Tipo de saída não identifica quem abriu a operação. Risco planejado e autoria por agente ainda não são registrados no histórico.</p>
+      </section>
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
         <h2 className="font-bold text-[#d4af37]">Posições Abertas & Histórico de Trades</h2>
