@@ -1,3 +1,4 @@
+import { evaluateDemoTrailing } from "@/lib/demoTrailingRisk";
 import { DemoExitPanel } from "@/components/DemoExitPanel";
 import { verifyRestoredDemoBackup } from "@/lib/demoBackupIntegrity";
 import { parseRestorableDemoBackup, restoreDemoBackupToStorage } from "@/lib/restoreDemoBackup";
@@ -598,6 +599,23 @@ function Index() {
               <div key={p.id} className="rounded border border-slate-700 p-2 text-xs">
                 <div className="flex justify-between"><b className={p.side === "COMPRA" ? "text-green-400" : "text-red-400"}>{p.side} {p.symbol}</b><b className={pnl >= 0 ? "text-green-400" : "text-red-400"}>{target?.currentPnl === null || !target ? "Cotação indisponível" : `${fmt(pnl)} USDT`}</b></div>
                 <div className="text-slate-400">Entrada {fmt(p.entry)} • SL {fmt(p.sl)} • TP {fmt(p.tp)} • Qtd {fmt(p.qty, 5)}</div>
+                {p.excursion && (() => {
+                  // Read-only scenario: no trailing state is persisted and no exit is triggered.
+                  const preview = evaluateDemoTrailing({
+                    side: p.side, entry: p.entry, qty: p.qty, price: live,
+                    quotedAt: quoteAt, now: Date.now(),
+                    activateAtUsdt: 5, trailDistanceUsdt: 3,
+                    previous: { peakPnl: p.excursion.maxFavorablePnl, activated: p.excursion.maxFavorablePnl >= 5 },
+                  });
+                  return <div className="mt-2 rounded border border-sky-700 bg-sky-950/30 p-2 text-sky-100" aria-label="Prévia da proteção dinâmica demo">
+                    <b>Prévia da proteção dinâmica (somente leitura)</b>
+                    <p>Exemplo fixo: ativar em +5 USDT, distância do pico 3 USDT. Não configurado para executar.</p>
+                    {preview.status === "INVALID" || preview.status === "STALE"
+                      ? <p>Cotação inválida ou desatualizada — cálculo suspenso.</p>
+                      : <p>Lucro atual: {fmt(preview.pnl)} USDT • Pico observado: {fmt(preview.next.peakPnl)} USDT • {preview.floor === null ? "Aguardando ativação" : `Piso hipotético: ${fmt(preview.floor)} USDT`} • {preview.shouldClose ? "Gatilho hipotético atingido; nenhuma ordem enviada" : "Sem gatilho de saída nesta amostra"}</p>}
+                    <p>Esta prévia não altera posição, stop, take, saldo ou autorização da Rita Risk. O pico é parcial: só inclui observações com a página ativa.</p>
+                  </div>;
+                })()}
                 {p.excursion && <div className="mt-1 text-slate-300">Desde o início do monitoramento: maior lucro observado <span className="text-green-400">+{fmt(p.excursion.maxFavorablePnl)} USDT</span> • maior perda observada <span className="text-red-400">{fmt(p.excursion.maxAdversePnl)} USDT</span>. Não inclui períodos sem cotação.</div>}
                 {target && (
                   <div className="my-2 rounded bg-slate-800 p-2">
