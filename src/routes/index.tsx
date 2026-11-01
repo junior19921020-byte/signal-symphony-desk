@@ -77,6 +77,9 @@ function Index() {
   const [editRisk, setEditRisk] = useState("");
   const [editTargetError, setEditTargetError] = useState("");
   const [targetEdits, setTargetEdits] = useState<{ at: number; id: string; oldTp: number; newTp: number; oldSl: number; newSl: number }[]>([]);
+  const [signalUsed, setSignalUsed] = useState(false);
+  const signalUsedRef = useRef(false);
+  const consumeSignal = () => { signalUsedRef.current = true; setSignalUsed(true); };
   const tradesRef = useRef<Trade[]>([]);
   const posRef = useRef<Position[]>([]);
   const liveRef = useRef<number>(0);
@@ -118,6 +121,8 @@ function Index() {
       id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance, exitVariance: evaluateExitVariance(p, price, result),
       pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
     }));
+    signalUsedRef.current = true;
+    setSignalUsed(true);
     const keep = cur.filter((p) => !ids.includes(p.id));
     posRef.current = keep;
     setPositions(keep);
@@ -138,6 +143,8 @@ function Index() {
     if (!m) { setError("Não foi possível ler as velas da Binance agora."); setLoading(false); return; }
     if (stopRef.current) { setLoading(false); return; }
     setMarket(m);
+    signalUsedRef.current = false;
+    setSignalUsed(false);
     setLive(m.price);
     setAudit((history) => appendAudit(history, auditDecision(m, autoRef.current === "manual" ? "ANALISE" : "AUTOMATICO")));
     const mine = posRef.current.filter((p) => p.symbol === m.symbol);
@@ -158,6 +165,7 @@ function Index() {
     if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
     if (m.signal === "AGUARDAR") parts.push(`AGUARDAR — ${m.riskNote}`);
     else if (kept.some((p) => p.symbol === m.symbol && p.side === m.signal)) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
+    else if (signalUsedRef.current) parts.push("sinal já utilizado ou encerrado; nova análise necessária");
     else if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) parts.push("Rita Risk bloqueou nova ordem: limite diário de perdas atingido");
     else if (demoOrderRejection(m, m.signal, m.symbol)) parts.push("ordem bloqueada pela validação de risco");
     else if (autoRef.current !== "manual") {
@@ -165,6 +173,7 @@ function Index() {
       const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty, provenance: { openedBy: "Max Trader", openedVia: "AUTOMATICO", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: m.risk, riskPercent: 1, decision: side } };
       posRef.current = [...posRef.current, np].slice(-20);
       setPositions(posRef.current);
+      consumeSignal();
       parts.push(`nova ${m.signal} aberta pelo Max Trader`);
     }
     setLog(`Revisão da IA: ${parts.length ? parts.join("; ") : "nenhuma posição para revisar"}.`);
@@ -280,6 +289,7 @@ function Index() {
     if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return "Piloto colocado em modo Manual."; }
     if (intent === "AUTO_ON") { stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`); return "Piloto automático ligado a cada 15 minutos."; }
     if (price <= 0 || !m) return "Sem preço de mercado; ordem não executada.";
+    if (signalUsedRef.current) return "Sinal anterior já utilizado ou encerrado. Rode um novo ciclo de análise antes de abrir outra operação demo.";
     const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
     if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) return "Rita Risk bloqueou nova ordem demo: limite diário de perdas atingido.";
     const rejection = demoOrderRejection(m, side, sym);
@@ -291,12 +301,14 @@ function Index() {
     const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty, provenance: { openedBy: agent.name, openedVia: "CHAT", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: m.risk, riskPercent: 1, decision: side } };
     posRef.current = [...posRef.current, np].slice(-20);
     setPositions(posRef.current);
+    consumeSignal();
     setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price)} pelo chat.`);
     setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price)}`);
     return `${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price)}, SL ${fmt(sl)}, TP ${fmt(tp)} (conta demo).`;
   };
 
   const execute = () => {
+    if (signalUsedRef.current) { setLog("Sinal anterior já utilizado ou encerrado. Rode novo ciclo de análise."); return; }
     if (!market || market.signal === "AGUARDAR") { setLog("Ordem demo bloqueada: sem sinal aprovado."); return; }
     if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) { setLog("Rita Risk bloqueou nova ordem demo: limite diário de perdas atingido."); return; }
     const rejection = demoOrderRejection(market, market.signal, settings.symbol);
@@ -305,6 +317,7 @@ function Index() {
     const side: Side = market.signal;
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
     setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty, provenance: { openedBy: "Operador humano", openedVia: "MANUAL", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: market.risk, riskPercent: 1, decision: side } }].slice(-20));
+    consumeSignal();
     setNotice(`✓ ${side} executada: ${market.symbol} @ ${fmt(market.price)}`);
   };
 
@@ -361,7 +374,7 @@ function Index() {
       {market && (
         <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : market.signal === "VENDA" ? "border-red-500 bg-red-950/40" : "border-slate-500 bg-slate-900"}`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#d4af37]">{!market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
+            <span className="text-xs font-bold text-[#d4af37]">{signalUsed ? "SINAL ENCERRADO • NOVA ANÁLISE NECESSÁRIA" : !market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
             <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span>
           </div>
           <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {market.volumeVerified ? `${fmt(market.buyRatio * 100, 0)}%` : "indisponível (sem dado verificado)"} • Fonte: {market.source ?? "não identificada"} • Último candle: {market.lastCandleAt ? new Date(market.lastCandleAt).toLocaleTimeString("pt-BR") : "indisponível"} • Consulta: {market.fetchedAt ? new Date(market.fetchedAt).toLocaleTimeString("pt-BR") : "indisponível"}</p>
@@ -375,9 +388,9 @@ function Index() {
             <li>🔎 Pesquisa: <b>{market.research.trend}</b> — {market.research.note}</li>
             <li>📈 Gráfico: <b>{market.chart.trend}</b> — {market.chart.note}</li>
             <li>🛡 Risco: {market.riskNote}</li>
-            <li>⚡ Execução: {market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
+            <li>⚡ Execução: {signalUsed ? "sinal utilizado/encerrado; rode novo ciclo" : market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
           </ul>
-          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={dailyRisk.blocked} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
+          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={dailyRisk.blocked || signalUsed} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40">{signalUsed ? "Sinal encerrado — rode novo ciclo" : dailyRisk.blocked ? "Bloqueado pela Rita Risk" : `Executar ${market.signal} na Conta Demo ✓`}</button>}
         </section>
       )}
 
