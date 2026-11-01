@@ -319,7 +319,7 @@ function Index() {
             <span className="text-xs font-bold text-[#d4af37]">{!market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
             <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span>
           </div>
-          <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {market.volumeVerified ? `${fmt(market.buyRatio * 100, 0)}%` : "indisponível (sem dado verificado)"}</p>
+          <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {market.volumeVerified ? `${fmt(market.buyRatio * 100, 0)}%` : "indisponível (sem dado verificado)"} • Fonte: {market.source ?? "não identificada"} • Último candle: {market.lastCandleAt ? new Date(market.lastCandleAt).toLocaleTimeString("pt-BR") : "indisponível"} • Consulta: {market.fetchedAt ? new Date(market.fetchedAt).toLocaleTimeString("pt-BR") : "indisponível"}</p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
             <div>RSI14: <b>{fmt(market.rsi, 1)}</b></div><div>MACD hist: <b>{fmt(market.macdHist)}</b></div>
             <div>EMA9: <b>{fmt(market.ema9)}</b></div><div>EMA21: <b>{fmt(market.ema21)}</b></div>

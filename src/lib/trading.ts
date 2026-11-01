@@ -22,6 +22,9 @@ export interface Market {
   atr: number;
   buyRatio: number;
   volumeVerified: boolean;
+  source?: "Binance" | "Bybit" | "Mista";
+  lastCandleAt?: number;
+  fetchedAt?: number;
   greens: number;
   reds: number;
   structure: "ASCENDENTE" | "DESCENDENTE" | "MISTA";
@@ -296,13 +299,15 @@ function ensureBackgroundScanner() {
   }
 }
 
-async function fetchBinanceKlines(symbol: string, interval: "15m" | "5m", limit: number): Promise<Candle[]> {
+type ExchangeCandles = { candles: Candle[]; source: "Binance" | "Bybit" | "Indisponível" };
+
+async function fetchBinanceKlines(symbol: string, interval: "15m" | "5m", limit: number): Promise<ExchangeCandles> {
   for (const base of BINANCE_ENDPOINTS) {
     try {
       const res = await fetch(`${base}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
       if (res.ok) {
         const parsed = parseKlines(await res.json());
-        if (parsed.length >= Math.min(limit, 5)) return parsed;
+        if (parsed.length >= Math.min(limit, 5)) return { candles: parsed, source: "Binance" };
       }
     } catch {
       /* tenta próximo endpoint */
@@ -314,15 +319,16 @@ async function fetchBinanceKlines(symbol: string, interval: "15m" | "5m", limit:
     if (res.ok) {
       const json = (await res.json()) as { result?: { list?: string[][] } };
       const list = (json.result?.list || []).slice().reverse();
-      return list.map((a) => {
+      const candles = list.map((a) => {
         const o = Number(a[1] || 0), h = Number(a[2] || 0), l = Number(a[3] || 0), c = Number(a[4] || 0), v = Number(a[5] || 0);
         return { t: Number(a[0] || 0), o, h, l, c, v, buyV: NaN };
       });
+      return { candles, source: "Bybit" };
     }
   } catch {
     /* ignora */
   }
-  return [];
+  return { candles: [], source: "Indisponível" };
 }
 
 async function fetchNewsHeadlines(symbol: string): Promise<string[]> {
@@ -376,16 +382,20 @@ export async function fetchMarket(symbol: string, bank: number): Promise<Market 
   ensureBackgroundScanner();
 
   try {
-    const [c15, c5, headlines] = await Promise.all([
+    const [r15, r5, headlines] = await Promise.all([
       fetchBinanceKlines(symbol, "15m", 60),
       fetchBinanceKlines(symbol, "5m", 12),
       fetchNewsHeadlines(symbol),
     ]);
+    const c15 = r15.candles, c5 = r5.candles;
     if (c15.length < 30 || c5.length < 5) {
       return null;
     }
     if (!marketCandlesFresh(c15, c5)) return null;
     const m = analyze(symbol, c15, c5, bank, headlines);
+    m.source = r15.source === r5.source ? r15.source as "Binance" | "Bybit" : "Mista";
+    m.lastCandleAt = Math.max(c15.at(-1)!.t, c5.at(-1)!.t);
+    m.fetchedAt = Date.now();
     lastMarketCache[symbol] = m;
     notifyOpportunity(m);
     return m;
