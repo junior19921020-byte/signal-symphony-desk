@@ -187,19 +187,14 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
     note: `estrutura ${structure}, ${greens} verdes x ${reds} vermelhas, RSI ${fmt(r, 0)}, EMAs ${e9 >= e21 ? "ALTA" : "BAIXA"}`,
   };
 
-  // 3. Risco (Rita Risk): aprova quando concordam OU quando um tem tendência clara e o outro está neutro
+  // 3. Risco (Rita Risk): somente consenso direcional explícito aprova.
+  // Lateralidade, divergência ou dados financeiros inválidos vetam novas ordens.
   const riskAmt = bank * 0.01;
   const slDist = Math.max(a * 1.2, price * 0.002);
-  let activeTrend: Trend = "LATERAL";
-  if (research.trend === chart.trend && research.trend !== "LATERAL") {
-    activeTrend = research.trend;
-  } else if (chart.trend !== "LATERAL" && research.trend === "LATERAL") {
-    activeTrend = chart.trend;
-  } else if (research.trend !== "LATERAL" && chart.trend === "LATERAL") {
-    activeTrend = research.trend;
-  }
-
-  const agree = activeTrend !== "LATERAL";
+  const activeTrend: Trend = research.trend === chart.trend ? research.trend : "LATERAL";
+  const agree = activeTrend !== "LATERAL" && Number.isFinite(bank) && bank > 0
+    && Number.isFinite(price) && price > 0 && Number.isFinite(slDist) && slDist > 0
+    && Number.isFinite(riskAmt) && riskAmt > 0;
   const signal: Signal = agree ? (activeTrend === "ALTA" ? "COMPRA" : "VENDA") : "AGUARDAR";
   const riskNote = agree
     ? `aprovado: ${signal}, risco $${fmt(riskAmt)} USDT (Pesquisa ${research.trend} + Gráfico ${chart.trend})`
