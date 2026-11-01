@@ -16,6 +16,7 @@ import { demoOrderRejection } from "@/lib/demoRisk";
 import { fetchDemoQuote } from "@/lib/demoQuote";
 import { evaluateDemoExits } from "@/lib/demoExits";
 import { demoPerformance } from "@/lib/demoPerformance";
+import { demoStrategyDiagnostics } from "@/lib/demoStrategyDiagnostics";
 import { auditDecision, appendAudit, parseAuditHistory, type DecisionAudit } from "@/lib/decisionAudit";
 import { MemoryEngine } from "@/lib/memoryEngine";
 import { SecondBrainGraph } from "@/components/SecondBrainGraph";
@@ -344,6 +345,7 @@ function Index() {
   const wins = trades.filter((t) => t.pnl > 0).length;
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
   const performance = demoPerformance(trades);
+  const diagnostics = demoStrategyDiagnostics(trades);
   const exportDemoBackup = () => {
     try {
       const payload = createDemoBackup({ balance, bank: settings.bank, symbol: settings.symbol, positions, trades, audit, targetEdits });
@@ -517,6 +519,30 @@ function Index() {
           <div className="rounded bg-slate-800 p-2">Saídas por TP / SL / IA<br /><b>{performance.automatedClosures}</b></div>
         </div>
         <p className="mt-2 text-xs text-slate-400">Drawdown: queda máxima do P&L realizado acumulado; não inclui perdas flutuantes. Tipo de saída não identifica quem abriu a operação. Operações anteriores à atualização podem não ter autoria e risco planejado registrados.</p>
+      </section>
+
+      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label="Diagnóstico da estratégia demo">
+        <h2 className="font-bold text-[#d4af37]">Diagnóstico da Estratégia (Demo)</h2>
+        <p className="mt-1 text-xs text-slate-400">Análise somente de leitura de {diagnostics.total} operações encerradas neste navegador. Não recomenda nem executa ordens.</p>
+        {diagnostics.excluded > 0 && <p className="mt-2 text-xs text-amber-300">{diagnostics.excluded} operação(ões) ignorada(s) por dados inválidos ou incompletos.</p>}
+        {diagnostics.total === 0 ? <p className="mt-3 text-sm text-slate-300">Ainda não há operações válidas para diagnosticar.</p> : (
+          <div className="mt-3 space-y-4 text-xs">
+            {([{ title: "Por direção", groups: diagnostics.bySide }, { title: "Por tipo de saída", groups: diagnostics.byExit }]).map(section => (
+              <div key={section.title}>
+                <h3 className="mb-2 font-semibold text-white">{section.title}</h3>
+                <div className="space-y-2">
+                  {section.groups.map(group => (
+                    <div key={group.label} className="rounded bg-slate-800 p-2">
+                      <div className="flex items-center justify-between gap-2"><b>{group.label}</b><b className={group.netPnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(group.netPnl)} USDT</b></div>
+                      <p className="mt-1 text-slate-300">{group.count} operações • {group.wins} ganhos • {group.losses} perdas • Acerto {fmt(group.winRate, 1)}% • Média {fmt(group.averagePnl)} USDT</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-2 text-xs text-slate-400">Os mesmos trades aparecem nos dois agrupamentos; não some os resultados das duas seções. Resultados históricos não garantem desempenho futuro.</p>
       </section>
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
