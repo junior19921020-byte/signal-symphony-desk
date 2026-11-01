@@ -129,7 +129,7 @@ function Index() {
     if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
     if (m.signal === "AGUARDAR") parts.push(`AGUARDAR — ${m.riskNote}`);
     else if (kept.some((p) => p.symbol === m.symbol && p.side === m.signal)) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
-    else if (!m.riskApproved || !Number.isFinite(m.qty) || m.qty <= 0 || !Number.isFinite(m.sl) || !Number.isFinite(m.tp) || m.price <= 0) parts.push("ordem bloqueada pela validação de risco");
+    else if (!m.riskApproved || !Number.isFinite(m.qty) || m.qty <= 0 || !Number.isFinite(m.sl) || !Number.isFinite(m.tp) || !Number.isFinite(m.price) || m.price <= 0 || (m.signal === "COMPRA" ? !(m.sl < m.price && m.tp > m.price) : !(m.sl > m.price && m.tp < m.price))) parts.push("ordem bloqueada pela validação de risco");
     else if (autoRef.current !== "manual") {
       const side: Side = m.signal;
       const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty };
@@ -233,12 +233,14 @@ function Index() {
     if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return "Piloto colocado em modo Manual."; }
     if (intent === "AUTO_ON") { stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`); return "Piloto automático ligado a cada 15 minutos."; }
     if (price <= 0 || !m) return "Sem preço de mercado; ordem não executada.";
+    if (m.symbol !== sym) return "Ordem demo bloqueada: análise pertence a outro ativo.";
     if (!m.riskApproved || m.signal === "AGUARDAR") return `Ordem demo bloqueada: Rita Risk não aprovou a operação. ${m.riskNote}`;
     const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
     if (m.signal !== side) return `Ordem demo bloqueada: o consenso aprovado é ${m.signal}, não ${side}.`; 
     if (!Number.isFinite(m.qty) || m.qty <= 0 || !Number.isFinite(m.slDist) || m.slDist <= 0) return "Ordem demo bloqueada: lote ou distância de stop inválidos.";
     if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `Já existe ${side} aberta em ${sym}; ordem repetida bloqueada.`;
     const { sl, tp } = levels(side, price, m.slDist);
+    if (!Number.isFinite(sl) || !Number.isFinite(tp) || (side === "COMPRA" ? !(sl < price && tp > price) : !(sl > price && tp < price))) return "Ordem demo bloqueada: stop ou alvo inválido.";
     const qty = m.qty;
     const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty };
     posRef.current = [...posRef.current, np].slice(-20);
@@ -249,7 +251,7 @@ function Index() {
   };
 
   const execute = () => {
-    if (!market || market.signal === "AGUARDAR" || !market.riskApproved || !Number.isFinite(market.price) || market.price <= 0 || !Number.isFinite(market.qty) || market.qty <= 0 || !Number.isFinite(market.sl) || !Number.isFinite(market.tp)) { setLog("Ordem demo bloqueada: sinal sem aprovação ou parâmetros de risco inválidos."); return; }
+    if (!market || market.signal === "AGUARDAR" || !market.riskApproved || !Number.isFinite(market.price) || market.price <= 0 || !Number.isFinite(market.qty) || market.qty <= 0 || !Number.isFinite(market.sl) || !Number.isFinite(market.tp) || (market.signal === "COMPRA" ? !(market.sl < market.price && market.tp > market.price) : !(market.sl > market.price && market.tp < market.price))) { setLog("Ordem demo bloqueada: sinal sem aprovação ou parâmetros de risco inválidos."); return; }
     const side: Side = market.signal;
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
     setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty }].slice(-20));
