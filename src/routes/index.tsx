@@ -1,3 +1,4 @@
+import { evaluateExitVariance, type ExitVariance } from "@/lib/exitVariance";
 import { editDemoTargets } from "@/lib/editDemoTargets";
 import { demoProfitTarget } from "@/lib/demoProfitTarget";
 import { createFileRoute } from "@tanstack/react-router";
@@ -31,7 +32,7 @@ interface Msg { from: "user" | "agent"; text: string }
 interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number; provenance?: TradeProvenance }
 interface TradeProvenance { openedBy: string; openedVia: "MANUAL" | "CHAT" | "AUTOMATICO"; openedAt: number; approvedBy: "Rita Risk"; plannedRisk: number; riskPercent: number; decision: Side }
 
-interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number; provenance?: TradeProvenance }
+interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number; provenance?: TradeProvenance; exitVariance?: ExitVariance }
 interface Settings { apiKey: string; symbol: string; bank: number }
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -109,7 +110,7 @@ function Index() {
     const closing = cur.filter((p) => ids.includes(p.id));
     if (!closing.length) return;
     const done: Trade[] = closing.map((p) => ({
-      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance,
+      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance, exitVariance: evaluateExitVariance(p, price, result),
       pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
     }));
     const keep = cur.filter((p) => !ids.includes(p.id));
@@ -454,6 +455,16 @@ function Index() {
               <div key={t.id} className="text-xs text-slate-300"><div className="flex justify-between gap-2">
                 <span>{t.side} {fmt(t.entry)} → {fmt(t.exit)} ({{ TP: "Take Profit", SL: "Stop Loss", IA: "Encerrada pela IA", MANUAL: "Manual" }[t.result] ?? t.result})</span>
                 <b className={t.pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(t.pnl)}</b></div>
+                {t.exitVariance && (
+                  <div className="mt-1 rounded bg-slate-800 p-2 text-[11px]">
+                    <div>Rita Risk • {t.result === "SL" ? "Stop Loss" : "Take Profit"} configurado: {fmt(t.exitVariance.plannedPrice)} • Saída efetiva: {fmt(t.exitVariance.actualPrice)}</div>
+                    <div>Resultado previsto: {fmt(t.exitVariance.plannedPnl)} USDT • Realizado: {fmt(t.exitVariance.actualPnl)} USDT</div>
+                    <div className={t.exitVariance.difference < -0.005 ? "text-red-400" : "text-green-400"}>
+                      Diferença de execução: {t.exitVariance.difference >= 0 ? "+" : ""}{fmt(t.exitVariance.difference)} USDT
+                      {t.result === "SL" && t.exitVariance.difference < -0.005 ? " • Risco excedido" : ""}
+                    </div>
+                  </div>
+                )}
                 <div className="text-[10px] text-slate-500">Origem: {t.provenance ? `${t.provenance.openedBy} (${t.provenance.openedVia}) • Rita Risk • Risco planejado ${fmt(t.provenance.plannedRisk)} USDT` : "não registrada (operação antiga)"}</div>
               </div>
             ))}
