@@ -347,6 +347,27 @@ async function fetchNewsHeadlines(symbol: string): Promise<string[]> {
   return cachedHeadlines.items;
 }
 
+/** Fail closed on missing, stale, malformed, or divergent exchange candles. */
+export function marketCandlesFresh(c15: Candle[], c5: Candle[], now = Date.now()): boolean {
+  if (c15.length < 30 || c5.length < 5) return false;
+  const valid = (candles: Candle[], intervalMs: number) => {
+    const last = candles.at(-1);
+    if (!last || !Number.isFinite(last.t) || last.t <= 0 ||
+      last.t > now + 60_000 || now - last.t > intervalMs + 5 * 60_000) return false;
+    return candles.every((c, i) =>
+      Number.isFinite(c.t) && c.t > 0 &&
+      Number.isFinite(c.o) && c.o > 0 &&
+      Number.isFinite(c.h) && c.h >= Math.max(c.o, c.c) &&
+      Number.isFinite(c.l) && c.l > 0 && c.l <= Math.min(c.o, c.c) &&
+      Number.isFinite(c.c) && c.c > 0 &&
+      Number.isFinite(c.v) && c.v >= 0 &&
+      (i === 0 || c.t > candles[i - 1]!.t));
+  };
+  if (!valid(c15, 15 * 60_000) || !valid(c5, 5 * 60_000)) return false;
+  const p15 = c15.at(-1)!.c, p5 = c5.at(-1)!.c;
+  return Math.abs(p15 - p5) / p5 <= 0.02;
+}
+
 export async function fetchMarket(symbol: string, bank: number): Promise<Market | null> {
   activeSymbol = symbol || activeSymbol;
   activeBank = bank || activeBank;
@@ -359,14 +380,15 @@ export async function fetchMarket(symbol: string, bank: number): Promise<Market 
       fetchNewsHeadlines(symbol),
     ]);
     if (c15.length < 30 || c5.length < 5) {
-      return lastMarketCache[symbol] || null;
+      return null;
     }
+    if (!marketCandlesFresh(c15, c5)) return null;
     const m = analyze(symbol, c15, c5, bank, headlines);
     lastMarketCache[symbol] = m;
     notifyOpportunity(m);
     return m;
   } catch {
-    return lastMarketCache[symbol] || null;
+    return null;
   }
 }
 
