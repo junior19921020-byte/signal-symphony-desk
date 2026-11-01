@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { simulateTrailingProfit } from "@/lib/demoTrailingProfit";
 import { simulateDemoExits, diagnoseDemoExits, type DemoExitScenario } from "@/lib/demoExitSimulator";
 
 const names = { TAKE_PROFIT: "Take Profit", STOP_LOSS: "Stop Loss", PROFIT_TARGET: "Meta de lucro", PROTECT_PROFIT: "Proteção de lucro", AGENT: "Saída do agente" };
@@ -15,11 +16,15 @@ export function DemoExitPanel() {
   const [arm, setArm] = useState("");
   const [floor, setFloor] = useState("");
   const [samples, setSamples] = useState("");
+  const [trailArm, setTrailArm] = useState("");
+  const [trailGap, setTrailGap] = useState("");
   const [agentIndex, setAgentIndex] = useState("");
   const [scenario, setScenario] = useState<DemoExitScenario | null>(null);
+  const [trailParams, setTrailParams] = useState<{ arm: number; gap: number } | null>(null);
   const [error, setError] = useState("");
   const run = () => {
     setScenario(null);
+    setTrailParams(null);
     setError("");
     const prices = samples.split(/[\s;,]+/).filter(Boolean).map(parse);
     const next: DemoExitScenario = {
@@ -34,6 +39,14 @@ export function DemoExitPanel() {
       || (side === "COMPRA" ? !(next.stopLoss < next.entry && next.takeProfit > next.entry) : !(next.stopLoss > next.entry && next.takeProfit < next.entry))) {
       setError("Informe entrada, lote, stop, take e preços observados válidos e coerentes com a direção.");
       return;
+    }
+    if (trailArm.trim() || trailGap.trim()) {
+      const a = parse(trailArm), g = parse(trailGap);
+      if (!Number.isFinite(a) || !Number.isFinite(g) || a <= 0 || g <= 0 || g >= a) {
+        setError("Proteção dinâmica: ativação positiva e distância positiva menor que a ativação.");
+        return;
+      }
+      setTrailParams({ arm: a, gap: g });
     }
     setScenario(next);
   };
@@ -53,6 +66,8 @@ export function DemoExitPanel() {
       {field("Meta de lucro (USDT)", target, setTarget, "Opcional")}
       {field("Ativar proteção em (USDT)", arm, setArm, "Opcional")}
       {field("Piso de proteção (USDT)", floor, setFloor, "Opcional")}
+      {field("Dinâmica: ativar em (USDT)", trailArm, setTrailArm, "Opcional")}
+      {field("Dinâmica: distância do pico (USDT)", trailGap, setTrailGap, "Opcional")}
       {field("Amostra da saída do agente (1, 2...)", agentIndex, setAgentIndex, "Opcional")}
     </div>
     <label className="mt-3 block text-xs">Preços observados em ordem temporal (separados por espaço, vírgula ou linha)
@@ -78,6 +93,24 @@ export function DemoExitPanel() {
             {diagnostics.protectionBreached && <p className="font-bold text-red-300">Alerta Rita Risk: piso ultrapassado na amostra; proteção não garantida.</p>}
           </>}
           <p className="text-slate-300">As estratégias abaixo são independentes. A primeira saída encerraria a comparação conjunta; resultados posteriores não seriam realizados nessa mesma posição. Não simula execução, taxas ou slippage.</p>
+        </div>;
+      })()}
+      {trailParams && (() => {
+        const r = simulateTrailingProfit({
+          entry: scenario.entry, side: scenario.side, qty: scenario.qty,
+          observedPrices: scenario.observedPrices,
+          activateAtUsdt: trailParams.arm, trailDistanceUsdt: trailParams.gap,
+        });
+        if (!r) return <p role="alert">Proteção dinâmica indisponível.</p>;
+        return <div className="rounded border border-sky-600 bg-slate-800 p-3 text-xs space-y-1">
+          <h3 className="font-bold text-sky-300">Proteção dinâmica (Demo — comparação independente)</h3>
+          <p>Ativar em: {fmt(trailParams.arm)} USDT • Distância do pico: {fmt(trailParams.gap)} USDT</p>
+          <p>Maior lucro observado: {fmt(r.peakPnl)} USDT</p>
+          <p>Ativação: {r.activatedAtIndex === null ? "Não atingida" : `Amostra ${r.activatedAtIndex + 1}`}</p>
+          <p>Primeira saída: {r.exitIndex === null ? "Não acionada" : `Amostra ${r.exitIndex + 1} • Preço ${fmt(r.exitPrice!)} • ${fmt(r.exitPnl!)} USDT`}</p>
+          {r.floorAtExit !== null && <p>Piso na saída: {fmt(r.floorAtExit)} USDT</p>}
+          {r.floorBreached && <p className="font-bold text-red-300">Rita Risk: piso ultrapassado na amostra; proteção não garantida.</p>}
+          <p className="text-slate-300">Cálculo isolado: não altera as demais saídas, não executa ordens e não considera taxas, slippage ou preços entre amostras.</p>
         </div>;
       })()}
       {simulateDemoExits(scenario).map(r => <div key={r.rule} className="rounded bg-slate-800 p-2 text-xs">
