@@ -362,6 +362,7 @@ function Index() {
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
   const performance = demoPerformance(trades);
   const diagnostics = demoStrategyDiagnostics(trades);
+  const excursionCoverage = trades.filter(t => t.excursion && Number.isFinite(t.excursion.maxFavorablePnl) && Number.isFinite(t.excursion.maxAdversePnl)).length;
   const exportDemoBackup = () => {
     try {
       const payload = createDemoBackup({ balance, bank: settings.bank, symbol: settings.symbol, positions, trades, audit, targetEdits });
@@ -579,6 +580,11 @@ function Index() {
           <p className="mt-1 text-slate-400">Somamos perdas brutas, sem compensar lucros. A data segue o horário local do dispositivo. Trades antigos sem data não entram no cálculo. O bloqueio impede novas ordens demo, mas permite encerrar posições existentes.</p>
         </div>
         <div className="mt-3 space-y-1">
+          <div className="rounded border border-slate-600 bg-slate-800/60 p-2 text-xs text-slate-300">
+            <p className="font-semibold">Cobertura dos máximos observados (Demo)</p>
+            <p>{excursionCoverage} de {trades.length} operações encerradas possuem dados de lucro/perda máximos observados. {trades.length - excursionCoverage} sem registro.</p>
+            <p className="mt-1 text-amber-300">Dados coletados apenas enquanto a página estava ativa e com cotação válida. Não representam necessariamente os extremos reais do mercado. Histórico antigo não é estimado.</p>
+          </div>
           {positions.length === 0 && <p className="text-xs text-slate-500">Nenhuma posição aberta.</p>}
           {positions.length > 1 && <button onClick={closeAll} className="w-full rounded bg-red-600 py-1.5 text-xs font-bold">Encerrar Todas</button>}
           {positions.map((p) => {
