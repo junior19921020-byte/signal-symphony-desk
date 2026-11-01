@@ -4,6 +4,7 @@ import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
 import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
 import { agentChat } from "@/lib/agent.functions";
 import { demoOrderRejection } from "@/lib/demoRisk";
+import { auditDecision, appendAudit, type DecisionAudit } from "@/lib/decisionAudit";
 import { MemoryEngine } from "@/lib/memoryEngine";
 import { SecondBrainGraph } from "@/components/SecondBrainGraph";
 
@@ -59,6 +60,7 @@ function Index() {
   const [ready, setReady] = useState(false);
   const [nextRunAt, setNextRunAt] = useState<number>(0);
   const [log, setLog] = useState<string>("");
+  const [audit, setAudit] = useState<DecisionAudit[]>([]);
   const [tab, setTab] = useState<"desk" | "brain">("desk");
   const posRef = useRef<Position[]>([]);
   const liveRef = useRef<number>(0);
@@ -112,6 +114,7 @@ function Index() {
     if (stopRef.current) { setLoading(false); return; }
     setMarket(m);
     setLive(m.price);
+    setAudit((history) => appendAudit(history, auditDecision(m, autoRef.current === "manual" ? "ANALISE" : "AUTOMATICO")));
     const mine = posRef.current.filter((p) => p.symbol === m.symbol);
     const toClose = !m.riskApproved || m.signal === "AGUARDAR" ? [] : mine.filter((p) => p.side !== m.signal).map((p) => p.id);
     closePositions(toClose, m.price, "IA");
@@ -252,6 +255,7 @@ function Index() {
   const execute = () => {
     if (!market || market.signal === "AGUARDAR") { setLog("Ordem demo bloqueada: sem sinal aprovado."); return; }
     const rejection = demoOrderRejection(market, market.signal, settings.symbol);
+    setAudit((history) => appendAudit(history, auditDecision(market, "MANUAL")));
     if (rejection) { setLog(`Ordem demo bloqueada: ${rejection}`); return; }
     const side: Side = market.signal;
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
@@ -277,6 +281,11 @@ function Index() {
       </nav>
 
       {tab === "brain" ? <SecondBrainGraph /> : (<>
+      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Auditoria de decisões demo">
+        <h2 className="text-sm font-bold text-[#d4af37]">Auditoria de Decisões (Demo)</h2>
+        <p className="mt-1 text-slate-400">Últimas decisões desta sessão; nenhum registro envia ordens.</p>
+        {audit.length === 0 ? <p className="mt-2">Nenhuma análise registrada nesta sessão.</p> : <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">{audit.slice(0, 10).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="font-bold">{new Date(entry.at).toLocaleTimeString("pt-BR")} • {entry.symbol} • {entry.decision}</div><div>Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">{entry.reason}</div></div>)}</div>}
+      </section>
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
       </section>
