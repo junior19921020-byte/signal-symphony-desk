@@ -5,6 +5,7 @@ import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Marke
 import { agentChat } from "@/lib/agent.functions";
 import { demoOrderRejection } from "@/lib/demoRisk";
 import { fetchDemoQuote } from "@/lib/demoQuote";
+import { evaluateDemoExits } from "@/lib/demoExits";
 import { demoPerformance } from "@/lib/demoPerformance";
 import { auditDecision, appendAudit, parseAuditHistory, type DecisionAudit } from "@/lib/decisionAudit";
 import { MemoryEngine } from "@/lib/memoryEngine";
@@ -208,16 +209,13 @@ function Index() {
     return () => { alive = false; clearInterval(id); };
   }, [settings.symbol, ready]);
 
-  // Monitoramento SL/TP a cada preço ao vivo
+  // Verifica limites demo independentemente do botão de análise.
+  // A cotação precisa ser recente; esta lógica funciona apenas com a página ativa.
   useEffect(() => {
-    if (!ready || !live || !quoteAt || Date.now() - quoteAt > 15000) return;
-    const tp: string[] = [];
-    const sl: string[] = [];
-    for (const p of positions) {
-      if (p.symbol !== settings.symbol) continue;
-      if (p.side === "COMPRA") { if (live <= p.sl) sl.push(p.id); else if (live >= p.tp) tp.push(p.id); }
-      else { if (live >= p.sl) sl.push(p.id); else if (live <= p.tp) tp.push(p.id); }
-    }
+    if (!ready) return;
+    const exits = evaluateDemoExits(positions, settings.symbol, live, quoteAt, Date.now());
+    const sl = exits.filter((x) => x.result === "SL").map((x) => x.id);
+    const tp = exits.filter((x) => x.result === "TP").map((x) => x.id);
     closePositions(sl, live, "SL");
     closePositions(tp, live, "TP");
   }, [live, quoteAt, ready, positions, settings.symbol, closePositions]);
