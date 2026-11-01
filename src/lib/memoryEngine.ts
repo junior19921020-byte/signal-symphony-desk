@@ -1,5 +1,5 @@
 export interface MemoryNote { id: string; title: string; body: string; kind: "trade" | "asset" | "agent" | "note"; createdAt: number }
-export interface GraphNode { id: string; label: string; kind: MemoryNote["kind"] | "ghost"; pnl?: number }
+export interface GraphNode { id: string; label: string; kind: MemoryNote["kind"] | "ghost"; pnl?: number | undefined }
 export interface GraphLink { source: string; target: string }
 
 const KEY = "td_second_brain";
