@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { fmt, type Market } from "@/lib/trading";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { fmt, marketContext, parseIntent, type Market } from "@/lib/trading";
+import { agentChat } from "@/lib/agent.functions";
 
 export type ActivityMode = "Atendendo" | "Pausa" | "Reunião" | "Foco";
 export type RiskProfile = "Conservador" | "Moderado" | "Agressivo";
@@ -21,7 +22,7 @@ export interface Agent {
   days?: boolean[];
   riskProfile?: RiskProfile;
   allowedSide?: AllowedSide;
-  trailingStop?: boolean;
+  autonomous?: boolean;
 }
 
 export const ROOMS = [
@@ -29,99 +30,85 @@ export const ROOMS = [
   { id: 1, title: "Análise Gráfica", code: "C02" },
   { id: 2, title: "Gestão de Risco", code: "C03" },
   { id: 3, title: "Mesa de Execução", code: "C04" },
-  { id: 4, title: "Recepção", code: "REC" },
-  { id: 5, title: "Sala de Reunião", code: "MEET" },
-  { id: 6, title: "Descompressão & Jogos", code: "LOUNGE" },
-  { id: 7, title: "Diretoria & Foco Quant", code: "EXEC" },
 ];
 
-const HIRE_CATALOG: Array<{
-  name: string;
-  role: string;
-  color: string;
-  hair: string;
-  station: string;
-  desc: string;
-  why: string;
-  prompt: string;
-}> = [
+const HIRE_CATALOG = [
   {
-    name: "Rafael — Caçador de Rompimentos",
+    name: "Rafael",
     role: "Analista Gráfica",
     color: "#2563eb",
     hair: "#1e293b",
     station: "C05",
-    desc: "Monitora rompimentos de suporte, resistência e explosões de volume nas velas de 5m e 15m.",
-    why: "identifica movimentos fortes no início da tendência antes do cruzamento atrasado das médias.",
+    desc: "Monitora rompimentos de suporte, resistência e explosões de volume em 5m e 15m.",
+    why: "identifica movimentos fortes no início da tendência antes das médias.",
     prompt: "Você é Rafael, especialista em price action, rompimentos de suporte/resistência e volume explosivo.",
   },
   {
-    name: "Caio — Fluxo & Baleias",
+    name: "Caio",
     role: "Analista de Notícias",
     color: "#0891b2",
     hair: "#451a03",
     station: "C06",
-    desc: "Rastreia agressão compradora/vendedora no livro de ofertas e movimentação institucional.",
-    why: "filtra entradas falsas confirmando se o dinheiro forte está comprando ou vendendo a mercado.",
+    desc: "Rastreia agressão compradora/vendedora no livro de ofertas e fluxo institucional.",
+    why: "filtra entradas falsas confirmando se as baleias estão comprando ou vendendo.",
     prompt: "Você é Caio, analista de fluxo de ordens (order flow), agressão de compra/venda e liquidez.",
   },
   {
-    name: "Bia — Scalper RSI & Bollinger",
+    name: "Bia",
     role: "Analista Gráfica",
     color: "#db2777",
     hair: "#7c2d12",
     station: "C07",
-    desc: "Opera exaustão de preço, divergências de RSI e retorno à média9/21 em operações rápidas.",
-    why: "aproveita correções rápidas tanto na COMPRA (Long) quanto na VENDA (Short).",
+    desc: "Opera exaustão de preço, divergências de RSI e retorno às médias em operações rápidas.",
+    why: "aproveita reversões rápidas tanto na COMPRA (Long) quanto na VENDA (Short).",
     prompt: "Você é Bia, especialista em scalping quantitativo, divergências de RSI e retorno às médias móveis.",
   },
   {
-    name: "Leo — Guardião de Stop & Breakeven",
+    name: "Leo",
     role: "Diretora de Risco",
     color: "#dc2626",
     hair: "#facc15",
     station: "C08",
-    desc: "Protege o patrimônio movendo o Stop Loss para o ponto de entrada (breakeven) e travando lucros.",
+    desc: "Protege o patrimônio movendo o Stop Loss para o breakeven e travando lucros.",
     why: "impede que operações vencedoras voltem e fechem no prejuízo.",
-    prompt: "Você é Leo, gestor de risco focado em proteção de drawdown, relação retorno/risco 2:1 e trailing stop.",
+    prompt: "Você é Leo, gestor de risco focado em proteção de drawdown, relação retorno/risco 2:1 e breakeven.",
   },
 ];
 
 const SUIT_COLORS = ["#2563eb", "#9333ea", "#dc2626", "#16a34a", "#0891b2", "#ea580c", "#db2777", "#4f46e5"];
-const HAIR_COLORS = ["#111827", "#7c2d12", "#facc15", "#451a03", "#991b1b", "#374151"];
 const DAY_LABELS = ["S", "T", "Q", "Q", "S", "S", "D"];
 
-// Coordenadas (x, y) no mapa SVG 900x540 para cada estação e ambiente
+// Coordenadas isométricas precisas no SVG 920x540
 const DESK_COORDS: Record<string, { x: number; y: number; label: string }> = {
-  C01: { x: 525, y: 205, label: "Estação C01" },
-  C02: { x: 575, y: 230, label: "Estação C02" },
-  C03: { x: 625, y: 255, label: "Estação C03" },
-  C04: { x: 675, y: 280, label: "Estação C04" },
-  C05: { x: 465, y: 255, label: "Estação C05" },
-  C06: { x: 515, y: 280, label: "Estação C06" },
-  C07: { x: 565, y: 305, label: "Estação C07" },
-  C08: { x: 615, y: 330, label: "Estação C08" },
+  C01: { x: 540, y: 215, label: "Estação C01" },
+  C02: { x: 590, y: 240, label: "Estação C02" },
+  C03: { x: 640, y: 265, label: "Estação C03" },
+  C04: { x: 690, y: 290, label: "Estação C04" },
+  C05: { x: 470, y: 260, label: "Estação C05" },
+  C06: { x: 520, y: 285, label: "Estação C06" },
+  C07: { x: 570, y: 310, label: "Estação C07" },
+  C08: { x: 620, y: 335, label: "Estação C08" },
 };
 
 const ACTIVITY_SPOTS: Record<ActivityMode, Array<{ x: number; y: number; label: string }>> = {
   Atendendo: Object.values(DESK_COORDS),
   Pausa: [
-    { x: 255, y: 315, label: "Mesa de Sinuca" },
-    { x: 185, y: 270, label: "Café & Lounge" },
-    { x: 310, y: 345, label: "Área de Descanso" },
-    { x: 235, y: 245, label: "Fliperama & Bebidas" },
+    { x: 245, y: 310, label: "Mesa de Sinuca" },
+    { x: 185, y: 268, label: "Balcão de Café" },
+    { x: 305, y: 340, label: "Sofá de Descanso" },
+    { x: 225, y: 235, label: "Fliperama" },
   ],
   Reunião: [
-    { x: 410, y: 385, label: "Mesa de Reunião 1" },
-    { x: 445, y: 405, label: "Mesa de Reunião 2" },
-    { x: 480, y: 425, label: "Mesa de Reunião 3" },
-    { x: 385, y: 410, label: "Mesa de Reunião 4" },
+    { x: 395, y: 385, label: "Comitê de Risco" },
+    { x: 430, y: 403, label: "Comitê de Risco" },
+    { x: 465, y: 420, label: "Comitê de Risco" },
+    { x: 375, y: 410, label: "Comitê de Risco" },
   ],
   Foco: [
-    { x: 350, y: 145, label: "Sala da Diretoria" },
-    { x: 310, y: 175, label: "Lounge Executivo" },
-    { x: 415, y: 165, label: "Cabine Quant" },
-    { x: 265, y: 195, label: "Mesa Estratégica" },
+    { x: 355, y: 140, label: "Mesa da Diretoria" },
+    { x: 310, y: 162, label: "Sofá Executivo" },
+    { x: 400, y: 165, label: "Laboratório Quant" },
+    { x: 275, y: 185, label: "Sala Estratégica" },
   ],
 };
 
@@ -130,11 +117,11 @@ export function statusFor(agent: Agent, market: Market | null): string {
   const st = agent.station || `C0${(agent.room % 8) + 1}`;
   if (act === "Pausa") return `Em pausa • Descompressão`;
   if (act === "Reunião") return `Em reunião • Comitê de Risco`;
-  if (act === "Foco") return `Em foco profundo • Sala Quant`;
-  if (!market) return `Analisando na Estação ${st}...`;
+  if (act === "Foco") return `Em foco • Sala da Diretoria`;
+  if (!market) return `Analisando na Estação ${st}`;
   const r = agent.role.toLowerCase();
   if (r.includes("notícia") || r.includes("noticia") || r.includes("pesquisa") || agent.room === 0) {
-    return `${market.research.trend} • Vol ${(market.buyRatio * 100).toFixed(0)}% (${st})`;
+    return `Pesquisa ${market.research.trend} • Vol ${(market.buyRatio * 100).toFixed(0)}% (${st})`;
   }
   if (r.includes("gráfica") || r.includes("grafica") || r.includes("quant") || agent.room === 1) {
     return `Gráfico ${market.chart.trend} • RSI ${fmt(market.rsi, 0)} (${st})`;
@@ -145,31 +132,55 @@ export function statusFor(agent: Agent, market: Market | null): string {
   return `Sinal: ${market.signal} (${st})`;
 }
 
-export function OfficeMap({
-  agents: propAgents,
-  market,
-  onSelectAgent,
-}: {
+interface ChatMsg {
+  from: "user" | "agent";
+  text: string;
+  time: string;
+}
+
+interface NoticeItem {
+  id: string;
+  time: string;
+  agentName: string;
+  agentColor: string;
+  title: string;
+  text: string;
+  signal: "COMPRA" | "VENDA" | "AVISO";
+}
+
+export function OfficeMap(props: {
   agents: Agent[];
   market: Market | null;
   onSelectAgent?: (a: Agent) => void;
+  onSelect?: (a: Agent) => void;
 }) {
+  const { agents: propAgents, market } = props;
+
   const [localAgents, setLocalAgents] = useState<Agent[]>(propAgents);
-  const [topTab, setTopTab] = useState<"Quadro" | "Avisos" | "Relatório" | "Voz" | null>("Quadro");
+  const [topTab, setTopTab] = useState<"Quadro" | "Avisos" | "Relatório" | "Voz" | null>(null);
   const [subTab, setSubTab] = useState<"EQUIPE" | "CONTRATAR" | "ANDAR">("EQUIPE");
-  const [configAgent, setConfigAgent] = useState<Agent | null>(null);
+  const [activeModalAgent, setActiveModalAgent] = useState<Agent | null>(null);
+  const [modalView, setModalView] = useState<"CHAT" | "CONFIG">("CHAT");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [spawningIds, setSpawningIds] = useState<Record<string, boolean>>({});
-  const [floorName, setFloorName] = useState("18º Andar • Mesa de Operações");
-  const [dayMode, setDayMode] = useState(true);
+  const [bubbles, setBubbles] = useState<Record<string, string>>({});
+  const [autonomyEnabled, setAutonomyEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [floorName, setFloorName] = useState("18º Andar • Mesa de Operações");
   const [clock, setClock] = useState("12:48");
-  const [alerts, setAlerts] = useState<Array<{ time: string; title: string; detail: string; side: string }>>([]);
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [liveToast, setLiveToast] = useState<NoticeItem | null>(null);
+  const [chats, setChats] = useState<Record<string, ChatMsg[]>>({});
+  const [chatInput, setChatInput] = useState("");
+  const [chatBusy, setChatBusy] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const lastSignalRef = useRef<string>("");
 
-  // Sincroniza agentes salvos com propriedades estendidas
+  // Inicializa agentes com estações C01..C08
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("td_agents_v2");
+      const saved = localStorage.getItem("td_agents_v3");
       if (saved) {
         const parsed = JSON.parse(saved) as Agent[];
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -189,53 +200,122 @@ export function OfficeMap({
         days: a.days || [true, true, true, true, true, true, true],
         riskProfile: a.riskProfile || "Moderado",
         allowedSide: a.allowedSide || "AMBOS",
-        trailingStop: a.trailingStop ?? true,
+        autonomous: true,
       }))
     );
   }, [propAgents]);
 
-  const updateAgents = (next: Agent[]) => {
+  const saveAgentsList = (next: Agent[]) => {
     setLocalAgents(next);
     try {
-      localStorage.setItem("td_agents_v2", JSON.stringify(next));
+      localStorage.setItem("td_agents_v3", JSON.stringify(next));
       localStorage.setItem("td_agents", JSON.stringify(next));
     } catch { /* */ }
   };
 
-  // Relógio em tempo real na barra de Expediente
+  // Relógio da barra de Expediente
   useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      setClock(d.toTimeString().slice(0, 5));
-    };
+    const tick = () => setClock(new Date().toTimeString().slice(0, 5));
     tick();
     const i = setInterval(tick, 10000);
     return () => clearInterval(i);
   }, []);
 
-  // Registra alertas de oportunidade e lê por voz se ativado
+  // Função para disparar Aviso Autônomo (Toast na tela + Sino + Som)
+  const pushNotice = (item: Omit<NoticeItem, "id" | "time">) => {
+    const now = new Date().toTimeString().slice(0, 5);
+    const full: NoticeItem = { ...item, id: String(Date.now() + Math.random()), time: now };
+    setNotices((prev) => [full, ...prev].slice(0, 20));
+    setUnreadCount((c) => c + 1);
+    setLiveToast(full);
+    setTimeout(() => {
+      setLiveToast((cur) => (cur?.id === full.id ? null : cur));
+    }, 6500);
+  };
+
+  // AUTONOMIA DOS AGENTES NO ESCRITÓRIO: caminham sozinhos, fazem reuniões de comitê, tomam café e emitem avisos!
+  useEffect(() => {
+    if (!autonomyEnabled) return;
+    const interval = setInterval(() => {
+      setLocalAgents((prev) => {
+        if (prev.length === 0) return prev;
+        const idx = Math.floor(Math.random() * prev.length);
+        const chosen = prev[idx];
+        if (!chosen) return prev;
+
+        const sig = market?.signal || "AGUARDAR";
+        let nextAct: ActivityMode = "Atendendo";
+        let thought = "";
+
+        const roll = Math.random();
+        if (sig === "AGUARDAR" && roll < 0.35) {
+          nextAct = "Pausa";
+          thought = "Mercado lateral... vou tomar um café ☕";
+        } else if (roll < 0.55) {
+          nextAct = "Reunião";
+          thought = sig !== "AGUARDAR" ? `Validando ${sig} no Comitê!` : "Alinhando risco na mesa...";
+        } else if (roll < 0.72) {
+          nextAct = "Foco";
+          thought = "Analisando liquidez na Diretoria 🎯";
+        } else {
+          nextAct = "Atendendo";
+          thought = sig !== "AGUARDAR" ? `Sinal ${sig} ativo na ${chosen.station}!` : `Monitorando velas na ${chosen.station}`;
+        }
+
+        setBubbles((b) => ({ ...b, [chosen.id]: thought }));
+        setTimeout(() => {
+          setBubbles((b) => {
+            const copy = { ...b };
+            delete copy[chosen.id];
+            return copy;
+          });
+        }, 7000);
+
+        return prev.map((a, i) => (i === idx ? { ...a, activity: nextAct } : a));
+      });
+    }, 11000);
+
+    return () => clearInterval(interval);
+  }, [autonomyEnabled, market?.signal]);
+
+  // Avisos automáticos sempre que o mercado atualiza ou muda de sinal
   useEffect(() => {
     if (!market) return;
-    const now = new Date().toTimeString().slice(0, 5);
-    const entry = {
-      time: now,
-      title: market.signal === "AGUARDAR" ? `Monitoramento ${market.symbol}` : `Oportunidade de ${market.signal} em ${market.symbol}`,
-      detail: `Preço $${fmt(market.price)} • SL $${fmt(market.sl)} • TP $${fmt(market.tp)} • ${market.chart.note}`,
-      side: market.signal,
-    };
-    setAlerts((prev) => [entry, ...prev.filter((x) => x.detail !== entry.detail)].slice(0, 15));
+    const sigKey = `${market.symbol}-${market.signal}-${Math.round(market.price / 25)}`;
+    if (sigKey === lastSignalRef.current) return;
+    lastSignalRef.current = sigKey;
 
-    if (voiceEnabled && market.signal !== "AGUARDAR" && typeof window !== "undefined" && "speechSynthesis" in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(
-          `Atenção mesa: oportunidade de ${market.signal} em ${market.symbol} a ${fmt(market.price, 0)} dólares. Stop loss em ${fmt(market.sl, 0)} e alvo em ${fmt(market.tp, 0)}.`
-        );
-        u.lang = "pt-BR";
-        window.speechSynthesis.speak(u);
-      } catch { /* */ }
+    if (market.signal === "COMPRA" || market.signal === "VENDA") {
+      const sofia = localAgents.find((a) => a.role.includes("Gráfica")) || localAgents[0];
+      pushNotice({
+        agentName: sofia?.name || "Sofia Quant",
+        agentColor: sofia?.color || "#9333ea",
+        title: `🚨 Oportunidade de ${market.signal} em ${market.symbol}`,
+        text: `Entrada $${fmt(market.price)} • SL $${fmt(market.sl)} • TP $${fmt(market.tp)} (${market.chart.note})`,
+        signal: market.signal,
+      });
+
+      if (voiceEnabled && typeof window !== "undefined" && "speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(
+            `Aviso da mesa: oportunidade de ${market.signal} em ${market.symbol} a ${fmt(market.price, 0)} dólares.`
+          );
+          u.lang = "pt-BR";
+          window.speechSynthesis.speak(u);
+        } catch { /* */ }
+      }
+    } else {
+      const rita = localAgents.find((a) => a.role.includes("Risco")) || localAgents[0];
+      pushNotice({
+        agentName: rita?.name || "Rita Risk",
+        agentColor: rita?.color || "#dc2626",
+        title: `🔍 Revisão de Mercado (${market.symbol})`,
+        text: `Preço $${fmt(market.price)} • RSI ${fmt(market.rsi, 0)} • ${market.riskNote}`,
+        signal: "AVISO",
+      });
     }
-  }, [market?.signal, market?.time, voiceEnabled]);
+  }, [market?.signal, market?.price]);
 
   const counts = useMemo(() => {
     const c = { Atendendo: 0, Pausa: 0, Reunião: 0, Foco: 0 };
@@ -246,13 +326,77 @@ export function OfficeMap({
     return c;
   }, [localAgents]);
 
-  const hireAgent = (tpl: (typeof HIRE_CATALOG)[number]) => {
+  const openAgentModal = (ag: Agent, view: "CHAT" | "CONFIG" = "CHAT") => {
+    setActiveModalAgent({ ...ag });
+    setModalView(view);
+    setChats((prev) => {
+      if (prev[ag.id]?.length) return prev;
+      const welcome = market
+        ? `Olá! Aqui é ${ag.name} (${ag.role}) na Estação ${ag.station || "C01"}. Estou monitorando o ${market.symbol} a $${fmt(market.price)} (RSI ${fmt(market.rsi, 0)}, sinal atual: ${market.signal}). O que você gostaria de perguntar ou comandar?`
+        : `Olá! Aqui é ${ag.name} (${ag.role}). Pode me perguntar sobre o gráfico, tendências, notícias ou comandar operações!`;
+      return {
+        ...prev,
+        [ag.id]: [{ from: "agent", text: welcome, time: new Date().toTimeString().slice(0, 5) }],
+      };
+    });
+  };
+
+  const sendQuestionToAgent = async () => {
+    if (!activeModalAgent) return;
+    const q = chatInput.trim();
+    if (!q || chatBusy) return;
+    const ag = activeModalAgent;
+    const now = new Date().toTimeString().slice(0, 5);
+    setChatInput("");
+    setChats((prev) => ({
+      ...prev,
+      [ag.id]: [...(prev[ag.id] || []), { from: "user", text: q, time: now }],
+    }));
+    setChatBusy(true);
+
+    const intent = parseIntent(q);
+    let actionMsg = "";
+    if (intent === "CLOSE") actionMsg = "Solicitação de encerramento de posições enviada à mesa.";
+    else if (intent === "BUY") actionMsg = "Ordem de COMPRA enviada ao Max Trader.";
+    else if (intent === "SELL") actionMsg = "Ordem de VENDA enviada ao Max Trader.";
+
+    const ctx = market
+      ? marketContext(market)
+      : "Mercado em carregamento; responda com base na sua função na mesa de trading.";
+
+    let replyText = "";
+    try {
+      const res = await agentChat({
+        data: {
+          system: ag.prompt,
+          role: `${ag.name} (${ag.role})`,
+          question: q,
+          context: ctx,
+          action: actionMsg,
+        },
+      });
+      replyText = res.ok ? res.text : `⚠️ ${res.error}`;
+    } catch {
+      replyText = market
+        ? `Aqui é ${ag.name}: analisando ${market.symbol} agora em $${fmt(market.price)} (RSI ${fmt(market.rsi, 0)}, EMA9 $${fmt(market.ema9)} vs EMA21 $${fmt(market.ema21)}). Pesquisa: ${market.research.trend} | Gráfico: ${market.chart.trend} | Sinal: ${market.signal} (SL $${fmt(market.sl)} / TP $${fmt(market.tp)}).`
+        : `Aqui é ${ag.name}: estou acompanhando o fluxo das velas na Estação ${ag.station || "C01"}.`;
+    }
+
+    setChats((prev) => ({
+      ...prev,
+      [ag.id]: [...(prev[ag.id] || []), { from: "agent", text: replyText, time: new Date().toTimeString().slice(0, 5) }],
+    }));
+    setChatBusy(false);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
+  };
+
+  const hireSpecialist = (tpl: (typeof HIRE_CATALOG)[number]) => {
     const id = `ag_${Date.now()}`;
-    const usedStations = new Set(localAgents.map((a) => a.station));
-    const freeStation = Object.keys(DESK_COORDS).find((k) => !usedStations.has(k)) || tpl.station;
+    const used = new Set(localAgents.map((a) => a.station));
+    const freeStation = Object.keys(DESK_COORDS).find((k) => !used.has(k)) || tpl.station;
     const newAg: Agent = {
       id,
-      name: tpl.name.split(" — ")[0] || tpl.name,
+      name: tpl.name,
       role: tpl.role,
       room: tpl.role.includes("Notícia") ? 0 : tpl.role.includes("Gráfica") ? 1 : tpl.role.includes("Risco") ? 2 : 3,
       color: tpl.color,
@@ -266,878 +410,1116 @@ export function OfficeMap({
       days: [true, true, true, true, true, true, true],
       riskProfile: "Moderado",
       allowedSide: "AMBOS",
-      trailingStop: true,
+      autonomous: true,
     };
-    // Animação saindo da Recepção até a Estação
     setSpawningIds((s) => ({ ...s, [id]: true }));
-    updateAgents([...localAgents, newAg]);
-    setHoveredId(id);
+    saveAgentsList([...localAgents, newAg]);
+    pushNotice({
+      agentName: newAg.name,
+      agentColor: newAg.color,
+      title: `👋 Novo Agente Contratado!`,
+      text: `${newAg.name} (${newAg.role}) entrou pela recepção e assumiu a ${freeStation}.`,
+      signal: "AVISO",
+    });
     setTimeout(() => {
       setSpawningIds((s) => {
         const copy = { ...s };
         delete copy[id];
         return copy;
       });
-    }, 1800);
+    }, 1500);
   };
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-[#0e1726]">
-      {/* BARRA SUPERIOR DOURADA DE EXPEDIENTE (IDÊNTICA AO VÍDEO) */}
-      <div className="bg-gradient-to-r from-[#f6d345] via-[#f4c63d] to-[#eab308] text-slate-950 px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/40">
-        <div className="flex items-center gap-3 sm:gap-5 flex-wrap">
-          <div className="pr-3 border-r border-slate-950/15">
-            <div className="text-sm sm:text-base font-extrabold leading-none tracking-tight font-mono">{clock}</div>
-            <div className="text-[9px] font-bold tracking-widest uppercase opacity-75">EXPEDIENTE</div>
+    <div
+      style={{
+        borderRadius: 16,
+        overflow: "hidden",
+        border: "1px solid #334155",
+        background: "#0f172a",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.45)",
+        fontFamily: "Inter, system-ui, sans-serif",
+      }}
+    >
+      {/* BARRA SUPERIOR DOURADA COMPACTA E RESPONSIVA (IDÊNTICA AO VÍDEO) */}
+      <div
+        style={{
+          background: "linear-gradient(90deg, #f6d345 0%, #f4c63d 55%, #eab308 100%)",
+          color: "#0f172a",
+          padding: "8px 12px",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          borderBottom: "1px solid rgba(15,23,42,0.15)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ paddingRight: 10, borderRight: "1px solid rgba(15,23,42,0.2)" }}>
+            <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1, fontFamily: "monospace" }}>{clock}</div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 1, marginTop: 2 }}>EXPEDIENTE</div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4 text-center">
+          <div style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "center" }}>
             <div>
-              <div className="text-xs sm:text-sm font-extrabold leading-none">{counts.Atendendo}</div>
-              <div className="text-[9px] font-medium opacity-80">atendendo</div>
+              <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1 }}>{counts.Atendendo}</div>
+              <div style={{ fontSize: 9, fontWeight: 600 }}>atendendo</div>
             </div>
             <div>
-              <div className="text-xs sm:text-sm font-extrabold leading-none">{counts.Pausa}</div>
-              <div className="text-[9px] font-medium opacity-80">em pausa</div>
+              <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1 }}>{counts.Pausa}</div>
+              <div style={{ fontSize: 9, fontWeight: 600 }}>em pausa</div>
             </div>
             <div>
-              <div className="text-xs sm:text-sm font-extrabold leading-none">{counts.Reunião}</div>
-              <div className="text-[9px] font-medium opacity-80">reunião</div>
+              <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1 }}>{counts.Reunião}</div>
+              <div style={{ fontSize: 9, fontWeight: 600 }}>reunião</div>
             </div>
             <div>
-              <div className="text-xs sm:text-sm font-extrabold leading-none">{counts.Foco}</div>
-              <div className="text-[9px] font-medium opacity-80">foco</div>
+              <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1 }}>{counts.Foco}</div>
+              <div style={{ fontSize: 9, fontWeight: 600 }}>foco</div>
             </div>
           </div>
         </div>
 
-        {/* Botões Superiores: Quadro | Avisos | Relatório | Voz */}
-        <div className="flex items-center gap-1.5">
+        {/* Botões Compactos: Quadro | Avisos | Relatório | Voz */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {(["Quadro", "Avisos", "Relatório", "Voz"] as const).map((tab) => {
-            const active = topTab === tab;
+            const isAct = topTab === tab;
             return (
               <button
                 key={tab}
-                onClick={() => setTopTab(active ? null : tab)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition border ${
-                  active
-                    ? "bg-slate-950 text-amber-300 border-slate-950 shadow"
-                    : "bg-amber-200/60 hover:bg-amber-100/80 text-slate-900 border-slate-950/15"
-                }`}
+                onClick={() => {
+                  setTopTab(isAct ? null : tab);
+                  if (tab === "Avisos") setUnreadCount(0);
+                }}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 7,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  border: isAct ? "1px solid #0f172a" : "1px solid rgba(15,23,42,0.2)",
+                  background: isAct ? "#0f172a" : "rgba(255,255,255,0.45)",
+                  color: isAct ? "#fde047" : "#0f172a",
+                  position: "relative",
+                }}
               >
-                {tab === "Voz" && voiceEnabled ? "🔊 Voz" : tab}
+                {tab === "Avisos" ? `🔔 Avisos${unreadCount > 0 ? ` (${unreadCount})` : ""}` : tab}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* ÁREA PRINCIPAL: CENÁRIO ISOMÉTRICO + PAINEL LATERAL */}
-      <div className="relative flex flex-col lg:flex-row">
-        {/* CENÁRIO ISOMÉTRICO ARQUITETÔNICO COMPLETO (ESTILO DO VÍDEO) */}
+      {/* CONTAINER DO CENÁRIO DO VÍDEO (FUNDO TURQUESA SUAVE E PISO SÓLIDO CLARO) */}
+      <div
+        style={{
+          position: "relative",
+          background: "linear-gradient(135deg, #6ab7b9 0%, #92c8c0 55%, #dcd8bc 100%)",
+          minHeight: 370,
+          overflow: "hidden",
+          userSelect: "none",
+        }}
+      >
+        {/* Pílula compacta no canto superior esquerdo */}
         <div
-          className={`relative flex-1 min-h-[380px] sm:min-h-[460px] transition-colors duration-500 overflow-hidden select-none ${
-            dayMode
-              ? "bg-gradient-to-br from-[#67b2b8] via-[#8ec5be] to-[#d9d6b8]"
-              : "bg-gradient-to-br from-[#0b1324] via-[#111c35] to-[#1e293b]"
-          }`}
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 10,
+            background: "rgba(255,255,255,0.92)",
+            padding: "4px 10px",
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#0f172a",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
         >
-          {/* Etiqueta do Andar no Canto Superior Esquerdo */}
-          <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-3 py-1 rounded-full shadow border border-slate-300/60 text-[11px] font-semibold text-slate-800">
-            <span>🏢 {floorName}</span>
-            <span className="text-emerald-600 font-bold">• {localAgents.length} agentes no andar</span>
-          </div>
-
-          {/* Legenda rápida de toque */}
-          <div className="absolute bottom-2.5 left-3 z-10 bg-slate-950/75 backdrop-blur text-slate-200 px-3 py-1 rounded-full text-[10px] flex items-center gap-2">
-            <span>👆 Toque em qualquer agente para configurar horário, atividade, aparência ou abrir o cérebro (IA)</span>
-          </div>
-
-          <svg viewBox="0 0 900 540" className="w-full h-full max-h-[540px] block">
-            <defs>
-              <filter id="isoShadow" x="-15%" y="-15%" width="130%" height="140%">
-                <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.35" />
-              </filter>
-              {/* Padrão de piso claro quadriculado */}
-              <pattern id="lightTile" width="24" height="12" patternUnits="userSpaceOnUse">
-                <path d="M 12 0 L 24 6 L 12 12 L 0 6 Z" fill="#f1efe7" stroke="#e2dfd5" strokeWidth="0.7" />
-              </pattern>
-              {/* Padrão de piso de madeira quente (Diretoria e Recepção) */}
-              <pattern id="woodFloor" width="20" height="10" patternUnits="userSpaceOnUse">
-                <path d="M 10 0 L 20 5 L 10 10 L 0 5 Z" fill="#d99b52" stroke="#c5863e" strokeWidth="0.6" />
-              </pattern>
-            </defs>
-
-            {/* BASE ARQUITETÔNICA DO ESCRITÓRIO INTEIRO */}
-            <g filter="url(#isoShadow)">
-              {/* Laje externa e espessura do piso */}
-              <polygon points="430,45 830,245 450,495 50,295" fill="#1e293b" />
-              <polygon points="50,295 450,495 450,512 50,312" fill="#334155" />
-              <polygon points="830,245 450,495 450,512 830,262" fill="#0f172a" />
-
-              {/* Piso Principal Quadriculado Claro */}
-              <polygon points="430,52 818,246 450,486 62,292" fill="url(#lightTile)" />
-
-              {/* PISO DE MADEIRA: SALA DA DIRETORIA (Topo Esquerdo) */}
-              <polygon points="345,95 475,160 365,225 235,160" fill="url(#woodFloor)" stroke="#b47532" strokeWidth="1" />
-
-              {/* PISO DE MADEIRA: RECEPÇÃO (Topo Direito/Central) */}
-              <polygon points="485,80 615,145 535,195 405,130" fill="url(#woodFloor)" stroke="#b47532" strokeWidth="1" />
-
-              {/* PISO SALA DE REUNIÃO (Inferior Central) */}
-              <polygon points="355,345 525,430 450,480 280,395" fill="#e7e4da" stroke="#cbd5e1" strokeWidth="1" />
-
-              {/* PAREDES EXTERNAS TRASEIRAS ESCURAS (Estilo do Vídeo) */}
-              {/* Parede Traseira Esquerda */}
-              <polygon points="62,292 430,52 430,22 62,262" fill="#1e222d" stroke="#0f172a" strokeWidth="1" />
-              {/* Parede Traseira Direita */}
-              <polygon points="430,52 818,246 818,216 430,22" fill="#262b38" stroke="#0f172a" strokeWidth="1" />
-
-              {/* Quadros e Telões nas Paredes Traseiras */}
-              {/* Quadro Branco / Gráfico na Diretoria */}
-              <polygon points="365,82 415,52 415,35 365,65" fill="#f8fafc" stroke="#475569" strokeWidth="1.5" />
-              <polyline points="370,60 382,50 392,53 408,40" fill="none" stroke="#16a34a" strokeWidth="2" />
-
-              {/* Letreiro Dourado na Recepção */}
-              <polygon points="465,52 515,77 515,60 465,35" fill="#18181b" stroke="#f59e0b" strokeWidth="1.2" />
-              <text x="490" y="58" fontSize="6.5" fill="#facc15" fontWeight="bold" textAnchor="middle" transform="skewY(26)">
-                TRADING
-              </text>
-
-              {/* DIVISÓRIAS INTERNAS DE VIDRO TRANSLÚCIDO */}
-              {/* Vidro da Diretoria */}
-              <polygon points="235,160 365,225 365,200 235,135" fill="#38bdf8" fillOpacity="0.22" stroke="#bae6fd" strokeWidth="1" />
-              <polygon points="365,225 475,160 475,135 365,200" fill="#0ea5e9" fillOpacity="0.18" stroke="#bae6fd" strokeWidth="1" />
-
-              {/* Vidro da Recepção com Porta Aberta */}
-              <polygon points="405,130 460,158 460,136 405,108" fill="#38bdf8" fillOpacity="0.25" stroke="#e0f2fe" strokeWidth="1" />
-              <polygon points="490,173 535,195 535,173 490,151" fill="#38bdf8" fillOpacity="0.25" stroke="#e0f2fe" strokeWidth="1" />
-
-              {/* Vidro da Sala de Reunião (Inferior) */}
-              <polygon points="355,345 525,430 525,406 355,321" fill="#38bdf8" fillOpacity="0.2" stroke="#bae6fd" strokeWidth="1" />
-              <polygon points="280,395 355,345 355,321 280,371" fill="#0284c7" fillOpacity="0.22" stroke="#bae6fd" strokeWidth="1" />
-
-              {/* 1. MOBÍLIA DA DIRETORIA EXECUTIVA (Topo Esquerdo) */}
-              {/* Sofá de Couro Caramelo */}
-              <g transform="translate(295, 138)">
-                <polygon points="0,12 28,-4 40,2 12,18" fill="#c2591a" />
-                <polygon points="0,12 0,4 28,-12 28,-4" fill="#9a3412" />
-                <polygon points="12,18 40,2 40,8 12,24" fill="#7c2d12" />
-              </g>
-              {/* Mesa Executiva do Diretor */}
-              <g transform="translate(365, 128)">
-                <polygon points="0,10 26,-4 42,4 16,18" fill="#78350f" />
-                <polygon points="16,18 42,4 42,10 16,24" fill="#451a03" />
-                {/* Monitor Executivo */}
-                <polygon points="18,4 26,0 26,-7 18,-3" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.6" />
-              </g>
-
-              {/* 2. MOBÍLIA DA RECEPÇÃO (Topo Central) */}
-              <g transform="translate(465, 128)">
-                <polygon points="0,8 30,23 22,29 -8,14" fill="#fde68a" stroke="#d97706" strokeWidth="0.8" />
-                <polygon points="-8,14 22,29 22,37 -8,22" fill="#d97706" />
-                <text x="5" y="25" fontSize="6" fill="#451a03" fontWeight="bold" textAnchor="middle">
-                  RECEPÇÃO
-                </text>
-              </g>
-
-              {/* 3. ÁREA DE DESCOMPRESSÃO: SINUCA, FLIPERAMA & CAFÉ (Esquerda/Inferior) */}
-              {/* Fliperamas / Vending Machines */}
-              <g transform="translate(190, 212)">
-                <polygon points="0,0 14,-8 22,-4 8,4" fill="#1e1b4b" />
-                <polygon points="0,0 8,4 8,24 0,20" fill="#312e81" />
-                <polygon points="8,4 22,-4 22,16 8,24" fill="#0f172a" />
-                <polygon points="10,6 19,1 19,9 10,14" fill="#22d3ee" />
-              </g>
-              <g transform="translate(212, 200)">
-                <polygon points="0,0 14,-8 22,-4 8,4" fill="#1e1b4b" />
-                <polygon points="0,0 8,4 8,24 0,20" fill="#3730a3" />
-                <polygon points="8,4 22,-4 22,16 8,24" fill="#0f172a" />
-                <polygon points="10,6 19,1 19,9 10,14" fill="#f472b6" />
-              </g>
-
-              {/* Mesa de Sinuca Azul (Pool Table do Vídeo) */}
-              <g transform="translate(225, 305)">
-                <polygon points="0,14 36,-6 62,7 26,27" fill="#0284c7" stroke="#92400e" strokeWidth="2.5" />
-                <polygon points="0,14 26,27 26,34 0,21" fill="#78350f" />
-                <polygon points="26,27 62,7 62,14 26,34" fill="#451a03" />
-                <circle cx="30" cy="11" r="1.6" fill="#facc15" />
-                <circle cx="35" cy="9" r="1.6" fill="#ef4444" />
-                <circle cx="26" cy="14" r="1.6" fill="#ffffff" />
-              </g>
-
-              {/* Sofá Verde do Lounge */}
-              <g transform="translate(295, 330)">
-                <polygon points="0,10 26,-4 38,2 12,16" fill="#4ade80" stroke="#16a34a" strokeWidth="0.7" />
-                <polygon points="12,16 38,2 38,8 12,22" fill="#15803d" />
-              </g>
-
-              {/* Balcão de Café (Esquerda) */}
-              <g transform="translate(145, 265)">
-                <polygon points="0,6 38,25 30,31 -8,12" fill="#334155" />
-                <polygon points="-8,12 30,31 30,40 -8,21" fill="#1e293b" />
-              </g>
-
-              {/* 4. SALA DE REUNIÃO / COMITÊ DE RISCO (Inferior Central) */}
-              <g transform="translate(380, 390)">
-                {/* Grande Mesa de Conferência de Madeira */}
-                <polygon points="0,12 42,-10 92,15 50,37" fill="#d99b52" stroke="#92400e" strokeWidth="1.2" />
-                <polygon points="0,12 50,37 50,43 0,18" fill="#92400e" />
-                <polygon points="50,37 92,15 92,21 50,43" fill="#78350f" />
-                <text x="46" y="18" fontSize="6.5" fill="#451a03" fontWeight="bold" textAnchor="middle">
-                  COMITÊ DE RISCO
-                </text>
-              </g>
-
-              {/* 5. SALÃO DE OPERAÇÕES: 2 GRANDES BANCADAS DE TRADING (C01 a C08) */}
-              {/* Bancada Superior (C01 a C04) */}
-              <g transform="translate(505, 195)">
-                <polygon points="0,14 34,-4 195,76 161,94" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-                <polygon points="0,14 161,94 161,102 0,22" fill="#cbd5e1" />
-                <polygon points="161,94 195,76 195,84 161,102" fill="#94a3b8" />
-              </g>
-              {/* Bancada Inferior (C05 a C08) */}
-              <g transform="translate(445, 245)">
-                <polygon points="0,14 34,-4 195,76 161,94" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-                <polygon points="0,14 161,94 161,102 0,22" fill="#cbd5e1" />
-                <polygon points="161,94 195,76 195,84 161,102" fill="#94a3b8" />
-              </g>
-
-              {/* Monitores nas 8 Estações (C01 a C08) */}
-              {Object.entries(DESK_COORDS).map(([code, pos]) => (
-                <g key={code} transform={`translate(${pos.x}, ${pos.y})`}>
-                  {/* Tela do Computador */}
-                  <polygon points="-8,-12 4,-6 4,2 -8,-4" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.8" />
-                  {/* Código da Estação no Piso */}
-                  <text x="0" y="24" fontSize="6.5" fill="#64748b" fontWeight="bold" textAnchor="middle">
-                    {code}
-                  </text>
-                </g>
-              ))}
-
-              {/* Plantas Decorativas nos Cantos */}
-              {[
-                { x: 425, y: 72 },
-                { x: 605, y: 150 },
-                { x: 345, y: 335 },
-                { x: 755, y: 245 },
-              ].map((p, idx) => (
-                <g key={idx} transform={`translate(${p.x}, ${p.y})`}>
-                  <rect x="-4" y="0" width="8" height="7" rx="1" fill="#b45309" />
-                  <circle cx="0" cy="-4" r="6" fill="#16a34a" />
-                  <circle cx="-3" cy="-2" r="4" fill="#22c55e" />
-                </g>
-              ))}
-            </g>
-
-            {/* AVATARES DOS AGENTES COM MOVIMENTAÇÃO E BALÕES INTERATIVOS */}
-            {localAgents.map((ag, idx) => {
-              const mode = ag.activity || "Atendendo";
-              const stCode = ag.station || `C0${(idx % 8) + 1}`;
-              const isSpawning = !!spawningIds[ag.id];
-
-              // Se acabou de ser contratado, sai caminhando da Recepção (465, 155) até a Estação
-              let target = DESK_COORDS[stCode] || DESK_COORDS.C01!;
-              if (mode !== "Atendendo") {
-                const spots = ACTIVITY_SPOTS[mode];
-                target = spots[idx % spots.length] || target;
-              }
-              const x = isSpawning ? 465 : target.x;
-              const y = isSpawning ? 155 : target.y;
-
-              const stText = statusFor(ag, market);
-              const isHovered = hoveredId === ag.id;
-              const badgeColor =
-                market?.signal === "COMPRA" && mode === "Atendendo"
-                  ? "#16a34a"
-                  : market?.signal === "VENDA" && mode === "Atendendo"
-                  ? "#dc2626"
-                  : mode === "Pausa"
-                  ? "#f59e0b"
-                  : mode === "Reunião"
-                  ? "#8b5cf6"
-                  : "#ea580c";
-
-              return (
-                <g
-                  key={ag.id}
-                  transform={`translate(${x}, ${y})`}
-                  style={{ transition: "transform 1.4s cubic-bezier(0.22, 1, 0.36, 1)", cursor: "pointer" }}
-                  onClick={() => setConfigAgent(ag)}
-                  onMouseEnter={() => setHoveredId(ag.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                >
-                  {/* Sombra embaixo do personagem */}
-                  <ellipse cx="0" cy="12" rx="9" ry="4.5" fill="#0f172a" fillOpacity="0.35" />
-
-                  {/* Cadeira Giratória quando está na estação */}
-                  {mode === "Atendendo" && !isSpawning && (
-                    <ellipse cx="0" cy="7" rx="7" ry="4" fill="#1e293b" stroke="#475569" strokeWidth="0.8" />
-                  )}
-
-                  {/* Pernas */}
-                  <rect x="-4" y="3" width="3.2" height="7" rx="1" fill="#1e293b" />
-                  <rect x="0.8" y="3" width="3.2" height="7" rx="1" fill="#1e293b" />
-
-                  {/* Corpo / Traje */}
-                  <rect x="-6" y="-8" width="12" height="12" rx="3" fill={ag.color} stroke="#ffffff" strokeWidth="0.6" />
-
-                  {/* Cabeça */}
-                  <circle cx="0" cy="-14" r="5.5" fill="#fde68a" />
-                  {/* Cabelo */}
-                  <path d="M -5.5 -15 Q 0 -22 5.5 -15 Z" fill={ag.hair || "#111827"} />
-                  {/* Olhos */}
-                  <circle cx="-2" cy="-14" r="0.8" fill="#0f172a" />
-                  <circle cx="2" cy="-14" r="0.8" fill="#0f172a" />
-
-                  {/* Pílula Laranja/Colorida em cima da cabeça (Estilo do Vídeo) */}
-                  <g transform="translate(0, -28)">
-                    <rect x="-34" y="-9" width="68" height="13" rx="6.5" fill={badgeColor} stroke="#ffffff" strokeWidth="0.8" />
-                    <text x="0" y="-0.5" fontSize="6.5" fill="#ffffff" fontWeight="bold" textAnchor="middle">
-                      {isSpawning ? "Indo p/ Estação..." : `${ag.name.slice(0, 10)} • ${mode === "Atendendo" ? stCode : mode}`}
-                    </text>
-                  </g>
-
-                  {/* Card Flutuante Branco quando selecionado/hover */}
-                  {isHovered && (
-                    <g transform="translate(14, -52)">
-                      <rect
-                        x="0"
-                        y="0"
-                        width="165"
-                        height="44"
-                        rx="6"
-                        fill="#ffffff"
-                        stroke="#cbd5e1"
-                        strokeWidth="1"
-                      />
-                      <text x="8" y="13" fontSize="8.5" fill="#0f172a" fontWeight="bold">
-                        {ag.name}
-                      </text>
-                      <circle cx="8" cy="22" r="2.5" fill="#16a34a" />
-                      <text x="14" y="24.5" fontSize="7" fill="#334155" fontWeight="bold">
-                        {ag.role}
-                      </text>
-                      <text x="8" y="36" fontSize="6.5" fill="#64748b">
-                        {isSpawning ? `Saindo pela recepção -> ${stCode}` : stText}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
+          <span>🏢 {floorName}</span>
+          <span style={{ color: "#059669", fontWeight: 800 }}>• {localAgents.length} agentes</span>
         </div>
 
-        {/* GAVETA LATERAL DIREITA (Quadro -> EQUIPE | CONTRATAR | ANDAR, Avisos, Relatório, Voz) */}
-        {topTab && (
-          <aside className="w-full lg:w-80 bg-[#f8f7f2] text-slate-900 border-t lg:border-t-0 lg:border-l border-slate-300 flex flex-col max-h-[460px]">
-            {topTab === "Quadro" && (
-              <>
-                {/* Sub-abas: EQUIPE | CONTRATAR | ANDAR */}
-                <div className="grid grid-cols-3 border-b border-slate-300 bg-[#efede6] text-[11px] font-extrabold tracking-wider">
-                  {(["EQUIPE", "CONTRATAR", "ANDAR"] as const).map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => setSubTab(st)}
-                      className={`py-2.5 text-center transition border-b-2 ${
-                        subTab === st
-                          ? "border-slate-900 text-slate-950 bg-white"
-                          : "border-transparent text-slate-500 hover:text-slate-800"
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
-                </div>
+        {/* Botão Flutuante Direto: "💬 Perguntar aos Agentes" no canto superior direito */}
+        <button
+          onClick={() => openAgentModal(localAgents[0] || propAgents[0]!, "CHAT")}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 10,
+            background: "#0f172a",
+            color: "#fde047",
+            padding: "5px 12px",
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 800,
+            border: "1px solid #fde047",
+            cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+          }}
+        >
+          💬 Perguntar aos Agentes
+        </button>
 
-                {/* Conteúdo da Sub-Aba */}
-                <div className="p-3 space-y-2.5 overflow-y-auto flex-1">
-                  {subTab === "EQUIPE" && (
-                    <>
-                      {localAgents.map((ag) => (
-                        <div
-                          key={ag.id}
-                          className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-sm hover:border-slate-400 transition space-y-1.5"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="w-3.5 h-3.5 rounded-full inline-block border border-slate-900/20"
-                                style={{ backgroundColor: ag.color }}
-                              />
-                              <div>
-                                <div className="font-extrabold text-xs text-slate-900 leading-tight">{ag.name}</div>
-                                <div className="text-[10px] text-emerald-700 font-semibold">
-                                  ● {ag.role} • {ag.station || "C01"}
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setConfigAgent(ag)}
-                              className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 uppercase"
-                            >
-                              Configurar
-                            </button>
-                          </div>
-
-                          <p className="text-[11px] text-slate-600 line-clamp-2">{statusFor(ag, market)}</p>
-
-                          <div className="pt-1 flex items-center justify-between gap-1.5">
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-semibold">
-                              {ag.activity || "Atendendo"} • {ag.is247 ? "24/7" : `${ag.startTime}-${ag.endTime}`}
-                            </span>
-                            {onSelectAgent && (
-                              <button
-                                onClick={() => onSelectAgent(ag)}
-                                className="text-[10px] font-bold px-2.5 py-1 rounded bg-slate-900 text-white hover:bg-slate-800"
-                              >
-                                💬 Chat IA
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-
-                  {subTab === "CONTRATAR" && (
-                    <>
-                      <p className="text-[11px] text-slate-600 mb-1">
-                        Contrate novos especialistas de IA. Eles entram pela recepção e assumem uma estação na bancada:
-                      </p>
-                      {HIRE_CATALOG.map((item, i) => (
-                        <div key={i} className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm space-y-2">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="font-extrabold text-xs text-slate-900">{item.name}</div>
-                              <div className="text-[10px] text-slate-500">{item.role} • Estação sugerida {item.station}</div>
-                            </div>
-                            <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
-                              IA PRONTA
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 leading-snug">{item.desc}</p>
-                          <p className="text-[10px] text-slate-800 bg-slate-50 p-1.5 rounded border border-slate-200/60">
-                            <strong>Por que vale:</strong> {item.why}
-                          </p>
-                          <button
-                            onClick={() => hireAgent(item)}
-                            className="w-full py-1.5 rounded-lg bg-[#1e222d] hover:bg-slate-800 text-white font-bold text-xs transition"
-                          >
-                            + contratar
-                          </button>
-                        </div>
-                      ))}
-                    </>
-                  )}
-
-                  {subTab === "ANDAR" && (
-                    <div className="space-y-3 text-xs">
-                      <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                        <label className="block font-bold text-slate-700">Nome do Andar / Escritório</label>
-                        <input
-                          value={floorName}
-                          onChange={(e) => setFloorName(e.target.value)}
-                          className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs bg-slate-50"
-                        />
-                      </div>
-
-                      <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                        <label className="block font-bold text-slate-700">Iluminação do Cenário</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setDayMode(true)}
-                            className={`py-1.5 rounded-lg font-bold border ${
-                              dayMode ? "bg-slate-900 text-white border-slate-900" : "bg-slate-100 text-slate-700 border-slate-300"
-                            }`}
-                          >
-                            ☀️ Diurno (Vídeo)
-                          </button>
-                          <button
-                            onClick={() => setDayMode(false)}
-                            className={`py-1.5 rounded-lg font-bold border ${
-                              !dayMode ? "bg-slate-900 text-white border-slate-900" : "bg-slate-100 text-slate-700 border-slate-300"
-                            }`}
-                          >
-                            🌙 Noturno Pro
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
-                        <div className="font-bold text-slate-700">Distribuição Rápida da Equipe</div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() => updateAgents(localAgents.map((a) => ({ ...a, activity: "Atendendo" })))}
-                            className="py-1.5 px-2 rounded bg-emerald-600 text-white font-bold text-[11px]"
-                          >
-                            Todos Operando
-                          </button>
-                          <button
-                            onClick={() => updateAgents(localAgents.map((a) => ({ ...a, activity: "Reunião" })))}
-                            className="py-1.5 px-2 rounded bg-purple-600 text-white font-bold text-[11px]"
-                          >
-                            Chamar Reunião
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {topTab === "Avisos" && (
-              <div className="p-3 space-y-2 overflow-y-auto flex-1">
-                <div className="font-extrabold text-xs text-slate-900 border-b border-slate-200 pb-1.5">
-                  🔔 Radar de Oportunidades & Alertas
-                </div>
-                {alerts.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-4 text-center">Monitorando velas da Binance em segundo plano...</p>
-                ) : (
-                  alerts.map((al, i) => (
-                    <div key={i} className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
-                            al.side === "COMPRA"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : al.side === "VENDA"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {al.title}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400">{al.time}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-600">{al.detail}</p>
-                    </div>
-                  ))
-                )}
+        {/* TOAST DE AVISO AUTÔNOMO DOS AGENTES */}
+        {liveToast && (
+          <div
+            onClick={() => {
+              const ag = localAgents.find((a) => a.name === liveToast.agentName) || localAgents[0];
+              if (ag) openAgentModal(ag, "CHAT");
+              setLiveToast(null);
+            }}
+            style={{
+              position: "absolute",
+              bottom: 34,
+              left: 12,
+              right: 12,
+              zIndex: 20,
+              background: "rgba(15, 23, 42, 0.95)",
+              color: "#f8fafc",
+              padding: "9px 12px",
+              borderRadius: 12,
+              borderLeft: `4px solid ${
+                liveToast.signal === "COMPRA" ? "#22c55e" : liveToast.signal === "VENDA" ? "#ef4444" : "#facc15"
+              }`,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 11 }}>
+              <div style={{ fontWeight: 800, color: "#fde047" }}>
+                {liveToast.title} • <span style={{ color: "#cbd5e1" }}>{liveToast.agentName}</span>
               </div>
-            )}
-
-            {topTab === "Relatório" && (
-              <div className="p-3 space-y-2.5 overflow-y-auto flex-1 text-xs">
-                <div className="font-extrabold text-slate-900 border-b border-slate-200 pb-1.5">
-                  📊 Relatório Técnico do Expediente
-                </div>
-                {market ? (
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Ativo / Preço:</span>
-                      <span className="font-bold font-mono">{market.symbol} ${fmt(market.price)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Sinal do Comitê:</span>
-                      <span className="font-extrabold">{market.signal}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Alvo (TP) / Stop (SL):</span>
-                      <span className="font-mono">${fmt(market.tp)} / ${fmt(market.sl)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Força Compradora:</span>
-                      <span className="font-bold">{(market.buyRatio * 100).toFixed(0)}%</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 pt-1 border-t border-slate-100">{market.riskNote}</p>
-                  </div>
-                ) : (
-                  <p className="text-slate-500">Carregando métricas da Binance...</p>
-                )}
-              </div>
-            )}
-
-            {topTab === "Voz" && (
-              <div className="p-3 space-y-3 overflow-y-auto flex-1 text-xs">
-                <div className="font-extrabold text-slate-900 border-b border-slate-200 pb-1.5">
-                  🎙️ Narração por Voz dos Agentes
-                </div>
-                <p className="text-slate-600 text-[11px]">
-                  Quando ativado, o Max Trader avisa em voz alta em português sempre que surgir uma oportunidade aprovada de COMPRA ou VENDA.
-                </p>
-                <button
-                  onClick={() => setVoiceEnabled((v) => !v)}
-                  className={`w-full py-2 rounded-xl font-bold transition ${
-                    voiceEnabled ? "bg-emerald-600 text-white" : "bg-slate-900 text-white"
-                  }`}
-                >
-                  {voiceEnabled ? "🔊 Narração por Voz ATIVADA" : "🔇 Ativar Narração por Voz"}
-                </button>
-              </div>
-            )}
-          </aside>
+              <div style={{ color: "#e2e8f0", marginTop: 2 }}>{liveToast.text}</div>
+            </div>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                padding: "4px 8px",
+                borderRadius: 6,
+                background: "#fde047",
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Responder 💬
+            </span>
+          </div>
         )}
+
+        {/* Barra de Dica Inferior */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 6,
+            left: 10,
+            zIndex: 10,
+            background: "rgba(15,23,42,0.78)",
+            color: "#f1f5f9",
+            padding: "3px 10px",
+            borderRadius: 999,
+            fontSize: 10,
+            fontWeight: 600,
+          }}
+        >
+          👆 Toque em qualquer agente para fazer perguntas à IA ou configurar horário, função e atividade
+        </div>
+
+        {/* SVG ISOMÉTRICO CORRIGIDO (SEM XADREZ PRETO — PISO CREME CLARO SÓLIDO + PISO DE MADEIRA QUENTE) */}
+        <svg viewBox="0 0 920 520" style={{ width: "100%", height: "auto", display: "block" }}>
+          <defs>
+            <filter id="floorDropShadow" x="-15%" y="-15%" width="130%" height="140%">
+              <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.32" />
+            </filter>
+            {/* Piso Claro Creme Sólido com rejunte sutil (Sem fundo transparente!) */}
+            <pattern id="creamTileFloor" width="28" height="14" patternUnits="userSpaceOnUse">
+              <rect width="28" height="14" fill="#f3f1e8" />
+              <path d="M 14 0 L 28 7 L 14 14 L 0 7 Z" fill="#f7f5ee" stroke="#e4e0d3" strokeWidth="0.8" />
+            </pattern>
+            {/* Piso de Madeira Sólido Quente (Sem fundo transparente!) */}
+            <pattern id="warmWoodFloor" width="24" height="12" patternUnits="userSpaceOnUse">
+              <rect width="24" height="12" fill="#d4944e" />
+              <path d="M 12 0 L 24 6 L 12 12 L 0 6 Z" fill="#de9f58" stroke="#be7f3a" strokeWidth="0.7" />
+            </pattern>
+          </defs>
+
+          <g filter="url(#floorDropShadow)">
+            {/* Base e bordas 3D da laje do prédio */}
+            <polygon points="440,42 850,247 460,492 50,287" fill="#1e293b" />
+            <polygon points="50,287 460,492 460,508 50,303" fill="#334155" />
+            <polygon points="850,247 460,492 460,508 850,263" fill="#0f172a" />
+
+            {/* PISO PRINCIPAL CLARO (Salão de Operações e Lounge) */}
+            <polygon points="440,48 838,247 460,484 62,285" fill="url(#creamTileFloor)" />
+
+            {/* PISO DE MADEIRA: DIRETORIA EXECUTIVA (Topo Esquerdo) */}
+            <polygon points="340,98 475,165 360,232 225,165" fill="url(#warmWoodFloor)" stroke="#b0702c" strokeWidth="1.2" />
+
+            {/* PISO DE MADEIRA: RECEPÇÃO (Topo Central/Direito) */}
+            <polygon points="485,82 620,150 540,200 405,132" fill="url(#warmWoodFloor)" stroke="#b0702c" strokeWidth="1.2" />
+
+            {/* PISO SALA DE REUNIÃO / COMITÊ DE RISCO (Inferior Central) */}
+            <polygon points="355,342 530,430 455,478 280,390" fill="#eae6d9" stroke="#cbd5e1" strokeWidth="1.2" />
+
+            {/* PAREDES TRASEIRAS ESCURAS COM ACABAMENTO SUPERIOR */}
+            <polygon points="62,285 440,48 440,16 62,253" fill="#1e222d" stroke="#0f172a" strokeWidth="1" />
+            <polygon points="440,48 838,247 838,215 440,16" fill="#252a37" stroke="#0f172a" strokeWidth="1" />
+
+            {/* Quadro Branco com Gráfico na Diretoria */}
+            <polygon points="365,80 420,46 420,28 365,62" fill="#ffffff" stroke="#475569" strokeWidth="1.5" />
+            <polyline points="370,55 385,43 396,47 414,33" fill="none" stroke="#16a34a" strokeWidth="2.2" />
+
+            {/* Painel Dourado na Recepção */}
+            <polygon points="470,50 525,78 525,60 470,32" fill="#18181b" stroke="#f59e0b" strokeWidth="1.3" />
+            <text x="497" y="57" fontSize="7" fill="#facc15" fontWeight="bold" textAnchor="middle">
+              TRADING
+            </text>
+
+            {/* DIVISÓRIAS INTERNAS DE VIDRO TRANSLÚCIDO */}
+            <polygon points="225,165 360,232 360,206 225,139" fill="#38bdf8" fillOpacity="0.22" stroke="#bae6fd" strokeWidth="1.2" />
+            <polygon points="360,232 475,165 475,139 360,206" fill="#0ea5e9" fillOpacity="0.18" stroke="#bae6fd" strokeWidth="1.2" />
+            <polygon points="405,132 465,162 465,138 405,108" fill="#38bdf8" fillOpacity="0.24" stroke="#e0f2fe" strokeWidth="1.2" />
+            <polygon points="495,177 540,200 540,176 495,153" fill="#38bdf8" fillOpacity="0.24" stroke="#e0f2fe" strokeWidth="1.2" />
+            <polygon points="355,342 530,430 530,404 355,316" fill="#38bdf8" fillOpacity="0.22" stroke="#bae6fd" strokeWidth="1.2" />
+            <polygon points="280,390 355,342 355,316 280,364" fill="#0284c7" fillOpacity="0.24" stroke="#bae6fd" strokeWidth="1.2" />
+
+            {/* 1. DIRETORIA EXECUTIVA (Sofá Caramelo + Mesa Diretor + Tapete) */}
+            <polygon points="285,155 345,122 390,145 330,178" fill="#e7e2d3" opacity="0.7" />
+            <g transform="translate(290, 140)">
+              <polygon points="0,12 30,-4 44,3 14,19" fill="#c2591a" />
+              <polygon points="0,12 0,3 30,-13 30,-4" fill="#9a3412" />
+              <polygon points="14,19 44,3 44,10 14,26" fill="#7c2d12" />
+            </g>
+            <g transform="translate(362, 130)">
+              <polygon points="0,10 28,-4 44,4 16,18" fill="#78350f" />
+              <polygon points="16,18 44,4 44,11 16,25" fill="#451a03" />
+              <polygon points="18,4 27,0 27,-7 18,-3" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.7" />
+            </g>
+
+            {/* 2. BALCÃO DA RECEPÇÃO */}
+            <g transform="translate(472, 130)">
+              <polygon points="0,8 32,24 24,30 -8,14" fill="#fde68a" stroke="#d97706" strokeWidth="0.9" />
+              <polygon points="-8,14 24,30 24,38 -8,22" fill="#d97706" />
+              <text x="6" y="25" fontSize="6" fill="#451a03" fontWeight="bold" textAnchor="middle">
+                RECEPÇÃO
+              </text>
+            </g>
+
+            {/* 3. LOUNGE DE DESCOMPRESSÃO: 2 FLIPERAMAS, MESA DE SINUCA AZUL, SOFÁ VERDE E CAFÉ */}
+            <g transform="translate(188, 210)">
+              <polygon points="0,0 14,-8 22,-4 8,4" fill="#1e1b4b" />
+              <polygon points="0,0 8,4 8,24 0,20" fill="#312e81" />
+              <polygon points="8,4 22,-4 22,16 8,24" fill="#0f172a" />
+              <polygon points="10,6 19,1 19,9 10,14" fill="#22d3ee" />
+            </g>
+            <g transform="translate(212, 196)">
+              <polygon points="0,0 14,-8 22,-4 8,4" fill="#1e1b4b" />
+              <polygon points="0,0 8,4 8,24 0,20" fill="#3730a3" />
+              <polygon points="8,4 22,-4 22,16 8,24" fill="#0f172a" />
+              <polygon points="10,6 19,1 19,9 10,14" fill="#f472b6" />
+            </g>
+            <g transform="translate(142, 262)">
+              <polygon points="0,6 38,25 30,31 -8,12" fill="#334155" />
+              <polygon points="-8,12 30,31 30,40 -8,21" fill="#1e293b" />
+            </g>
+            {/* Mesa de Sinuca Azul */}
+            <g transform="translate(220, 302)">
+              <polygon points="0,14 38,-6 66,8 28,28" fill="#0284c7" stroke="#92400e" strokeWidth="2.8" />
+              <polygon points="0,14 28,28 28,35 0,21" fill="#78350f" />
+              <polygon points="28,28 66,8 66,15 28,35" fill="#451a03" />
+              <circle cx="31" cy="11" r="1.7" fill="#facc15" />
+              <circle cx="37" cy="9" r="1.7" fill="#ef4444" />
+              <circle cx="27" cy="14" r="1.7" fill="#ffffff" />
+            </g>
+            {/* Sofá Verde */}
+            <g transform="translate(295, 328)">
+              <polygon points="0,10 26,-4 38,2 12,16" fill="#4ade80" stroke="#16a34a" strokeWidth="0.8" />
+              <polygon points="12,16 38,2 38,8 12,22" fill="#15803d" />
+            </g>
+
+            {/* 4. SALA DE REUNIÃO / COMITÊ DE RISCO */}
+            <g transform="translate(378, 386)">
+              <polygon points="0,12 44,-10 96,16 52,38" fill="#d99b52" stroke="#92400e" strokeWidth="1.2" />
+              <polygon points="0,12 52,38 52,44 0,18" fill="#92400e" />
+              <polygon points="52,38 96,16 96,22 52,44" fill="#78350f" />
+              <text x="48" y="18" fontSize="6.5" fill="#451a03" fontWeight="bold" textAnchor="middle">
+                COMITÊ DE RISCO
+              </text>
+            </g>
+
+            {/* 5. SALÃO PRINCIPAL: 2 ILHAS LONGAS DE COMPUTADORES (C01 a C08) */}
+            <g transform="translate(515, 202)">
+              <polygon points="0,14 34,-4 200,79 166,97" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.2" />
+              <polygon points="0,14 166,97 166,105 0,22" fill="#cbd5e1" />
+              <polygon points="166,97 200,79 200,87 166,105" fill="#94a3b8" />
+            </g>
+            <g transform="translate(445, 248)">
+              <polygon points="0,14 34,-4 200,79 166,97" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.2" />
+              <polygon points="0,14 166,97 166,105 0,22" fill="#cbd5e1" />
+              <polygon points="166,97 200,79 200,87 166,105" fill="#94a3b8" />
+            </g>
+
+            {/* Monitores nas 8 Estações */}
+            {Object.entries(DESK_COORDS).map(([code, pos]) => (
+              <g key={code} transform={`translate(${pos.x}, ${pos.y})`}>
+                <polygon points="-8,-12 4,-6 4,2 -8,-4" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.9" />
+                <text x="0" y="24" fontSize="6.5" fill="#475569" fontWeight="bold" textAnchor="middle">
+                  {code}
+                </text>
+              </g>
+            ))}
+
+            {/* Plantas Verdes */}
+            {[
+              { x: 432, y: 70 },
+              { x: 615, y: 152 },
+              { x: 345, y: 332 },
+              { x: 775, y: 248 },
+            ].map((p, idx) => (
+              <g key={idx} transform={`translate(${p.x}, ${p.y})`}>
+                <rect x="-4" y="0" width="8" height="7" rx="1" fill="#b45309" />
+                <circle cx="0" cy="-4" r="6" fill="#16a34a" />
+                <circle cx="-3" cy="-2" r="4" fill="#22c55e" />
+              </g>
+            ))}
+          </g>
+
+          {/* CAMADA DOS AGENTES COM MOVIMENTAÇÃO AUTÔNOMA E BALÕES */}
+          {localAgents.map((ag, idx) => {
+            const mode = ag.activity || "Atendendo";
+            const stCode = ag.station || `C0${(idx % 8) + 1}`;
+            const isSpawning = !!spawningIds[ag.id];
+
+            let target = DESK_COORDS[stCode] || DESK_COORDS.C01!;
+            if (mode !== "Atendendo") {
+              const spots = ACTIVITY_SPOTS[mode];
+              target = spots[idx % spots.length] || target;
+            }
+            const x = isSpawning ? 475 : target.x;
+            const y = isSpawning ? 155 : target.y;
+
+            const bubbleText = bubbles[ag.id];
+            const isHovered = hoveredId === ag.id;
+            const pillColor =
+              mode === "Pausa"
+                ? "#f59e0b"
+                : mode === "Reunião"
+                ? "#7c3aed"
+                : market?.signal === "COMPRA"
+                ? "#16a34a"
+                : market?.signal === "VENDA"
+                ? "#dc2626"
+                : "#ea580c";
+
+            return (
+              <g
+                key={ag.id}
+                transform={`translate(${x}, ${y})`}
+                style={{ transition: "transform 1.35s cubic-bezier(0.22, 1, 0.36, 1)", cursor: "pointer" }}
+                onClick={() => openAgentModal(ag, "CHAT")}
+                onMouseEnter={() => setHoveredId(ag.id)}
+                onMouseLeave={() => setHoveredId(null)}
+              >
+                <ellipse cx="0" cy="12" rx="9" ry="4.5" fill="#0f172a" fillOpacity="0.32" />
+                {mode === "Atendendo" && !isSpawning && (
+                  <ellipse cx="0" cy="7" rx="7" ry="4" fill="#1e293b" stroke="#475569" strokeWidth="0.8" />
+                )}
+                <rect x="-4" y="3" width="3.2" height="7" rx="1" fill="#1e293b" />
+                <rect x="0.8" y="3" width="3.2" height="7" rx="1" fill="#1e293b" />
+                <rect x="-6" y="-8" width="12" height="12" rx="3" fill={ag.color} stroke="#ffffff" strokeWidth="0.8" />
+                <circle cx="0" cy="-14" r="5.5" fill="#fde68a" />
+                <path d="M -5.5 -15 Q 0 -22 5.5 -15 Z" fill={ag.hair || "#111827"} />
+                <circle cx="-2" cy="-14" r="0.8" fill="#0f172a" />
+                <circle cx="2" cy="-14" r="0.8" fill="#0f172a" />
+
+                {/* Pílula do Nome + Estação (Estilo do Vídeo) */}
+                <g transform="translate(0, -28)">
+                  <rect x="-38" y="-9" width="76" height="13" rx="6.5" fill={pillColor} stroke="#ffffff" strokeWidth="0.8" />
+                  <text x="0" y="-0.5" fontSize="6.3" fill="#ffffff" fontWeight="bold" textAnchor="middle">
+                    {isSpawning ? "Recepção -> Mesa" : `${ag.name.slice(0, 10)} • ${mode === "Atendendo" ? stCode : mode}`}
+                  </text>
+                </g>
+
+                {/* Balão de Fala Autônomo quando o agente toma uma decisão */}
+                {bubbleText && !isHovered && (
+                  <g transform="translate(0, -45)">
+                    <rect x="-68" y="-12" width="136" height="15" rx="5" fill="#0f172a" stroke="#fde047" strokeWidth="0.8" />
+                    <text x="0" y="-2" fontSize="6" fill="#fde047" fontWeight="bold" textAnchor="middle">
+                      {bubbleText}
+                    </text>
+                  </g>
+                )}
+
+                {/* Card Branco Detalhado ao tocar/hover */}
+                {isHovered && (
+                  <g transform="translate(14, -54)">
+                    <rect x="0" y="0" width="170" height="44" rx="6" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
+                    <text x="8" y="13" fontSize="8.5" fill="#0f172a" fontWeight="bold">
+                      {ag.name}
+                    </text>
+                    <circle cx="8" cy="22" r="2.5" fill="#16a34a" />
+                    <text x="14" y="24.5" fontSize="7" fill="#334155" fontWeight="bold">
+                      {ag.role}
+                    </text>
+                    <text x="8" y="36" fontSize="6.3" fill="#64748b">
+                      {statusFor(ag, market)}
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+        </svg>
       </div>
 
-      {/* MODAL DE CONFIGURAÇÃO DO AGENTE (IDÊNTICO AO VÍDEO 00:11 - 00:15 + MELHORIAS DE TRADING) */}
-      {configAgent && (
+      {/* PAINEL EXPANSÍVEL QUANDO CLICA EM QUADRO / AVISOS / RELATÓRIO / VOZ */}
+      {topTab && (
+        <div style={{ background: "#f8f7f2", color: "#0f172a", borderTop: "1px solid #cbd5e1", padding: 12 }}>
+          {topTab === "Quadro" && (
+            <div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 10, borderBottom: "1px solid #cbd5e1", paddingBottom: 8 }}>
+                {(["EQUIPE", "CONTRATAR", "ANDAR"] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setSubTab(st)}
+                    style={{
+                      flex: 1,
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      border: "none",
+                      cursor: "pointer",
+                      background: subTab === st ? "#0f172a" : "#e2e8f0",
+                      color: subTab === st ? "#ffffff" : "#334155",
+                    }}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+
+              {subTab === "EQUIPE" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 8 }}>
+                  {localAgents.map((ag) => (
+                    <div
+                      key={ag.id}
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 12,
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 12, height: 12, borderRadius: 99, background: ag.color, display: "inline-block" }} />
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 800 }}>{ag.name}</div>
+                            <div style={{ fontSize: 10, color: "#047857", fontWeight: 700 }}>
+                              ● {ag.role} • {ag.station || "C01"}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 10, background: "#fef3c7", color: "#92400e", padding: "2px 6px", borderRadius: 6, fontWeight: 700 }}>
+                          {ag.activity || "Atendendo"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#475569" }}>{statusFor(ag, market)}</div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                        <button
+                          onClick={() => openAgentModal(ag, "CHAT")}
+                          style={{
+                            flex: 1,
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            background: "#0f172a",
+                            color: "#fde047",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            border: "none",
+                            cursor: "pointer",
+                          }}
+                        >
+                          💬 Fazer Pergunta
+                        </button>
+                        <button
+                          onClick={() => openAgentModal(ag, "CONFIG")}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            background: "#e2e8f0",
+                            color: "#0f172a",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            border: "none",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ⚙️ Configurar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {subTab === "CONTRATAR" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 8 }}>
+                  {HIRE_CATALOG.map((item, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 12,
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 800 }}>
+                        {item.name} — {item.role}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#475569" }}>{item.desc}</div>
+                      <div style={{ fontSize: 10, background: "#f1f5f9", padding: 6, borderRadius: 6 }}>
+                        <strong>Por que vale:</strong> {item.why}
+                      </div>
+                      <button
+                        onClick={() => hireSpecialist(item)}
+                        style={{
+                          padding: "7px",
+                          borderRadius: 8,
+                          background: "#0f172a",
+                          color: "#ffffff",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        + contratar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {subTab === "ANDAR" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12 }}>
+                  <div>
+                    <label style={{ fontWeight: 700, display: "block", marginBottom: 4 }}>Nome do Andar:</label>
+                    <input
+                      value={floorName}
+                      onChange={(e) => setFloorName(e.target.value)}
+                      style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1" }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ffffff", padding: 10, borderRadius: 10, border: "1px solid #cbd5e1" }}>
+                    <div>
+                      <div style={{ fontWeight: 800 }}>Autonomia dos Agentes no Escritório</div>
+                      <div style={{ fontSize: 11, color: "#64748b" }}>Agentes caminham entre mesas, reunião, diretoria e café sozinhos</div>
+                    </div>
+                    <button
+                      onClick={() => setAutonomyEnabled((v) => !v)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        fontWeight: 800,
+                        fontSize: 11,
+                        border: "none",
+                        background: autonomyEnabled ? "#16a34a" : "#64748b",
+                        color: "#ffffff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {autonomyEnabled ? "Autonomia ATIVA" : "Pausada"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {topTab === "Avisos" && (
+            <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800 }}>🔔 Avisos e Oportunidades dos Agentes</div>
+              {notices.length === 0 ? (
+                <div style={{ fontSize: 11, color: "#64748b" }}>Monitorando oportunidades da Binance em segundo plano...</div>
+              ) : (
+                notices.map((n) => (
+                  <div key={n.id} style={{ background: "#ffffff", padding: 10, borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 11 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
+                      <span>
+                        {n.title} ({n.agentName})
+                      </span>
+                      <span style={{ fontFamily: "monospace", color: "#64748b" }}>{n.time}</span>
+                    </div>
+                    <div style={{ color: "#334155", marginTop: 3 }}>{n.text}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {topTab === "Relatório" && (
+            <div style={{ fontSize: 12, background: "#ffffff", padding: 12, borderRadius: 10, border: "1px solid #cbd5e1" }}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>📊 Resumo Consolidado da Mesa</div>
+              {market ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
+                  <div>
+                    <strong>Ativo:</strong> {market.symbol} (${fmt(market.price)})
+                  </div>
+                  <div>
+                    <strong>Sinal:</strong> {market.signal}
+                  </div>
+                  <div>
+                    <strong>Stop Loss:</strong> ${fmt(market.sl)}
+                  </div>
+                  <div>
+                    <strong>Take Profit:</strong> ${fmt(market.tp)}
+                  </div>
+                  <div style={{ gridColumn: "1 / -1", color: "#475569" }}>{market.riskNote}</div>
+                </div>
+              ) : (
+                <div>Lendo dados da Binance...</div>
+              )}
+            </div>
+          )}
+
+          {topTab === "Voz" && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ffffff", padding: 12, borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 12 }}>
+              <div>
+                <div style={{ fontWeight: 800 }}>🎙️ Avisos por Voz em Português</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Fala automaticamente quando uma oportunidade de COMPRA ou VENDA é aprovada</div>
+              </div>
+              <button
+                onClick={() => setVoiceEnabled((v) => !v)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 8,
+                  fontWeight: 800,
+                  fontSize: 11,
+                  border: "none",
+                  background: voiceEnabled ? "#16a34a" : "#0f172a",
+                  color: "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                {voiceEnabled ? "🔊 Voz ATIVA" : "🔇 Ativar Voz"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL UNIFICADO DO AGENTE: ABA "💬 PERGUNTAR À IA" + ABA "⚙️ CONFIGURAR (ESTILO DO VÍDEO)" */}
+      {activeModalAgent && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 overflow-y-auto"
-          onClick={() => setConfigAgent(null)}
+          onClick={() => setActiveModalAgent(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 60,
+            background: "rgba(0,0,0,0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 12,
+          }}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-[#fbfaf6] text-slate-900 p-5 shadow-2xl border border-slate-300 space-y-3.5 my-auto"
             onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 430,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#fbfaf6",
+              color: "#0f172a",
+              borderRadius: 18,
+              padding: 16,
+              boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
+              border: "1px solid #cbd5e1",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
           >
-            {/* Cabeçalho do Agente */}
-            <div className="flex items-start justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-3">
+            {/* Cabeçalho do Modal */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shadow border border-black/10"
-                  style={{ backgroundColor: configAgent.color }}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: activeModalAgent.color,
+                    color: "#ffffff",
+                    fontWeight: 900,
+                    fontSize: 18,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  {configAgent.name.slice(0, 1)}
+                  {activeModalAgent.name.slice(0, 1)}
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-950 leading-tight">{configAgent.name}</h3>
-                  <p className="text-xs font-semibold text-emerald-700">
-                    ● {configAgent.role} • Estação {configAgent.station || "C01"}
-                  </p>
-                  <p className="text-[11px] text-slate-500">{statusFor(configAgent, market)}</p>
+                  <div style={{ fontSize: 15, fontWeight: 900 }}>{activeModalAgent.name}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#047857" }}>
+                    ● {activeModalAgent.role} • Estação {activeModalAgent.station || "C01"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#64748b" }}>{statusFor(activeModalAgent, market)}</div>
                 </div>
               </div>
               <button
-                onClick={() => setConfigAgent(null)}
-                className="rounded-lg bg-slate-200 hover:bg-slate-300 px-2.5 py-1 text-xs font-bold text-slate-700"
+                onClick={() => setActiveModalAgent(null)}
+                style={{ background: "#e2e8f0", border: "none", borderRadius: 8, padding: "4px 10px", fontWeight: 800, cursor: "pointer" }}
               >
                 ✕
               </button>
             </div>
 
-            {/* NOME VISÍVEL & FUNÇÃO */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                  NOME VISÍVEL
-                </label>
-                <input
-                  value={configAgent.name}
-                  onChange={(e) => setConfigAgent({ ...configAgent, name: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                  FUNÇÃO
-                </label>
-                <select
-                  value={configAgent.role}
-                  onChange={(e) => setConfigAgent({ ...configAgent, role: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+            {/* Seletor Rápido: Fazer Pergunta (Chat IA) vs Configurar Horário/Atividade */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: "#e2e8f0", padding: 4, borderRadius: 10 }}>
+              <button
+                onClick={() => setModalView("CHAT")}
+                style={{
+                  padding: "7px",
+                  borderRadius: 8,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  border: "none",
+                  cursor: "pointer",
+                  background: modalView === "CHAT" ? "#0f172a" : "transparent",
+                  color: modalView === "CHAT" ? "#fde047" : "#334155",
+                }}
+              >
+                💬 Perguntar ao Agente
+              </button>
+              <button
+                onClick={() => setModalView("CONFIG")}
+                style={{
+                  padding: "7px",
+                  borderRadius: 8,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  border: "none",
+                  cursor: "pointer",
+                  background: modalView === "CONFIG" ? "#0f172a" : "transparent",
+                  color: modalView === "CONFIG" ? "#ffffff" : "#334155",
+                }}
+              >
+                ⚙️ Horário &amp; Atividade
+              </button>
+            </div>
+
+            {modalView === "CHAT" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 800, color: "#475569", display: "block", marginBottom: 3 }}>
+                    INSTRUÇÃO DO AGENTE (SYSTEM PROMPT)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={activeModalAgent.prompt}
+                    onChange={(e) => {
+                      const updated = { ...activeModalAgent, prompt: e.target.value };
+                      setActiveModalAgent(updated);
+                      saveAgentsList(localAgents.map((a) => (a.id === updated.id ? updated : a)));
+                    }}
+                    style={{ width: "100%", borderRadius: 8, border: "1px solid #cbd5e1", padding: 8, fontSize: 11, background: "#ffffff" }}
+                  />
+                </div>
+
+                {/* Caixa de Mensagens */}
+                <div
+                  style={{
+                    height: 210,
+                    overflowY: "auto",
+                    background: "#0f172a",
+                    color: "#f8fafc",
+                    borderRadius: 12,
+                    padding: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
                 >
-                  <option>Analista de Notícias</option>
-                  <option>Analista Gráfica</option>
-                  <option>Diretora de Risco</option>
-                  <option>Executor de Ordens</option>
-                </select>
-              </div>
-            </div>
-
-            {/* ATIVIDADE: Atendendo | Pausa | Reunião | Foco (Move o agente pelo escritório!) */}
-            <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                ATIVIDADE (MOVE O AGENTE NO ESCRITÓRIO)
-              </label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(["Atendendo", "Pausa", "Reunião", "Foco"] as const).map((act) => {
-                  const active = (configAgent.activity || "Atendendo") === act;
-                  return (
-                    <button
-                      key={act}
-                      onClick={() => setConfigAgent({ ...configAgent, activity: act })}
-                      className={`py-1.5 rounded-lg text-xs font-bold border transition ${
-                        active
-                          ? "bg-[#1e222d] text-white border-[#1e222d] shadow"
-                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-                      }`}
+                  {(chats[activeModalAgent.id] || []).map((m, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        alignSelf: m.from === "user" ? "flex-end" : "flex-start",
+                        maxWidth: "86%",
+                        background: m.from === "user" ? "#facc15" : "#1e293b",
+                        color: m.from === "user" ? "#0f172a" : "#f8fafc",
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        fontSize: 12,
+                        lineHeight: 1.4,
+                        whiteSpace: "pre-wrap",
+                      }}
                     >
-                      {act}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-slate-500 mt-1">
-                Estação {configAgent.station || "C01"} é a mesa fixa de {configAgent.name} quando está atendendo/operando.
-              </p>
-            </div>
+                      {m.text}
+                    </div>
+                  ))}
+                  {chatBusy && <div style={{ fontSize: 11, color: "#94a3b8" }}>{activeModalAgent.name} está analisando...</div>}
+                  <div ref={chatEndRef} />
+                </div>
 
-            {/* HORÁRIO DE TRABALHO: INÍCIO | FIM | 24/7 */}
-            <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                HORÁRIO DE TRABALHO
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <span className="block text-[9px] text-slate-400 uppercase">INÍCIO</span>
-                  <input
-                    type="time"
-                    value={configAgent.startTime || "08:00"}
-                    disabled={configAgent.is247}
-                    onChange={(e) => setConfigAgent({ ...configAgent, startTime: e.target.value, is247: false })}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-mono disabled:opacity-50"
-                  />
+                {/* Botões de Pergunta Rápida */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {["Como está o gráfico?", "Qual a tendência agora?", "Quais as novidades?", "Qual o Stop e Take Profit?"].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setChatInput(q)}
+                      style={{
+                        fontSize: 10,
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                        background: "#e2e8f0",
+                        color: "#0f172a",
+                        border: "none",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex-1">
-                  <span className="block text-[9px] text-slate-400 uppercase">FIM</span>
+
+                {/* Input de Pergunta */}
+                <div style={{ display: "flex", gap: 6 }}>
                   <input
-                    type="time"
-                    value={configAgent.endTime || "18:00"}
-                    disabled={configAgent.is247}
-                    onChange={(e) => setConfigAgent({ ...configAgent, endTime: e.target.value, is247: false })}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-mono disabled:opacity-50"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void sendQuestionToAgent();
+                    }}
+                    placeholder={`Pergunte para ${activeModalAgent.name}...`}
+                    style={{ flex: 1, padding: "9px 12px", borderRadius: 10, border: "1px solid #94a3b8", fontSize: 12, background: "#ffffff" }}
                   />
-                </div>
-                <div className="pt-3.5">
                   <button
-                    onClick={() => setConfigAgent({ ...configAgent, is247: !configAgent.is247 })}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border transition ${
-                      configAgent.is247
-                        ? "bg-[#1e222d] text-amber-300 border-[#1e222d]"
-                        : "bg-white text-slate-700 border-slate-300"
-                    }`}
+                    onClick={() => void sendQuestionToAgent()}
+                    disabled={chatBusy}
+                    style={{
+                      padding: "9px 16px",
+                      borderRadius: 10,
+                      background: "#16a34a",
+                      color: "#ffffff",
+                      fontWeight: 800,
+                      fontSize: 12,
+                      border: "none",
+                      cursor: "pointer",
+                    }}
                   >
-                    24/7
+                    Enviar
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* DIAS DA SEMANA: S T Q Q S S D */}
-            <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                DIAS DE OPERAÇÃO
-              </label>
-              <div className="grid grid-cols-7 gap-1.5">
-                {DAY_LABELS.map((d, i) => {
-                  const days = configAgent.days || [true, true, true, true, true, true, true];
-                  const on = days[i] ?? true;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        const next = [...days];
-                        next[i] = !on;
-                        setConfigAgent({ ...configAgent, days: next });
-                      }}
-                      className={`py-1.5 rounded-lg text-xs font-extrabold border transition ${
-                        on
-                          ? "bg-[#1e222d] text-white border-[#1e222d]"
-                          : "bg-white text-slate-400 border-slate-300"
-                      }`}
+            ) : (
+              /* ABA DE CONFIGURAÇÃO IDÊNTICA AO VÍDEO (00:11 - 00:15) */
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", display: "block", marginBottom: 3 }}>NOME VISÍVEL</label>
+                    <input
+                      value={activeModalAgent.name}
+                      onChange={(e) => setActiveModalAgent({ ...activeModalAgent, name: e.target.value })}
+                      style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 700 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", display: "block", marginBottom: 3 }}>FUNÇÃO</label>
+                    <select
+                      value={activeModalAgent.role}
+                      onChange={(e) => setActiveModalAgent({ ...activeModalAgent, role: e.target.value })}
+                      style={{ width: "100%", padding: "7px 8px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 700 }}
                     >
-                      {d}
+                      <option>Analista de Notícias</option>
+                      <option>Analista Gráfica</option>
+                      <option>Diretora de Risco</option>
+                      <option>Executor de Ordens</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* ATIVIDADE: Atendendo | Pausa | Reunião | Foco */}
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", display: "block", marginBottom: 4 }}>
+                    ATIVIDADE (MOVE O AGENTE NO ESCRITÓRIO)
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                    {(["Atendendo", "Pausa", "Reunião", "Foco"] as const).map((act) => {
+                      const on = (activeModalAgent.activity || "Atendendo") === act;
+                      return (
+                        <button
+                          key={act}
+                          onClick={() => setActiveModalAgent({ ...activeModalAgent, activity: act })}
+                          style={{
+                            padding: "7px 4px",
+                            borderRadius: 8,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            border: "1px solid #cbd5e1",
+                            background: on ? "#1e222d" : "#ffffff",
+                            color: on ? "#ffffff" : "#334155",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {act}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* HORÁRIO DE TRABALHO */}
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", display: "block", marginBottom: 4 }}>HORÁRIO DE TRABALHO</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      type="time"
+                      value={activeModalAgent.startTime || "08:00"}
+                      onChange={(e) => setActiveModalAgent({ ...activeModalAgent, startTime: e.target.value, is247: false })}
+                      style={{ flex: 1, padding: 6, borderRadius: 8, border: "1px solid #cbd5e1", background: "#ffffff" }}
+                    />
+                    <span>até</span>
+                    <input
+                      type="time"
+                      value={activeModalAgent.endTime || "18:00"}
+                      onChange={(e) => setActiveModalAgent({ ...activeModalAgent, endTime: e.target.value, is247: false })}
+                      style={{ flex: 1, padding: 6, borderRadius: 8, border: "1px solid #cbd5e1", background: "#ffffff" }}
+                    />
+                    <button
+                      onClick={() => setActiveModalAgent({ ...activeModalAgent, is247: !activeModalAgent.is247 })}
+                      style={{
+                        padding: "7px 12px",
+                        borderRadius: 8,
+                        fontWeight: 800,
+                        border: "1px solid #1e222d",
+                        background: activeModalAgent.is247 ? "#1e222d" : "#ffffff",
+                        color: activeModalAgent.is247 ? "#fde047" : "#1e222d",
+                        cursor: "pointer",
+                      }}
+                    >
+                      24/7
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* CONFIGURAÇÕES EXTRAS DE TRADING (MELHORIA) */}
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200">
-              <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                  PERFIL DE RISCO
-                </label>
-                <select
-                  value={configAgent.riskProfile || "Moderado"}
-                  onChange={(e) => setConfigAgent({ ...configAgent, riskProfile: e.target.value as RiskProfile })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold"
-                >
-                  <option value="Conservador">Conservador</option>
-                  <option value="Moderado">Moderado</option>
-                  <option value="Agressivo">Agressivo</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                  DIREÇÃO PERMITIDA
-                </label>
-                <select
-                  value={configAgent.allowedSide || "AMBOS"}
-                  onChange={(e) => setConfigAgent({ ...configAgent, allowedSide: e.target.value as AllowedSide })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold"
-                >
-                  <option value="AMBOS">Compra & Venda (Long/Short)</option>
-                  <option value="COMPRA">Apenas Compra (Long)</option>
-                  <option value="VENDA">Apenas Venda (Short)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* CUSTOMIZAR APARÊNCIA */}
-            <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                CUSTOMIZAR APARÊNCIA (COR DO TRAJE & CABELO)
-              </label>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex gap-1.5">
-                  {SUIT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setConfigAgent({ ...configAgent, color: c })}
-                      className={`w-5 h-5 rounded-full border-2 ${
-                        configAgent.color === c ? "border-slate-950 scale-110" : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  {HAIR_COLORS.map((h) => (
+
+                {/* DIAS DA SEMANA */}
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", display: "block", marginBottom: 4 }}>DIAS</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5 }}>
+                    {DAY_LABELS.map((d, i) => {
+                      const days = activeModalAgent.days || [true, true, true, true, true, true, true];
+                      const on = days[i] ?? true;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            const next = [...days];
+                            next[i] = !on;
+                            setActiveModalAgent({ ...activeModalAgent, days: next });
+                          }}
+                          style={{
+                            padding: "6px 0",
+                            borderRadius: 8,
+                            fontWeight: 800,
+                            fontSize: 11,
+                            border: "1px solid #cbd5e1",
+                            background: on ? "#1e222d" : "#ffffff",
+                            color: on ? "#ffffff" : "#94a3b8",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* APARÊNCIA */}
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", display: "block", marginBottom: 4 }}>COR DO TRAJE</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {SUIT_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setActiveModalAgent({ ...activeModalAgent, color: c })}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 99,
+                          background: c,
+                          border: activeModalAgent.color === c ? "3px solid #0f172a" : "1px solid #cbd5e1",
+                          cursor: "pointer",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <button
+                    onClick={() => {
+                      saveAgentsList(localAgents.map((a) => (a.id === activeModalAgent.id ? activeModalAgent : a)));
+                      setActiveModalAgent(null);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      borderRadius: 10,
+                      background: "#facc15",
+                      color: "#0f172a",
+                      fontWeight: 900,
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Salvar Configurações
+                  </button>
+                  {localAgents.length > 1 && (
                     <button
-                      key={h}
-                      onClick={() => setConfigAgent({ ...configAgent, hair: h })}
-                      className={`w-4 h-4 rounded-full border ${
-                        configAgent.hair === h ? "border-slate-950 scale-110" : "border-slate-300"
-                      }`}
-                      style={{ backgroundColor: h }}
-                    />
-                  ))}
+                      onClick={() => {
+                        saveAgentsList(localAgents.filter((a) => a.id !== activeModalAgent.id));
+                        setActiveModalAgent(null);
+                      }}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        background: "#fee2e2",
+                        color: "#b91c1c",
+                        fontWeight: 800,
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Demitir
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-
-            {/* BOTÃO "ABRIR O CÉREBRO DE [NOME]" (IDÊNTICO AO VÍDEO) */}
-            {onSelectAgent && (
-              <button
-                onClick={() => {
-                  const saved = configAgent;
-                  updateAgents(localAgents.map((a) => (a.id === saved.id ? saved : a)));
-                  setConfigAgent(null);
-                  onSelectAgent(saved);
-                }}
-                className="w-full py-2.5 rounded-xl bg-[#1e222d] hover:bg-slate-800 text-white font-extrabold text-xs tracking-wide transition shadow flex items-center justify-center gap-2"
-              >
-                🧠 Abrir o cérebro de {configAgent.name} (Prompt & Chat IA)
-              </button>
             )}
-
-            {/* SALVAR & DEMITIR */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <button
-                onClick={() => {
-                  updateAgents(localAgents.map((a) => (a.id === configAgent.id ? configAgent : a)));
-                  setConfigAgent(null);
-                }}
-                className="flex-1 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs shadow transition"
-              >
-                Salvar Alterações
-              </button>
-              {localAgents.length > 1 && (
-                <button
-                  onClick={() => {
-                    updateAgents(localAgents.filter((a) => a.id !== configAgent.id));
-                    setConfigAgent(null);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs transition"
-                >
-                  Demitir
-                </button>
-              )}
-            </div>
           </div>
         </div>
       )}
