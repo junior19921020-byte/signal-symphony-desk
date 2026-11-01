@@ -1,3 +1,4 @@
+import { demoProfitTarget } from "@/lib/demoProfitTarget";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
@@ -377,11 +378,27 @@ function Index() {
           {positions.length === 0 && <p className="text-xs text-slate-500">Nenhuma posição aberta.</p>}
           {positions.length > 1 && <button onClick={closeAll} className="w-full rounded bg-red-600 py-1.5 text-xs font-bold">Encerrar Todas</button>}
           {positions.map((p) => {
-            const pnl = p.symbol === settings.symbol ? (p.side === "COMPRA" ? live - p.entry : p.entry - live) * p.qty : 0;
+            const quoteAvailable = p.symbol === settings.symbol && quoteAt > 0 && Date.now() - quoteAt <= 15000;
+            const target = demoProfitTarget(p.side, p.entry, p.sl, p.tp, p.qty, quoteAvailable ? live : null);
+            const pnl = target?.currentPnl ?? 0;
             return (
               <div key={p.id} className="rounded border border-slate-700 p-2 text-xs">
-                <div className="flex justify-between"><b className={p.side === "COMPRA" ? "text-green-400" : "text-red-400"}>{p.side} {p.symbol}</b><b className={pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(pnl)} USDT</b></div>
+                <div className="flex justify-between"><b className={p.side === "COMPRA" ? "text-green-400" : "text-red-400"}>{p.side} {p.symbol}</b><b className={pnl >= 0 ? "text-green-400" : "text-red-400"}>{target?.currentPnl === null || !target ? "Cotação indisponível" : `${fmt(pnl)} USDT`}</b></div>
                 <div className="text-slate-400">Entrada {fmt(p.entry)} • SL {fmt(p.sl)} • TP {fmt(p.tp)} • Qtd {fmt(p.qty, 5)}</div>
+                {target && (
+                  <div className="my-2 rounded bg-slate-800 p-2">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span className="text-green-400">Alvo de lucro: +{fmt(target.targetProfit)} USDT</span>
+                      <span className="text-red-400">Risco: -{fmt(target.plannedLoss)} USDT</span>
+                    </div>
+                    <div className="mt-1 text-slate-300">Risco/retorno: 1:{fmt(target.riskReward, 2)} • TP: {fmt(p.tp)}</div>
+                    <div className="mt-2 h-2 overflow-hidden rounded bg-slate-700" role="progressbar" aria-label="Progresso até o alvo de lucro" aria-valuenow={target.progress ?? 0} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="h-full rounded bg-green-500" style={{ width: `${target.progress ?? 0}%` }} />
+                    </div>
+                    <div className="mt-1 text-slate-400">{target.progress === null ? "Progresso indisponível sem cotação recente" : `${fmt(target.progress, 1)}% do lucro-alvo atingido`}</div>
+                    <div className="mt-1 text-slate-500">Estimativas demo antes de taxas e slippage; a barra não prevê o preço futuro.</div>
+                  </div>
+                )}
                 <div className="text-slate-400">Origem: {p.provenance ? `${p.provenance.openedBy} (${p.provenance.openedVia}) • Aprovado: ${p.provenance.approvedBy} • Risco planejado: ${fmt(p.provenance.plannedRisk)} USDT` : "não registrada (posição antiga)"}</div>
                 <button onClick={() => closeOne(p.id)} disabled={p.symbol !== settings.symbol || !live} className="mt-1 w-full rounded bg-red-500/80 py-1 font-bold disabled:opacity-40">Encerrar</button>
               </div>
