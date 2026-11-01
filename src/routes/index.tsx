@@ -1,3 +1,4 @@
+import { dailyLossStatus } from "@/lib/dailyLoss";
 import { evaluateExitVariance, type ExitVariance } from "@/lib/exitVariance";
 import { editDemoTargets } from "@/lib/editDemoTargets";
 import { demoProfitTarget } from "@/lib/demoProfitTarget";
@@ -76,6 +77,7 @@ function Index() {
   const [editRisk, setEditRisk] = useState("");
   const [editTargetError, setEditTargetError] = useState("");
   const [targetEdits, setTargetEdits] = useState<{ at: number; id: string; oldTp: number; newTp: number; oldSl: number; newSl: number }[]>([]);
+  const tradesRef = useRef<Trade[]>([]);
   const posRef = useRef<Position[]>([]);
   const liveRef = useRef<number>(0);
   const stopRef = useRef(false);
@@ -87,7 +89,9 @@ function Index() {
     setBalance(load("td_balance", s.bank));
     setPositions(load("td_positions", []));
     setTargetEdits(load("td_target_edits", []));
-    setTrades(load("td_trades", []));
+    const loadedTrades = load<Trade[]>("td_trades", []);
+    tradesRef.current = loadedTrades;
+    setTrades(loadedTrades);
     setAuto(load("td_auto", "manual"));
     setNextRunAt(load("td_next_run", 0));
     try { setAudit(parseAuditHistory(localStorage.getItem("td_decision_audit_v1"))); } catch { setAudit([]); }
@@ -102,6 +106,7 @@ function Index() {
   useEffect(() => { if (ready) save("td_next_run", nextRunAt); }, [nextRunAt, ready]);
   useEffect(() => { if (ready) save("td_decision_audit_v1", audit); }, [audit, ready]);
   useEffect(() => { posRef.current = positions; }, [positions]);
+  useEffect(() => { tradesRef.current = trades; }, [trades]);
   useEffect(() => { liveRef.current = live; }, [live]);
 
   const closePositions = useCallback((ids: string[], price: number, result: Trade["result"]) => {
@@ -116,7 +121,9 @@ function Index() {
     const keep = cur.filter((p) => !ids.includes(p.id));
     posRef.current = keep;
     setPositions(keep);
-    setTrades((t) => [...t, ...done].slice(-50));
+    const nextTrades = [...tradesRef.current, ...done].slice(-50);
+    tradesRef.current = nextTrades;
+    setTrades(nextTrades);
     setBalance((b) => b + done.reduce((x, c) => x + c.pnl, 0));
     done.forEach((d) => {
       const p = closing.find((c) => c.id === d.id);
@@ -151,6 +158,7 @@ function Index() {
     if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
     if (m.signal === "AGUARDAR") parts.push(`AGUARDAR — ${m.riskNote}`);
     else if (kept.some((p) => p.symbol === m.symbol && p.side === m.signal)) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
+    else if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) parts.push("Rita Risk bloqueou nova ordem: limite diário de perdas atingido");
     else if (demoOrderRejection(m, m.signal, m.symbol)) parts.push("ordem bloqueada pela validação de risco");
     else if (autoRef.current !== "manual") {
       const side: Side = m.signal;
@@ -273,6 +281,7 @@ function Index() {
     if (intent === "AUTO_ON") { stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`); return "Piloto automático ligado a cada 15 minutos."; }
     if (price <= 0 || !m) return "Sem preço de mercado; ordem não executada.";
     const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
+    if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) return "Rita Risk bloqueou nova ordem demo: limite diário de perdas atingido.";
     const rejection = demoOrderRejection(m, side, sym);
     if (rejection) return `Ordem demo bloqueada: ${rejection}`;
     if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `Já existe ${side} aberta em ${sym}; ordem repetida bloqueada.`;
@@ -289,6 +298,7 @@ function Index() {
 
   const execute = () => {
     if (!market || market.signal === "AGUARDAR") { setLog("Ordem demo bloqueada: sem sinal aprovado."); return; }
+    if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) { setLog("Rita Risk bloqueou nova ordem demo: limite diário de perdas atingido."); return; }
     const rejection = demoOrderRejection(market, market.signal, settings.symbol);
     setAudit((history) => appendAudit(history, auditDecision(market, "MANUAL")));
     if (rejection) { setLog(`Ordem demo bloqueada: ${rejection}`); return; }
@@ -302,6 +312,7 @@ function Index() {
   const wins = trades.filter((t) => t.pnl > 0).length;
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
   const performance = demoPerformance(trades);
+  const dailyRisk = dailyLossStatus(trades, Date.now(), settings.bank);
 
   return (
     <div className="w-full max-w-md mx-auto px-3 pt-4 pb-24 overflow-x-hidden bg-[#0b0e14] text-slate-100 min-h-screen">
@@ -366,7 +377,7 @@ function Index() {
             <li>🛡 Risco: {market.riskNote}</li>
             <li>⚡ Execução: {market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
           </ul>
-          {market.signal !== "AGUARDAR" && market.riskApproved && <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
+          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={dailyRisk.blocked} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
         </section>
       )}
 
@@ -395,6 +406,12 @@ function Index() {
           <div className="rounded bg-slate-800 p-2">Patrimônio<br /><b>{fmt(balance + floating)} USDT</b></div>
           <div className="rounded bg-slate-800 p-2">P&L Flutuante<br /><b className={floating >= 0 ? "text-green-400" : "text-red-400"}>{fmt(floating)} USDT</b></div>
           <div className="rounded bg-slate-800 p-2">Win Rate<br /><b>{fmt(winRate, 1)}%</b> ({trades.length})</div>
+        </div>
+        <div className="mt-3 rounded border border-amber-600/40 bg-slate-800 p-3 text-xs">
+          <div className="flex justify-between gap-2"><b>Rita Risk • Limite diário demo</b><b className={dailyRisk.blocked ? "text-red-400" : "text-green-400"}>{dailyRisk.blocked ? "NOVAS ORDENS BLOQUEADAS" : "Dentro do limite"}</b></div>
+          <div className="mt-1">Perdas realizadas hoje: {fmt(dailyRisk.loss)} / {fmt(dailyRisk.limit)} USDT (1% da banca configurada)</div>
+          <div>Limite restante: {fmt(dailyRisk.remaining)} USDT • {dailyRisk.count} fechamento(s) hoje</div>
+          <p className="mt-1 text-slate-400">Somamos perdas brutas, sem compensar lucros. A data segue o horário local do dispositivo. Trades antigos sem data não entram no cálculo. O bloqueio impede novas ordens demo, mas permite encerrar posições existentes.</p>
         </div>
         <div className="mt-3 space-y-1">
           {positions.length === 0 && <p className="text-xs text-slate-500">Nenhuma posição aberta.</p>}
