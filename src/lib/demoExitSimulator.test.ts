@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { simulateDemoExits } from "./demoExitSimulator";
+import { simulateDemoExits, diagnoseDemoExits } from "./demoExitSimulator";
 
 const base = {
   entry: 100, side: "COMPRA" as const, qty: 1, stopLoss: 95, takeProfit: 110,
@@ -29,5 +29,23 @@ describe("read-only demo exit simulator", () => {
   it("does not fabricate agent decisions", () => {
     const result = simulateDemoExits({ ...base, agentExitIndex: undefined });
     expect(result[4].pnl).toBeNull();
+  });
+});
+
+describe("demo exit diagnostics", () => {
+  it("flags an observed protection floor breach and identifies the earlier target", () => {
+    const d = diagnoseDemoExits({ ...base, observedPrices: [100,102,104,106,108,105,103,101], takeProfit: 110, profitTargetUsdt: 5, protectAfterUsdt: 3, protectFloorUsdt: 2, agentExitIndex: 3 })!;
+    expect(d.peakObservedPnl).toBe(8);
+    expect(d.protectionActualPnl).toBe(1);
+    expect(d.protectionDifference).toBe(-1);
+    expect(d.protectionBreached).toBe(true);
+    expect(d.firstExit?.rule).toBe("PROFIT_TARGET");
+    expect(d.firstExit?.exitIndex).toBe(3);
+    expect(d.tiedFirstRules).toEqual(["PROFIT_TARGET", "AGENT"]);
+  });
+  it("handles no observed exits without inventing an execution", () => {
+    const d = diagnoseDemoExits({ ...base, observedPrices: [100], agentExitIndex: undefined })!;
+    expect(d.firstExit).toBeNull();
+    expect(d.protectionBreached).toBe(false);
   });
 });
