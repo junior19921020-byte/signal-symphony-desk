@@ -1,4 +1,4 @@
-import { evaluateDemoTrailing } from "@/lib/demoTrailingRisk";
+import { observeDemoTrailing, type PersistedDemoTrailing } from "@/lib/demoTrailingState";
 import { DemoExitPanel } from "@/components/DemoExitPanel";
 import { verifyRestoredDemoBackup } from "@/lib/demoBackupIntegrity";
 import { parseRestorableDemoBackup, restoreDemoBackupToStorage } from "@/lib/restoreDemoBackup";
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/")({
 });
 
 interface Msg { from: "user" | "agent"; text: string }
-interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number; provenance?: TradeProvenance; excursion?: ObservedExcursion }
+interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number; provenance?: TradeProvenance; excursion?: ObservedExcursion; trailing?: PersistedDemoTrailing; trailingEnabled?: boolean }
 interface TradeProvenance { openedBy: string; openedVia: "MANUAL" | "CHAT" | "AUTOMATICO"; openedAt: number; approvedBy: "Rita Risk"; plannedRisk: number; riskPercent: number; decision: Side }
 
 interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number; provenance?: TradeProvenance; exitVariance?: ExitVariance; excursion?: ObservedExcursion }
@@ -269,6 +269,29 @@ function Index() {
     });
     if (changed) { posRef.current = next; setPositions(next); }
   }, [ready, quoteAt, live, settings.symbol]);
+
+  // Proteção dinâmica somente informativa e por adesão individual. Nunca encerra ordens.
+  useEffect(() => {
+    if (!ready || quoteAt <= 0) return;
+    const cur = posRef.current;
+    let changed = false;
+    const next = cur.map((p) => {
+      if (!p.trailingEnabled || p.symbol !== settings.symbol) return p;
+      const observed = observeDemoTrailing(p, live, quoteAt, Date.now(), 5, 3);
+      if (!observed) return p;
+      changed = true;
+      return { ...p, trailing: observed.state };
+    });
+    if (changed) { posRef.current = next; setPositions(next); }
+  }, [ready, quoteAt, live, settings.symbol]);
+
+  const toggleTrailingDemo = (id: string) => {
+    const next = posRef.current.map((p) => p.id === id
+      ? { ...p, trailingEnabled: !p.trailingEnabled, trailing: undefined }
+      : p);
+    posRef.current = next;
+    setPositions(next);
+  };
 
   // Verifica limites demo independentemente do botão de análise.
   // A cotação precisa ser recente; esta lógica funciona apenas com a página ativa.
@@ -654,6 +677,21 @@ function Index() {
                     )}
                   </div>
                 )}
+                <div className="mt-2 rounded border border-sky-700/60 bg-slate-800 p-2 text-xs">
+                  <p className="font-semibold text-sky-300">Proteção dinâmica DEMO — somente alerta</p>
+                  <p>Ativação: +5 USDT • Distância do pico: 3 USDT. Não encerra operações.</p>
+                  <button type="button" onClick={() => toggleTrailingDemo(p.id)} className="mt-2 rounded border border-sky-500 px-3 py-2 text-sky-200">{p.trailingEnabled ? "Desativar acompanhamento" : "Ativar acompanhamento desta posição"}</button>
+                  {p.trailingEnabled && (
+                    <div role="status" className="mt-2 space-y-1">
+                      <p>{p.trailing?.activated ? "Proteção ativada" : "Aguardando lucro de 5 USDT e cotação válida"}</p>
+                      {p.trailing && <p>Maior lucro observado: {fmt(p.trailing.peakPnl)} USDT • Piso teórico: {p.trailing.activated ? fmt(p.trailing.peakPnl - 3) + " USDT" : "não ativado"}</p>}
+                      {p.trailing?.activated && quoteAt === p.trailing.lastQuotedAt && pnlOf(p.side, p.entry, live, p.qty) <= p.trailing.peakPnl - 3 && (
+                        <p role="alert" className="font-bold text-red-300">Rita Risk: lucro abaixo do piso teórico observado. Nenhuma ordem foi encerrada.</p>
+                      )}
+                      <p className="text-amber-300">Funciona apenas com a página ativa e cotações recentes. Não garante o piso nem proteção contínua.</p>
+                    </div>
+                  )}
+                </div>
                 <button onClick={() => closeOne(p.id)} disabled={p.symbol !== settings.symbol || !live} className="mt-1 w-full rounded bg-red-500/80 py-1 font-bold disabled:opacity-40">Encerrar</button>
               </div>
             );
