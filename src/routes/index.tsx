@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
 import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
 import { agentChat } from "@/lib/agent.functions";
+import { MemoryEngine } from "@/lib/memoryEngine";
+import { SecondBrainGraph } from "@/components/SecondBrainGraph";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -56,6 +58,7 @@ function Index() {
   const [ready, setReady] = useState(false);
   const [nextRunAt, setNextRunAt] = useState<number>(0);
   const [log, setLog] = useState<string>("");
+  const [tab, setTab] = useState<"desk" | "brain">("desk");
   const posRef = useRef<Position[]>([]);
   const liveRef = useRef<number>(0);
   const stopRef = useRef(false);
@@ -94,6 +97,10 @@ function Index() {
     setPositions(keep);
     setTrades((t) => [...t, ...done].slice(-50));
     setBalance((b) => b + done.reduce((x, c) => x + c.pnl, 0));
+    done.forEach((d) => {
+      const p = closing.find((c) => c.id === d.id);
+      MemoryEngine.recordTradeMemory({ ...d, symbol: p?.symbol ?? "BTCUSDT", agent: "Max Trader" });
+    });
   }, []);
 
   const runCycle = useCallback(async () => {
@@ -258,7 +265,12 @@ function Index() {
         <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900 py-2 text-sm text-slate-300">18º Andar • Mesa de Operações</div>
       </header>
 
+      <nav className="mt-4 grid grid-cols-2 gap-2 text-sm font-semibold">
+        <button onClick={() => setTab("desk")} className={`rounded-lg py-2 ${tab === "desk" ? "bg-[#d4af37] text-slate-900" : "bg-slate-800 text-slate-300"}`}>Mesa de Operações</button>
+        <button onClick={() => setTab("brain")} className={`rounded-lg py-2 ${tab === "brain" ? "bg-[#d4af37] text-slate-900" : "bg-slate-800 text-slate-300"}`}>Segundo Cérebro (Grafo)</button>
+      </nav>
 
+      {tab === "brain" ? <SecondBrainGraph /> : (<>
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
       </section>
@@ -351,6 +363,8 @@ function Index() {
             src={`https://s.tradingview.com/widgetembed/?symbol=BINANCE:${settings.symbol}&interval=15&theme=dark&style=1&locale=br`} />
         )}
       </section>
+      </>)}
+
 
       {showSettings && (
         <SettingsModal settings={settings} onClose={() => setShowSettings(false)} onSave={(s) => {
