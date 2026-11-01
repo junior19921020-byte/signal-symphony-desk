@@ -397,7 +397,7 @@ function Index() {
           <ul className="mt-2 space-y-0.5 text-xs text-slate-300">
             <li>🔎 Pesquisa: <b>{market.research.trend}</b> — {market.research.note}</li>
             <li>📈 Gráfico: <b>{market.chart.trend}</b> — {market.chart.note}</li>
-            <li>🛡 Risco: {market.riskNote}</li>
+            <li>🛡 {riskBlocked ? <>Análise técnica: {market.research.trend === market.chart.trend && market.signal !== "AGUARDAR" ? `consenso para ${market.signal}` : "sem consenso operacional"}; autorização final: <strong className="text-red-400">BLOQUEADA pela Rita Risk</strong>.</> : <>Rita Risk: {market.riskNote}</>}</li>
             <li>⚡ Execução: {signalUsed ? "sinal utilizado/encerrado; rode novo ciclo" : riskBlocked ? "BLOQUEADA pela Rita Risk; nenhuma ordem autorizada" : market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : !market.riskApproved ? "não autorizada pela Rita Risk" : `${market.signal} liberada`}</li>
           </ul>
           {preventiveWarning && <p role="alert" className="mt-2 text-xs text-red-400">{preventiveWarning}</p>}
