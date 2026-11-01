@@ -35,3 +35,29 @@ export function auditDecision(m: Market, source: DecisionAudit["source"], at = D
 export function appendAudit(history: DecisionAudit[], item: DecisionAudit): DecisionAudit[] {
   return [item, ...history].slice(0, 100);
 }
+
+/** Treat browser storage as untrusted; discard invalid or oversized entries. */
+export function parseAuditHistory(raw: string | null): DecisionAudit[] {
+  if (!raw) return [];
+  try {
+    const data: unknown = JSON.parse(raw);
+    if (!Array.isArray(data)) return [];
+    return data.filter((item): item is DecisionAudit => {
+      if (!item || typeof item !== "object") return false;
+      const x = item as Partial<DecisionAudit>;
+      return typeof x.id === "string" && x.id.length <= 120 &&
+        typeof x.at === "number" && Number.isFinite(x.at) && x.at > 0 &&
+        typeof x.symbol === "string" && x.symbol.length <= 30 &&
+        ["ALTA", "BAIXA", "LATERAL"].includes(x.research ?? "") &&
+        ["ALTA", "BAIXA", "LATERAL"].includes(x.chart ?? "") &&
+        ["COMPRA", "VENDA", "AGUARDAR"].includes(x.signal ?? "") &&
+        typeof x.approved === "boolean" &&
+        (x.decision === "APROVADA" || x.decision === "BLOQUEADA") &&
+        x.approved === (x.decision === "APROVADA") &&
+        typeof x.reason === "string" && x.reason.length <= 1000 &&
+        ["ANALISE", "MANUAL", "AUTOMATICO"].includes(x.source ?? "");
+    }).slice(0, 100);
+  } catch {
+    return [];
+  }
+}
