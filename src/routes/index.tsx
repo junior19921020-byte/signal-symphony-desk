@@ -1,3 +1,4 @@
+import { createDemoBackup } from "@/lib/demoBackup";
 import { preventiveRiskGate } from "@/lib/preventiveRisk";
 import { dailyLossStatus } from "@/lib/dailyLoss";
 import { evaluateExitVariance, type ExitVariance } from "@/lib/exitVariance";
@@ -59,6 +60,7 @@ function Index() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [market, setMarket] = useState<Market | null>(null);
   const [showSignalCard, setShowSignalCard] = useState(true);
+  const [backupError, setBackupError] = useState("");
   const [live, setLive] = useState<number>(0);
   const [quoteAt, setQuoteAt] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -333,6 +335,23 @@ function Index() {
   const wins = trades.filter((t) => t.pnl > 0).length;
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
   const performance = demoPerformance(trades);
+  const exportDemoBackup = () => {
+    try {
+      const payload = createDemoBackup({ balance, bank: settings.bank, symbol: settings.symbol, positions, trades, audit, targetEdits });
+      const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `signal-symphony-demo-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setBackupError("");
+    } catch {
+      setBackupError("Não foi possível gerar o backup. Confira os dados da conta demo.");
+    }
+  };
   const dailyRisk = dailyLossStatus(trades, Date.now(), settings.bank);
   const preventiveWarning = market && market.signal !== "AGUARDAR" ? preventiveRiskGate(trades, positions, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank) : null;
   const riskBlocked = dailyRisk.blocked || !!preventiveWarning;
@@ -423,6 +442,7 @@ function Index() {
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
         <h2 className="font-bold text-[#d4af37]">Posições Abertas & Histórico de Trades</h2>
+        <div className="mt-2 rounded border border-slate-700 p-2 text-xs"><button type="button" onClick={exportDemoBackup} className="rounded bg-slate-700 px-3 py-2 font-semibold text-white">Exportar backup demo (.json)</button><p className="mt-1 text-slate-400">Salva uma cópia local de posições, histórico, auditoria e saldo demo, sem chave de API. Não sincroniza entre aparelhos e ainda não restaura dados.</p>{backupError && <p role="alert" className="mt-1 text-red-400">{backupError}</p>}</div>
         <p className="text-xs text-slate-400">{settings.symbol} cotação demo: {quoteAt ? fmt(live) : "indisponível"} • {quoteAt ? `Atualizada às ${new Date(quoteAt).toLocaleTimeString("pt-BR")}` : "Aguardando cotação"}</p>
         <p className="text-xs text-amber-300">Stop/Take demo monitorados somente enquanto esta página estiver ativa. Não há proteção garantida com o app fechado ou sem conexão.</p>
         <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
