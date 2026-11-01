@@ -644,7 +644,15 @@ function Index() {
               <div key={t.id} className="text-xs text-slate-300"><div className="flex justify-between gap-2">
                 <span>{t.side} {fmt(t.entry)} → {fmt(t.exit)} ({{ TP: "Take Profit", SL: "Stop Loss", IA: "Encerrada pela IA", MANUAL: "Manual" }[t.result] ?? t.result})</span>
                 <b className={t.pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(t.pnl)}</b></div>
-                {t.excursion && <div className="mt-1 text-[11px] text-slate-300">Máximo lucro observado: +{fmt(t.excursion.maxFavorablePnl)} USDT • Máxima perda observada: {fmt(t.excursion.maxAdversePnl)} USDT • Realizado: {fmt(t.pnl)} USDT. Apenas durante monitoramento ativo.</div>}
+                {t.excursion && Number.isFinite(t.excursion.maxFavorablePnl) && Number.isFinite(t.excursion.maxAdversePnl) && (
+                  <div className="mt-1 rounded bg-slate-800/60 p-2 text-[11px] text-slate-300">
+                    <p>Maior lucro observado: +{fmt(t.excursion.maxFavorablePnl)} USDT • Maior perda observada: {fmt(t.excursion.maxAdversePnl)} USDT</p>
+                    <p>Resultado realizado: {fmt(t.pnl)} USDT</p>
+                    <p>Lucro observado devolvido: {fmt(Math.max(0, t.excursion.maxFavorablePnl - t.pnl))} USDT</p>
+                    <p>Retenção do lucro observado: {t.excursion.maxFavorablePnl > 0 ? `${fmt(Math.max(0, Math.min(100, (t.pnl / t.excursion.maxFavorablePnl) * 100)))}%` : "Não aplicável (sem lucro positivo observado)"}</p>
+                    <p className="text-amber-300">Amostras coletadas apenas com a página ativa e cotação válida. Não representam o melhor preço executável.</p>
+                  </div>
+                )}
                 {t.exitVariance && (
                   <div className="mt-1 rounded bg-slate-800 p-2 text-[11px]">
                     <div>Rita Risk • {t.result === "SL" ? "Stop Loss" : "Take Profit"} configurado: {fmt(t.exitVariance.plannedPrice)} • Saída efetiva: {fmt(t.exitVariance.actualPrice)}</div>
