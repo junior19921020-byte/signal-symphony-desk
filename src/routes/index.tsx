@@ -4,6 +4,7 @@ import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
 import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
 import { agentChat } from "@/lib/agent.functions";
 import { demoOrderRejection } from "@/lib/demoRisk";
+import { fetchDemoQuote } from "@/lib/demoQuote";
 import { demoPerformance } from "@/lib/demoPerformance";
 import { auditDecision, appendAudit, parseAuditHistory, type DecisionAudit } from "@/lib/decisionAudit";
 import { MemoryEngine } from "@/lib/memoryEngine";
@@ -52,6 +53,7 @@ function Index() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [market, setMarket] = useState<Market | null>(null);
   const [live, setLive] = useState<number>(0);
+  const [quoteAt, setQuoteAt] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [auto, setAuto] = useState("manual");
@@ -183,25 +185,32 @@ function Index() {
     return () => clearInterval(id);
   }, [auto, ready]);
 
-  // Preço ao vivo a cada 5s
+  // Cotação demo independente do ciclo de análise. Não confundir com proteção no servidor.
   useEffect(() => {
+    if (!ready) return;
     let alive = true;
+    let pending = false;
+    setLive(0);
+    setQuoteAt(0);
     const tick = async () => {
+      if (pending || !alive) return;
+      pending = true;
       try {
-        const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${settings.symbol}`);
-        const d = (await r.json()) as { price?: string };
-        const p = Number(d.price || 0);
-        if (alive && p > 0) setLive(p);
-      } catch { /* silencioso */ }
+        const price = await fetchDemoQuote(settings.symbol);
+        if (alive && price !== null) {
+          setLive(price);
+          setQuoteAt(Date.now());
+        }
+      } finally { pending = false; }
     };
     void tick();
     const id = setInterval(() => void tick(), 5000);
     return () => { alive = false; clearInterval(id); };
-  }, [settings.symbol]);
+  }, [settings.symbol, ready]);
 
   // Monitoramento SL/TP a cada preço ao vivo
   useEffect(() => {
-    if (!live) return;
+    if (!ready || !live || !quoteAt || Date.now() - quoteAt > 15000) return;
     const tp: string[] = [];
     const sl: string[] = [];
     for (const p of positions) {
@@ -211,7 +220,7 @@ function Index() {
     }
     closePositions(sl, live, "SL");
     closePositions(tp, live, "TP");
-  }, [live, positions, settings.symbol, closePositions]);
+  }, [live, quoteAt, ready, positions, settings.symbol, closePositions]);
 
   const running = loading || auto !== "manual";
   const stopAll = () => { stopRef.current = true; setAuto("manual"); setNextRunAt(0); setLoading(false); };
@@ -358,7 +367,8 @@ function Index() {
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
         <h2 className="font-bold text-[#d4af37]">Posições Abertas & Histórico de Trades</h2>
-        <p className="text-xs text-slate-400">{settings.symbol} ao vivo: {fmt(live)}</p>
+        <p className="text-xs text-slate-400">{settings.symbol} cotação demo: {quoteAt ? fmt(live) : "indisponível"} • {quoteAt ? `Atualizada às ${new Date(quoteAt).toLocaleTimeString("pt-BR")}` : "Aguardando cotação"}</p>
+        <p className="text-xs text-amber-300">Stop/Take demo monitorados somente enquanto esta página estiver ativa. Não há proteção garantida com o app fechado ou sem conexão.</p>
         <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
           <div className="rounded bg-slate-800 p-2">Saldo Realizado<br /><b>{fmt(balance)} USDT</b></div>
           <div className="rounded bg-slate-800 p-2">Patrimônio<br /><b>{fmt(balance + floating)} USDT</b></div>
