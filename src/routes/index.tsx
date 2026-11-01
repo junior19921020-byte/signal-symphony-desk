@@ -384,6 +384,14 @@ function Index() {
   const auditVisible = audit.filter((entry) => auditFilter === "TODAS" || entry.decision === auditFilter);
   const auditBlockedCount = audit.filter((entry) => entry.decision === "BLOQUEADA").length;
   const auditApprovedCount = audit.filter((entry) => entry.decision === "APROVADA").length;
+  const todayKey = new Date().toLocaleDateString("en-CA");
+  const isToday = (at: number) => Number.isFinite(at) && new Date(at).toLocaleDateString("en-CA") === todayKey;
+  const dailyAudits = audit.filter((entry) => isToday(entry.at));
+  const dailyApproved = dailyAudits.filter((entry) => entry.decision === "APROVADA").length;
+  const dailyBlocked = dailyAudits.filter((entry) => entry.decision === "BLOQUEADA").length;
+  const dailyOpened = [...positions.map((p) => p.provenance?.openedAt), ...trades.map((t) => t.provenance?.openedAt)].filter((at): at is number => typeof at === "number" && isToday(at)).length;
+  const dailyClosed = trades.filter((t) => typeof t.closedAt === "number" && isToday(t.closedAt)).length;
+  const dailyRealizedPnl = trades.filter((t) => typeof t.closedAt === "number" && isToday(t.closedAt)).reduce((sum, t) => sum + t.pnl, 0);
   const dailyRisk = dailyLossStatus(trades, Date.now(), settings.bank);
   const preventiveWarning = market && market.signal !== "AGUARDAR" ? preventiveRiskGate(trades, positions, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank) : null;
   const riskBlocked = dailyRisk.blocked || !!preventiveWarning;
@@ -415,6 +423,23 @@ function Index() {
       </nav>
 
       {tab === "brain" ? <SecondBrainGraph /> : (<>
+      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Relatório diário Rita Risk demo">
+        <h2 className="text-sm font-bold text-[#d4af37]">Relatório Diário • Rita Risk (Demo)</h2>
+        <p className="mt-1 text-slate-300">Hoje, {new Date().toLocaleDateString("pt-BR")} • horário local do dispositivo</p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold">{dailyAudits.length}</div>Análises registradas</div>
+          <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold text-emerald-300">{dailyApproved}</div>Aprovações técnicas</div>
+          <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold text-amber-300">{dailyBlocked}</div>Vetos na análise</div>
+          <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold">{dailyOpened}</div>Aberturas registradas</div>
+          <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold">{dailyClosed}</div>Fechamentos</div>
+          <div className="rounded bg-slate-800 p-3"><div className={`text-xl font-bold ${dailyRealizedPnl < 0 ? "text-red-300" : "text-emerald-300"}`}>{fmt(dailyRealizedPnl)} USDT</div>P&amp;L realizado hoje</div>
+        </div>
+        <div className={`mt-3 rounded border p-3 ${dailyRisk.blocked ? "border-red-500 bg-red-950/40" : "border-slate-600 bg-slate-800"}`}>
+          <b>Limite diário: {dailyRisk.blocked ? "NOVAS ORDENS BLOQUEADAS" : "Dentro do limite"}</b>
+          <p className="mt-1">Perdas brutas: {fmt(dailyRisk.loss)} / {fmt(dailyRisk.limit)} USDT • Restante: {fmt(dailyRisk.remaining)} USDT</p>
+        </div>
+        <p className="mt-2 text-slate-400">Aprovações técnicas não são execuções. Vetos na análise não incluem todos os bloqueios preventivos de abertura. Aberturas dependem de registros de origem; operações antigas podem não ter esse dado. Somente dados deste navegador, sem ordens reais.</p>
+      </section>
       <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Auditoria de decisões demo">
         <h2 className="text-sm font-bold text-[#d4af37]">Auditoria de Decisões (Demo)</h2>
         <p className="mt-1 text-slate-400">Últimas 100 decisões salvas neste navegador; nenhum registro envia ordens.</p>
