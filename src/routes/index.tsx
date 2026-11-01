@@ -457,7 +457,7 @@ function ChatModal({ agent, market, messages, setMessages, onPrompt, onCommand, 
     let answer = "";
     try {
       const r = await agentChat({ data: { system: agent.prompt, role: agent.role, question: q, context, action } });
-      answer = r.ok ? r.text : `⚠ ${r.error}${action ? ` Ação executada: ${action}` : ""}`;
+      answer = r.text;
     } catch {
       answer = `⚠ IA indisponível no momento.${action ? ` Ação executada: ${action}` : ""}`;
     }

@@ -211,7 +211,7 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
     symbol, price, change: ((price - first) / first) * 100, change5m, rsi: r, ema9: e9, ema21: e21,
     macd: m.macd, macdSignal: m.signal, macdHist: m.hist, atr: a, buyRatio, greens, reds, structure,
     research, chart, riskApproved: agree, riskNote, signal, risk: riskAmt, slDist, qty,
-    sl: lv.sl, tp: lv.tp, candles: c15.slice(-15), headlines, time: Date.now(),
+    sl: lv.sl, tp: lv.tp, candles: c15.slice(-15), headlines: headlines ?? [], time: Date.now(),
   };
 }
 
@@ -256,7 +256,7 @@ function notifyOpportunity(m: Market) {
 
   try {
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, tag: key, renotify: true });
+      new Notification(title, { body, tag: key, renotify: true } as NotificationOptions);
     }
   } catch { /* */ }
 }
@@ -389,10 +389,12 @@ Sinal Consolidado (Max Trader): ${m.signal}
 Últimas 5 velas 15m: ${c}${newsBlock}`;
 }
 
-export function parseIntent(msg: string): "BUY" | "SELL" | "STATUS" | "CLOSE" | null {
+export function parseIntent(msg: string): "BUY" | "SELL" | "STATUS" | "CLOSE" | "AUTO_ON" | "AUTO_OFF" | null {
   const m = msg.toLowerCase().trim();
   if (/(feche|fechar|encerre|encerrar|zere|zerar|pare a opera|parar opera|^stop$|^parar$)/.test(m)) return "CLOSE";
   if (/(posição|posicao|status|como está|como esta)/.test(m) && !/(compre|venda|abra|gráfico|grafico)/.test(m)) return "STATUS";
+  if (/(desligue|desative|desativa|pare o piloto|parar o piloto|modo manual|piloto manual)/.test(m)) return "AUTO_OFF";
+  if (/(ligue o piloto|ative o piloto|ativa o piloto|piloto autom|modo autom)/.test(m)) return "AUTO_ON";
   if (/(compre agora|abra uma compra|entrar comprando|execute compra|ordem de compra|^comprar agora$)/.test(m)) return "BUY";
   if (/(venda agora|abra uma venda|entrar vendendo|execute venda|ordem de venda|^vender agora$)/.test(m)) return "SELL";
   return null;
