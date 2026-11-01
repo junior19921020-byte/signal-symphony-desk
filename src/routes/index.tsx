@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { OfficeMap, ROOMS, statusFor, type Agent } from "@/components/OfficeMap";
+import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
 import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
 import { agentChat } from "@/lib/agent.functions";
 
@@ -29,9 +29,6 @@ const DEFAULT_AGENTS: Agent[] = [
   { id: "rita", name: "Rita Risk", role: "Diretora de Risco", room: 2, color: "#ef4444", hair: "#eab308", prompt: "Você é Rita Risk, diretora de risco. Sempre arrisque no máximo 1% da banca." },
   { id: "max", name: "Max Trader", role: "Executor de Ordens", room: 3, color: "#22c55e", hair: "#451a03", prompt: "Você é Max Trader, executor de ordens disciplinado." },
 ];
-const ROLES = ["Analista de Notícias", "Analista Gráfica", "Diretora de Risco", "Executor de Ordens"];
-const COLORS = ["#f97316", "#06b6d4", "#ec4899", "#84cc16", "#eab308", "#6366f1"];
-const NAMES = ["Leo", "Bia", "Caio", "Duda", "Enzo", "Lara", "Theo", "Nina", "Rafa", "Iris", "Gabi", "Hugo"];
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
 const AUTO: Record<string, number> = { manual: 0, "1m": 60, "5m": 300, "15m": 900 };
 
@@ -249,18 +246,9 @@ function Index() {
     setNotice(`✓ ${side} executada: ${market.symbol} @ ${fmt(market.price)}`);
   };
 
-  const hire = () => {
-    const room = [0, 1, 2, 3].find((r) => agents.filter((a) => a.room === r).length < 4);
-    if (room === undefined) return;
-    const n = agents.length;
-    const name = `${NAMES[n % NAMES.length]} ${(ROOMS[room] ?? "").split(" ")[0]}`;
-    setAgents((as) => [...as, { id: `a${Date.now()}`, name, role: ROLES[room] ?? "", room, color: COLORS[n % COLORS.length] ?? "#f97316", hair: n % 2 ? "#1c1917" : "#a16207", prompt: `Você é ${name}, ${ROLES[room]} da mesa de operações.` }]);
-  };
-
   const floating = positions.filter((p) => p.symbol === settings.symbol).reduce((s, p) => s + (p.side === "COMPRA" ? live - p.entry : p.entry - live) * p.qty, 0);
   const wins = trades.filter((t) => t.pnl > 0).length;
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
-  const full = agents.length >= 16;
 
   return (
     <div className="w-full max-w-md mx-auto px-3 pt-4 pb-24 overflow-x-hidden bg-[#0b0e14] text-slate-100 min-h-screen">
@@ -270,26 +258,6 @@ function Index() {
         <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900 py-2 text-sm text-slate-300">18º Andar • Mesa de Operações</div>
       </header>
 
-      <section className="mt-4 space-y-2">
-        {ROOMS.map((r, i) => {
-          const list = agents.filter((a) => a.room === i);
-          return (
-            <div key={r} className="rounded-lg border border-slate-800 bg-slate-900/70 p-2">
-              <div className="flex justify-between text-sm font-bold"><span>{i + 1}) {r}</span><span className="text-[#d4af37]">{list.length}/4</span></div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {list.map((a) => (
-                  <button key={a.id} onClick={() => setSelected(a)} className="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700">
-                    <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: a.color }} />{a.name} — {a.role}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        <button onClick={hire} disabled={full} className="w-full rounded-lg bg-yellow-400 py-2 font-bold text-slate-900 disabled:opacity-50">
-          {full ? "Escritório lotado" : "+ Contratar Funcionário"}
-        </button>
-      </section>
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
