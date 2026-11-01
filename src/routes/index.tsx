@@ -432,11 +432,11 @@ function Index() {
           <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold text-amber-300">{dailyBlocked}</div>Vetos na análise</div>
           <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold">{dailyOpened}</div>Aberturas registradas</div>
           <div className="rounded bg-slate-800 p-3"><div className="text-xl font-bold">{dailyClosed}</div>Fechamentos</div>
-          <div className="rounded bg-slate-800 p-3"><div className={`text-xl font-bold ${dailyRealizedPnl < 0 ? "text-red-300" : "text-emerald-300"}`}>{fmt(dailyRealizedPnl)} USDT</div>P&amp;L realizado hoje</div>
+          <div className="rounded bg-slate-800 p-3"><div className={`text-xl font-bold ${dailyRealizedPnl < 0 ? "text-red-300" : "text-emerald-300"}`}>{fmt(dailyRealizedPnl)} USDT</div>P&amp;L de hoje (operações encerradas)</div>
         </div>
         <div className={`mt-3 rounded border p-3 ${dailyRisk.blocked ? "border-red-500 bg-red-950/40" : "border-slate-600 bg-slate-800"}`}>
           <b>Limite diário: {dailyRisk.blocked ? "NOVAS ORDENS BLOQUEADAS" : "Dentro do limite"}</b>
-          <p className="mt-1">Perdas brutas: {fmt(dailyRisk.loss)} / {fmt(dailyRisk.limit)} USDT • Restante: {fmt(dailyRisk.remaining)} USDT</p>
+          <p className="mt-1">Perdas brutas de hoje: {fmt(dailyRisk.loss)} / {fmt(dailyRisk.limit)} USDT • Restante: {fmt(dailyRisk.remaining)} USDT</p>
         </div>
         <p className="mt-2 text-slate-400">Aprovações técnicas não são execuções. Vetos na análise não incluem todos os bloqueios preventivos de abertura. Aberturas dependem de registros de origem; operações antigas podem não ter esse dado. Somente dados deste navegador, sem ordens reais.</p>
       </section>
@@ -507,7 +507,7 @@ function Index() {
         <h2 className="font-bold text-[#d4af37]">Painel de Desempenho (Demo)</h2>
         <p className="mt-1 text-xs text-slate-400">Calculado apenas sobre operações encerradas salvas neste navegador. Não representa resultados de uma conta real.</p>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded bg-slate-800 p-2">P&L realizado<br /><b className={performance.netPnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(performance.netPnl)} USDT</b></div>
+          <div className="rounded bg-slate-800 p-2">P&L acumulado<br /><b className={performance.netPnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(performance.netPnl)} USDT</b></div>
           <div className="rounded bg-slate-800 p-2">Drawdown realizado máximo<br /><b>{fmt(performance.maxDrawdown)} USDT</b></div>
           <div className="rounded bg-slate-800 p-2">Ganho médio<br /><b>{fmt(performance.averageWin)} USDT</b></div>
           <div className="rounded bg-slate-800 p-2">Perda média (valor absoluto)<br /><b>{fmt(performance.averageLoss)} USDT</b></div>
