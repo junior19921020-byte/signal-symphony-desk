@@ -21,6 +21,7 @@ export interface Market {
   macdHist: number;
   atr: number;
   buyRatio: number;
+  volumeVerified: boolean;
   greens: number;
   reds: number;
   structure: "ASCENDENTE" | "DESCENDENTE" | "MISTA";
@@ -65,7 +66,7 @@ export function parseKlines(data: unknown): Candle[] {
       l: Number(a[3] || 0),
       c: Number(a[4] || 0),
       v: Number(a[5] || 0),
-      buyV: Number(a[9] ?? Number(a[5] || 0) * (Number(a[4] || 0) >= Number(a[1] || 0) ? 0.58 : 0.42)),
+      buyV: a[9] == null ? NaN : Number(a[9]),
     };
   });
 }
@@ -147,7 +148,8 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   const reds = recent.filter((k) => k.c < k.o).length;
   const last4 = c15.slice(-4);
   const vol = last4.reduce((a, k) => a + k.v, 0);
-  const buyRatio = vol > 0 ? last4.reduce((a, k) => a + k.buyV, 0) / vol : 0.5;
+  const volumeVerified = vol > 0 && last4.every((k) => Number.isFinite(k.buyV) && k.buyV >= 0 && k.buyV <= k.v);
+  const buyRatio = volumeVerified ? last4.reduce((a, k) => a + k.buyV, 0) / vol : 0.5;
   const c5ref = c5.at(-4)?.c || c5.at(0)?.c || price;
   const change5m = c5ref ? ((price - c5ref) / c5ref) * 100 : 0;
   const c15ref = c15.at(-3)?.c || c15.at(0)?.c || price;
@@ -158,12 +160,12 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   // 1. Pesquisa (Ana News): confirma direção imediatamente quando 5m e 15m estão alinhados
   let research: AgentVote;
   if (change5m > 0 && mom15 > 0) {
-    research = { trend: "ALTA", note: `momentum positivo (5m +${fmt(change5m)}%, 15m +${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
+    research = { trend: "ALTA", note: `momentum positivo (5m +${fmt(change5m)}%, 15m +${fmt(mom15)}%), ${volumeVerified ? `volume comprador ${(buyRatio * 100).toFixed(0)}%` : "volume comprador indisponível"}` };
   } else if (change5m < 0 && mom15 < 0) {
-    research = { trend: "BAIXA", note: `momentum negativo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), fluxo vendedor ativo` };
-  } else if (buyRatio >= 0.54 && (change5m > 0 || mom15 > 0)) {
+    research = { trend: "BAIXA", note: `momentum negativo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), ${volumeVerified ? "fluxo vendedor ativo" : "volume comprador indisponível"}` };
+  } else if (volumeVerified && buyRatio >= 0.54 && (change5m > 0 || mom15 > 0)) {
     research = { trend: "ALTA", note: `fluxo comprador dominante (${(buyRatio * 100).toFixed(0)}%) com retomada de curto prazo` };
-  } else if (buyRatio <= 0.46 && (change5m < 0 || mom15 < 0)) {
+  } else if (volumeVerified && buyRatio <= 0.46 && (change5m < 0 || mom15 < 0)) {
     research = { trend: "BAIXA", note: `pressão vendedora (${((1 - buyRatio) * 100).toFixed(0)}%) com perda de força no curto prazo` };
   } else {
     research = { trend: "LATERAL", note: `momentum misto (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
@@ -196,19 +198,19 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   const riskAmt = bank * 0.01;
   const slDist = Math.max(a * 1.2, price * 0.002);
   const activeTrend: Trend = hasDirectionalConsensus(research.trend, chart.trend) ? research.trend : "LATERAL";
-  const agree = activeTrend !== "LATERAL" && Number.isFinite(bank) && bank > 0
+  const agree = volumeVerified && activeTrend !== "LATERAL" && Number.isFinite(bank) && bank > 0
     && Number.isFinite(price) && price > 0 && Number.isFinite(slDist) && slDist > 0
     && Number.isFinite(riskAmt) && riskAmt > 0;
   const signal: Signal = agree ? (activeTrend === "ALTA" ? "COMPRA" : "VENDA") : "AGUARDAR";
   const riskNote = agree
     ? `aprovado: ${signal}, risco $${fmt(riskAmt)} USDT (Pesquisa ${research.trend} + Gráfico ${chart.trend})`
-    : `vetado: conflito/lateralidade (Pesquisa ${research.trend} vs Gráfico ${chart.trend})`;
+    : !volumeVerified ? "vetado: volume comprador real indisponível; sem autorização para operar" : `vetado: conflito/lateralidade (Pesquisa ${research.trend} vs Gráfico ${chart.trend})`;
   const qty = slDist > 0 ? riskAmt / slDist : 0;
   const lv = levels(signal === "AGUARDAR" ? (chartTrend === "BAIXA" ? "VENDA" : "COMPRA") : signal, price, slDist);
 
   return {
     symbol, price, change: ((price - first) / first) * 100, change5m, rsi: r, ema9: e9, ema21: e21,
-    macd: m.macd, macdSignal: m.signal, macdHist: m.hist, atr: a, buyRatio, greens, reds, structure,
+    macd: m.macd, macdSignal: m.signal, macdHist: m.hist, atr: a, buyRatio, volumeVerified, greens, reds, structure,
     research, chart, riskApproved: agree, riskNote, signal, risk: riskAmt, slDist, qty,
     sl: lv.sl, tp: lv.tp, candles: c15.slice(-15), headlines: headlines ?? [], time: Date.now(),
   };
@@ -314,7 +316,7 @@ async function fetchBinanceKlines(symbol: string, interval: "15m" | "5m", limit:
       const list = (json.result?.list || []).slice().reverse();
       return list.map((a) => {
         const o = Number(a[1] || 0), h = Number(a[2] || 0), l = Number(a[3] || 0), c = Number(a[4] || 0), v = Number(a[5] || 0);
-        return { t: Number(a[0] || 0), o, h, l, c, v, buyV: v * (c >= o ? 0.56 : 0.44) };
+        return { t: Number(a[0] || 0), o, h, l, c, v, buyV: NaN };
       });
     }
   } catch {
