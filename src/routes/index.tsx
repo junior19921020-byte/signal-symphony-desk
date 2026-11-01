@@ -1,3 +1,4 @@
+import { preventiveRiskGate } from "@/lib/preventiveRisk";
 import { dailyLossStatus } from "@/lib/dailyLoss";
 import { evaluateExitVariance, type ExitVariance } from "@/lib/exitVariance";
 import { editDemoTargets } from "@/lib/editDemoTargets";
@@ -168,6 +169,7 @@ function Index() {
     else if (signalUsedRef.current) parts.push("sinal já utilizado ou encerrado; nova análise necessária");
     else if (dailyLossStatus(tradesRef.current, Date.now(), settings.bank).blocked) parts.push("Rita Risk bloqueou nova ordem: limite diário de perdas atingido");
     else if (demoOrderRejection(m, m.signal, m.symbol)) parts.push("ordem bloqueada pela validação de risco");
+    else if (preventiveRiskGate(tradesRef.current, posRef.current, { entry: m.price, sl: m.sl, qty: m.qty }, Date.now(), settings.bank)) parts.push(preventiveRiskGate(tradesRef.current, posRef.current, { entry: m.price, sl: m.sl, qty: m.qty }, Date.now(), settings.bank)!);
     else if (autoRef.current !== "manual") {
       const side: Side = m.signal;
       const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty, provenance: { openedBy: "Max Trader", openedVia: "AUTOMATICO", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: m.risk, riskPercent: 1, decision: side } };
@@ -298,6 +300,8 @@ function Index() {
     const { sl, tp } = levels(side, price, m.slDist);
     if (!Number.isFinite(sl) || !Number.isFinite(tp) || (side === "COMPRA" ? !(sl < price && tp > price) : !(sl > price && tp < price))) return "Ordem demo bloqueada: stop ou alvo inválido.";
     const qty = m.qty;
+    const preventiveRejection = preventiveRiskGate(tradesRef.current, posRef.current, { entry: price, sl, qty }, Date.now(), settings.bank);
+    if (preventiveRejection) return preventiveRejection;
     const np: Position = { id: String(Date.now()), symbol: sym, side, entry: price, sl, tp, qty, provenance: { openedBy: agent.name, openedVia: "CHAT", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: m.risk, riskPercent: 1, decision: side } };
     posRef.current = [...posRef.current, np].slice(-20);
     setPositions(posRef.current);
@@ -315,6 +319,8 @@ function Index() {
     setAudit((history) => appendAudit(history, auditDecision(market, "MANUAL")));
     if (rejection) { setLog(`Ordem demo bloqueada: ${rejection}`); return; }
     const side: Side = market.signal;
+    const preventiveRejection = preventiveRiskGate(tradesRef.current, posRef.current, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank);
+    if (preventiveRejection) { setLog(preventiveRejection); return; }
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
     setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty, provenance: { openedBy: "Operador humano", openedVia: "MANUAL", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: market.risk, riskPercent: 1, decision: side } }].slice(-20));
     consumeSignal();
@@ -326,6 +332,7 @@ function Index() {
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
   const performance = demoPerformance(trades);
   const dailyRisk = dailyLossStatus(trades, Date.now(), settings.bank);
+  const preventiveWarning = market && market.signal !== "AGUARDAR" ? preventiveRiskGate(trades, positions, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank) : null;
 
   return (
     <div className="w-full max-w-md mx-auto px-3 pt-4 pb-24 overflow-x-hidden bg-[#0b0e14] text-slate-100 min-h-screen">
@@ -390,7 +397,8 @@ function Index() {
             <li>🛡 Risco: {market.riskNote}</li>
             <li>⚡ Execução: {signalUsed ? "sinal utilizado/encerrado; rode novo ciclo" : market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
           </ul>
-          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={dailyRisk.blocked || signalUsed} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40">{signalUsed ? "Sinal encerrado — rode novo ciclo" : dailyRisk.blocked ? "Bloqueado pela Rita Risk" : `Executar ${market.signal} na Conta Demo ✓`}</button>}
+          {preventiveWarning && <p role="alert" className="mt-2 text-xs text-red-400">{preventiveWarning}</p>}
+          {market.signal !== "AGUARDAR" && market.riskApproved && <button disabled={dailyRisk.blocked || signalUsed || !!preventiveWarning} onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40">{signalUsed ? "Sinal encerrado — rode novo ciclo" : dailyRisk.blocked || preventiveWarning ? "Bloqueado pela Rita Risk" : `Executar ${market.signal} na Conta Demo ✓`}</button>}
         </section>
       )}
 
