@@ -376,6 +376,10 @@ export function marketCandlesFresh(c15: Candle[], c5: Candle[], now = Date.now()
   return Math.abs(p15 - p5) / p5 <= 0.02;
 }
 
+export function marketSourcesAgree(source15: string, source5: string): boolean {
+  return (source15 === "Binance" || source15 === "Bybit") && source15 === source5;
+}
+
 export async function fetchMarket(symbol: string, bank: number): Promise<Market | null> {
   activeSymbol = symbol || activeSymbol;
   activeBank = bank || activeBank;
@@ -391,6 +395,8 @@ export async function fetchMarket(symbol: string, bank: number): Promise<Market 
     if (c15.length < 30 || c5.length < 5) {
       return null;
     }
+    // Do not combine different exchanges in one analysis: prices and volumes are not interchangeable.
+    if (!marketSourcesAgree(r15.source, r5.source)) return null;
     if (!marketCandlesFresh(c15, c5)) return null;
     const m = analyze(symbol, c15, c5, bank, headlines);
     m.source = r15.source === r5.source ? r15.source as "Binance" | "Bybit" : "Mista";
