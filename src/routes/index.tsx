@@ -1,3 +1,4 @@
+import { previewDemoBackup, type DemoBackupPreview } from "@/lib/demoBackupPreview";
 import { createDemoBackup } from "@/lib/demoBackup";
 import { preventiveRiskGate } from "@/lib/preventiveRisk";
 import { dailyLossStatus } from "@/lib/dailyLoss";
@@ -61,6 +62,7 @@ function Index() {
   const [market, setMarket] = useState<Market | null>(null);
   const [showSignalCard, setShowSignalCard] = useState(true);
   const [backupError, setBackupError] = useState("");
+  const [backupPreview, setBackupPreview] = useState<DemoBackupPreview | null>(null);
   const [live, setLive] = useState<number>(0);
   const [quoteAt, setQuoteAt] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -442,7 +444,7 @@ function Index() {
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
         <h2 className="font-bold text-[#d4af37]">Posições Abertas & Histórico de Trades</h2>
-        <div className="mt-2 rounded border border-slate-700 p-2 text-xs"><button type="button" onClick={exportDemoBackup} className="rounded bg-slate-700 px-3 py-2 font-semibold text-white">Exportar backup demo (.json)</button><p className="mt-1 text-slate-400">Salva uma cópia local de posições, histórico, auditoria e saldo demo, sem chave de API. Não sincroniza entre aparelhos e ainda não restaura dados.</p>{backupError && <p role="alert" className="mt-1 text-red-400">{backupError}</p>}</div>
+        <div className="mt-2 rounded border border-slate-700 p-2 text-xs"><button type="button" onClick={exportDemoBackup} className="rounded bg-slate-700 px-3 py-2 font-semibold text-white">Exportar backup demo (.json)</button><div className="mt-3"><label htmlFor="demo-backup-preview" className="block font-semibold">Conferir arquivo de backup demo</label><input id="demo-backup-preview" type="file" accept=".json,application/json" className="mt-1 w-full text-xs" onChange={async (event) => { setBackupPreview(null); setBackupError(""); const file = event.currentTarget.files?.[0]; if (!file) return; try { if (file.size > 2_000_000) throw new Error("Arquivo muito grande (máximo 2 MB)."); const raw = await file.text(); setBackupPreview(previewDemoBackup(raw)); } catch (err) { setBackupError(err instanceof Error ? err.message : "Backup inválido."); } event.currentTarget.value = ""; }} /><p className="mt-1 text-amber-300">Somente conferência: não importa, não substitui e não executa operações.</p>{backupPreview && <div className="mt-2 rounded bg-slate-800 p-2" role="status"><b>Backup válido para prévia (versão 1)</b><div>Exportado em: {new Date(backupPreview.exportedAt).toLocaleString("pt-BR")}</div><div>Saldo: {fmt(backupPreview.balance)} USDT • Banca: {fmt(backupPreview.bank)} USDT</div><div>Ativo: {backupPreview.symbol} • Posições: {backupPreview.positions} • Trades: {backupPreview.trades}</div><div>Auditorias: {backupPreview.audit} • Edições de metas: {backupPreview.targetEdits}</div></div>}</div><p className="mt-1 text-slate-400">Salva uma cópia local de posições, histórico, auditoria e saldo demo, sem chave de API. Não sincroniza entre aparelhos e ainda não restaura dados.</p>{backupError && <p role="alert" className="mt-1 text-red-400">{backupError}</p>}</div>
         <p className="text-xs text-slate-400">{settings.symbol} cotação demo: {quoteAt ? fmt(live) : "indisponível"} • {quoteAt ? `Atualizada às ${new Date(quoteAt).toLocaleTimeString("pt-BR")}` : "Aguardando cotação"}</p>
         <p className="text-xs text-amber-300">Stop/Take demo monitorados somente enquanto esta página estiver ativa. Não há proteção garantida com o app fechado ou sem conexão.</p>
         <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
