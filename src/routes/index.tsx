@@ -112,7 +112,7 @@ function Index() {
     setMarket(m);
     setLive(m.price);
     const mine = posRef.current.filter((p) => p.symbol === m.symbol);
-    const toClose = m.signal === "AGUARDAR" ? [] : mine.filter((p) => p.side !== m.signal).map((p) => p.id);
+    const toClose = !m.riskApproved || m.signal === "AGUARDAR" ? [] : mine.filter((p) => p.side !== m.signal).map((p) => p.id);
     closePositions(toClose, m.price, "IA");
     let adjusted = 0;
     const kept = posRef.current.map((p) => {
@@ -129,6 +129,7 @@ function Index() {
     if (adjusted) parts.push(`${adjusted} stop(s) movido(s) para o ponto de entrada`);
     if (m.signal === "AGUARDAR") parts.push(`AGUARDAR — ${m.riskNote}`);
     else if (kept.some((p) => p.symbol === m.symbol && p.side === m.signal)) parts.push(`mantendo ${m.signal} já aberta, sem ordem repetida`);
+    else if (!m.riskApproved || !Number.isFinite(m.qty) || m.qty <= 0 || !Number.isFinite(m.sl) || !Number.isFinite(m.tp) || m.price <= 0) parts.push("ordem bloqueada pela validação de risco");
     else if (autoRef.current !== "manual") {
       const side: Side = m.signal;
       const np: Position = { id: String(Date.now()), symbol: m.symbol, side, entry: m.price, sl: m.sl, tp: m.tp, qty: m.qty };
@@ -231,8 +232,11 @@ function Index() {
     }
     if (intent === "AUTO_OFF") { stopAll(); setNotice(`✓ ${agent.name} colocou o piloto em Manual`); return "Piloto colocado em modo Manual."; }
     if (intent === "AUTO_ON") { stopRef.current = false; setAuto("15m"); setNotice(`✓ ${agent.name} ligou o piloto automático (15m)`); return "Piloto automático ligado a cada 15 minutos."; }
-    if (price <= 0 || !m) return "Sem preço da Binance; ordem não executada.";
+    if (price <= 0 || !m) return "Sem preço de mercado; ordem não executada.";
+    if (!m.riskApproved || m.signal === "AGUARDAR") return `Ordem demo bloqueada: Rita Risk não aprovou a operação. ${m.riskNote}`;
     const side: Side = intent === "BUY" ? "COMPRA" : "VENDA";
+    if (m.signal !== side) return `Ordem demo bloqueada: o consenso aprovado é ${m.signal}, não ${side}.`; 
+    if (!Number.isFinite(m.qty) || m.qty <= 0 || !Number.isFinite(m.slDist) || m.slDist <= 0) return "Ordem demo bloqueada: lote ou distância de stop inválidos.";
     if (posRef.current.some((p) => p.symbol === sym && p.side === side)) return `Já existe ${side} aberta em ${sym}; ordem repetida bloqueada.`;
     const { sl, tp } = levels(side, price, m.slDist);
     const qty = m.qty;
@@ -241,12 +245,11 @@ function Index() {
     setPositions(posRef.current);
     setLog(`${agent.name} executou ${side} em ${sym} a ${fmt(price)} pelo chat.`);
     setNotice(`✓ ${side} executada por ${agent.name}: ${sym} @ ${fmt(price)}`);
-    const warn = m.signal !== side ? ` Atenção: o consenso dos agentes é ${m.signal}; ordem executada por comando direto do usuário.` : "";
-    return `${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price)}, SL ${fmt(sl)}, TP ${fmt(tp)}.${warn}`;
+    return `${side} de ${fmt(qty, 6)} ${sym} a ${fmt(price)}, SL ${fmt(sl)}, TP ${fmt(tp)} (conta demo).`;
   };
 
   const execute = () => {
-    if (!market || market.signal === "AGUARDAR") return;
+    if (!market || market.signal === "AGUARDAR" || !market.riskApproved || !Number.isFinite(market.price) || market.price <= 0 || !Number.isFinite(market.qty) || market.qty <= 0 || !Number.isFinite(market.sl) || !Number.isFinite(market.tp)) { setLog("Ordem demo bloqueada: sinal sem aprovação ou parâmetros de risco inválidos."); return; }
     const side: Side = market.signal;
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
     setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty }].slice(-20));
@@ -299,7 +302,7 @@ function Index() {
       {market && (
         <section className={`mt-4 rounded-xl border-2 p-3 ${market.signal === "COMPRA" ? "border-green-500 bg-green-950/40" : market.signal === "VENDA" ? "border-red-500 bg-red-950/40" : "border-slate-500 bg-slate-900"}`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#d4af37]">{market.signal === "AGUARDAR" ? "SEM CONSENSO" : "SINAL APROVADO"} • {market.symbol}</span>
+            <span className="text-xs font-bold text-[#d4af37]">{!market.riskApproved || market.signal === "AGUARDAR" ? "SEM APROVAÇÃO DE RISCO" : "SINAL APROVADO"} • {market.symbol}</span>
             <span className={`rounded px-2 py-0.5 text-sm font-black ${market.signal === "COMPRA" ? "bg-green-500 text-slate-900" : market.signal === "VENDA" ? "bg-red-500" : "bg-slate-600"}`}>{market.signal === "VENDA" ? "VENDA (SHORT)" : market.signal === "COMPRA" ? "COMPRA (LONG)" : "AGUARDAR"}</span>
           </div>
           <p className="mt-1 text-xs text-slate-400">Preço {fmt(market.price)} • 30min {fmt(market.change5m)}% • Volume comprador {fmt(market.buyRatio * 100, 0)}%</p>
@@ -315,7 +318,7 @@ function Index() {
             <li>🛡 Risco: {market.riskNote}</li>
             <li>⚡ Execução: {market.signal === "AGUARDAR" ? "aguardando consenso, nenhuma ordem" : `${market.signal} liberada`}</li>
           </ul>
-          {market.signal !== "AGUARDAR" && <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
+          {market.signal !== "AGUARDAR" && market.riskApproved && <button onClick={execute} className="mt-3 w-full rounded-lg bg-[#d4af37] py-2 font-bold text-slate-900">Executar {market.signal} na Conta Demo ✓</button>}
         </section>
       )}
 
