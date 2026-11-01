@@ -120,7 +120,6 @@ function atr(c: Candle[], period = 14): number {
   return last.length ? last.reduce((a, b) => a + b, 0) / last.length : 0;
 }
 
-/** Estrutura dos topos/fundos: 12 últimas velas em 3 blocos de 4. */
 function structureOf(c: Candle[]): Market["structure"] {
   const last = c.slice(-12);
   if (last.length < 12) return "MISTA";
@@ -134,7 +133,6 @@ function structureOf(c: Candle[]): Market["structure"] {
   return "MISTA";
 }
 
-/** Análise completa dos 4 agentes a partir das velas reais 15m e 5m. */
 export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: number, headlines?: string[]): Market {
   const closes = c15.map((k) => k.c);
   const price = c5.at(-1)?.c || closes.at(-1) || 0;
@@ -143,27 +141,26 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   const recent = c15.slice(-6);
   const greens = recent.filter((k) => k.c > k.o).length;
   const reds = recent.filter((k) => k.c < k.o).length;
-  const last10 = c15.slice(-10);
-  const vol = last10.reduce((a, k) => a + k.v, 0);
-  const buyRatio = vol > 0 ? last10.reduce((a, k) => a + k.buyV, 0) / vol : 0.5;
-  const c5ref = c5.at(-5)?.c || c5.at(0)?.c || price;
+  const last4 = c15.slice(-4);
+  const vol = last4.reduce((a, k) => a + k.v, 0);
+  const buyRatio = vol > 0 ? last4.reduce((a, k) => a + k.buyV, 0) / vol : 0.5;
+  const c5ref = c5.at(-4)?.c || c5.at(0)?.c || price;
   const change5m = c5ref ? ((price - c5ref) / c5ref) * 100 : 0;
-  const c15ref = c15.at(-4)?.c || c15.at(0)?.c || price;
+  const c15ref = c15.at(-3)?.c || c15.at(0)?.c || price;
   const mom15 = c15ref ? ((price - c15ref) / c15ref) * 100 : 0;
   const structure = structureOf(c15);
   const a = atr(c15);
 
-  // 1. Pesquisa (Ana News): momentum 5m/15m + fluxo comprador vs vendedor
-  let resScore = 0;
-  if (change5m > 0.02) resScore += 1; else if (change5m < -0.02) resScore -= 1;
-  if (mom15 > 0.02) resScore += 1; else if (mom15 < -0.02) resScore -= 1;
-  if (buyRatio >= 0.51) resScore += 1; else if (buyRatio <= 0.49) resScore -= 1;
-
+  // 1. Pesquisa (Ana News): confirma direção imediatamente quando 5m e 15m estão alinhados
   let research: AgentVote;
-  if (resScore >= 2) {
-    research = { trend: "ALTA", note: `momentum positivo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
-  } else if (resScore <= -2) {
-    research = { trend: "BAIXA", note: `momentum negativo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume vendedor ${((1 - buyRatio) * 100).toFixed(0)}%` };
+  if (change5m > 0 && mom15 > 0) {
+    research = { trend: "ALTA", note: `momentum positivo (5m +${fmt(change5m)}%, 15m +${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
+  } else if (change5m < 0 && mom15 < 0) {
+    research = { trend: "BAIXA", note: `momentum negativo (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), fluxo vendedor ativo` };
+  } else if (buyRatio >= 0.54 && (change5m > 0 || mom15 > 0)) {
+    research = { trend: "ALTA", note: `fluxo comprador dominante (${(buyRatio * 100).toFixed(0)}%) com retomada de curto prazo` };
+  } else if (buyRatio <= 0.46 && (change5m < 0 || mom15 < 0)) {
+    research = { trend: "BAIXA", note: `pressão vendedora (${((1 - buyRatio) * 100).toFixed(0)}%) com perda de força no curto prazo` };
   } else {
     research = { trend: "LATERAL", note: `momentum misto (5m ${fmt(change5m)}%, 15m ${fmt(mom15)}%), volume comprador ${(buyRatio * 100).toFixed(0)}%` };
   }
@@ -181,7 +178,8 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   if (rejectionTop) score -= 1;
   if (rejectionBottom) score += 1;
 
-  let chartTrend: Trend = score >= 2 ? "ALTA" : score <= -2 ? "BAIXA" : "LATERAL";
+  let chartTrend: Trend = score >= 1 ? "ALTA" : score <= -1 ? "BAIXA" : "LATERAL";
+  if (greens === reds && structure === "MISTA") chartTrend = "LATERAL";
   if (chartTrend === "ALTA" && r >= 75) chartTrend = "LATERAL";
   if (chartTrend === "BAIXA" && r <= 25) chartTrend = "LATERAL";
   const chart: AgentVote = {
@@ -189,14 +187,23 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
     note: `estrutura ${structure}, ${greens} verdes x ${reds} vermelhas, RSI ${fmt(r, 0)}, EMAs ${e9 >= e21 ? "ALTA" : "BAIXA"}`,
   };
 
-  // 3. Risco (Rita Risk): aprova se Pesquisa e Gráfico concordam
+  // 3. Risco (Rita Risk): aprova quando concordam OU quando um tem tendência clara e o outro está neutro
   const riskAmt = bank * 0.01;
   const slDist = Math.max(a * 1.2, price * 0.002);
-  const agree = research.trend === chart.trend && research.trend !== "LATERAL";
-  const signal: Signal = agree ? (research.trend === "ALTA" ? "COMPRA" : "VENDA") : "AGUARDAR";
+  let activeTrend: Trend = "LATERAL";
+  if (research.trend === chart.trend && research.trend !== "LATERAL") {
+    activeTrend = research.trend;
+  } else if (chart.trend !== "LATERAL" && research.trend === "LATERAL") {
+    activeTrend = chart.trend;
+  } else if (research.trend !== "LATERAL" && chart.trend === "LATERAL") {
+    activeTrend = research.trend;
+  }
+
+  const agree = activeTrend !== "LATERAL";
+  const signal: Signal = agree ? (activeTrend === "ALTA" ? "COMPRA" : "VENDA") : "AGUARDAR";
   const riskNote = agree
-    ? `aprovado: ${signal}, risco $${fmt(riskAmt)} USDT`
-    : `vetado: Pesquisa ${research.trend} vs Gráfico ${chart.trend}`;
+    ? `aprovado: ${signal}, risco $${fmt(riskAmt)} USDT (Pesquisa ${research.trend} + Gráfico ${chart.trend})`
+    : `vetado: conflito/lateralidade (Pesquisa ${research.trend} vs Gráfico ${chart.trend})`;
   const qty = slDist > 0 ? riskAmt / slDist : 0;
   const lv = levels(signal === "AGUARDAR" ? (chartTrend === "BAIXA" ? "VENDA" : "COMPRA") : signal, price, slDist);
 
@@ -208,7 +215,6 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   };
 }
 
-/** COMPRA: SL abaixo, TP acima. VENDA: SL acima, TP abaixo. Alvo 2:1. */
 export function levels(side: Side, price: number, slDist: number) {
   return side === "COMPRA" ? { sl: price - slDist, tp: price + 2 * slDist } : { sl: price + slDist, tp: price - 2 * slDist };
 }
@@ -217,12 +223,10 @@ export function pnlOf(side: Side, entry: number, current: number, qty: number): 
   return (side === "COMPRA" ? current - entry : entry - current) * qty;
 }
 
-/** Alerta sonoro + vibração + Notificação Nativa quando surge oportunidade de COMPRA ou VENDA */
 function notifyOpportunity(m: Market) {
   if (typeof window === "undefined" || m.signal === "AGUARDAR") return;
   const key = `${m.symbol}-${m.signal}`;
   const now = Date.now();
-  // Evita repetir a mesma notificação em menos de 10 minutos
   if (key === lastNotifiedKey && now - lastNotifiedAt < 600_000) return;
   lastNotifiedKey = key;
   lastNotifiedAt = now;
@@ -257,12 +261,10 @@ function notifyOpportunity(m: Market) {
   } catch { /* */ }
 }
 
-/** Inicia Web Worker em segundo plano para monitorar o gráfico mesmo com a aba minimizada */
 function ensureBackgroundScanner() {
   if (typeof window === "undefined" || bgWorkerStarted) return;
   bgWorkerStarted = true;
 
-  // Solicita permissão de notificação no primeiro toque do usuário na tela
   const askPerm = () => {
     try {
       if ("Notification" in window && Notification.permission === "default") {
