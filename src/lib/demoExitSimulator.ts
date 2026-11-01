@@ -55,3 +55,35 @@ export function simulateDemoExits(input: DemoExitScenario): DemoExitResult[] {
     : unavailable("AGENT", "Sem decisão de saída do agente registrada");
   return [tp, sl, target, protect, agent];
 }
+
+export interface DemoExitDiagnostics {
+  peakObservedPnl: number;
+  protectionFloor: number | null;
+  protectionActualPnl: number | null;
+  protectionDifference: number | null;
+  protectionBreached: boolean;
+  firstExit: DemoExitResult | null;
+  tiedFirstRules: ExitRule[];
+}
+/** Read-only comparison: independent strategies are not cumulative executions. */
+export function diagnoseDemoExits(input: DemoExitScenario): DemoExitDiagnostics | null {
+  const results = simulateDemoExits(input);
+  if (results.every(r => r.exitIndex === null && r.reason === "Dados insuficientes ou inválidos")) return null;
+  const pnlAt = (price: number) => (input.side === "COMPRA" ? price - input.entry : input.entry - price) * input.qty;
+  const peakObservedPnl = Math.max(...input.observedPrices.map(pnlAt));
+  const protection = results.find(r => r.rule === "PROTECT_PROFIT")!;
+  const floor = Number.isFinite(input.protectFloorUsdt) && (input.protectFloorUsdt ?? -1) >= 0
+    && Number.isFinite(input.protectAfterUsdt) && (input.protectAfterUsdt ?? 0) > 0
+    && input.protectFloorUsdt! < input.protectAfterUsdt! ? input.protectFloorUsdt! : null;
+  const eligible = results.filter(r => r.exitIndex !== null).sort((a, b) => a.exitIndex! - b.exitIndex!);
+  const firstExit = eligible[0] ?? null;
+  return {
+    peakObservedPnl,
+    protectionFloor: floor,
+    protectionActualPnl: protection.pnl,
+    protectionDifference: floor !== null && protection.pnl !== null ? protection.pnl - floor : null,
+    protectionBreached: floor !== null && protection.pnl !== null && protection.pnl < floor,
+    firstExit,
+    tiedFirstRules: firstExit ? eligible.filter(r => r.exitIndex === firstExit.exitIndex).map(r => r.rule) : [],
+  };
+}
