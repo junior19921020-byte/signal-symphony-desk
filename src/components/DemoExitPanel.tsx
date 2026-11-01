@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { simulateDemoExits, type DemoExitScenario } from "@/lib/demoExitSimulator";
+import { simulateDemoExits, diagnoseDemoExits, type DemoExitScenario } from "@/lib/demoExitSimulator";
 
 const names = { TAKE_PROFIT: "Take Profit", STOP_LOSS: "Stop Loss", PROFIT_TARGET: "Meta de lucro", PROTECT_PROFIT: "Proteção de lucro", AGENT: "Saída do agente" };
 const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -62,6 +62,24 @@ export function DemoExitPanel() {
     {error && <p role="alert" className="mt-2 text-xs text-red-300">{error}</p>}
     {scenario && <div className="mt-3 space-y-2" role="status">
       <p className="text-xs text-slate-300">{scenario.observedPrices.length} amostras informadas • Sem execução de ordens</p>
+      {(() => {
+        const diagnostics = diagnoseDemoExits(scenario);
+        if (!diagnostics) return null;
+        const first = diagnostics.firstExit;
+        return <div className="rounded border border-amber-500/60 bg-slate-800 p-3 text-xs space-y-1">
+          <h3 className="font-bold text-amber-300">Diagnóstico cronológico (Demo)</h3>
+          <p>Lucro máximo observado: {fmt(diagnostics.peakObservedPnl)} USDT</p>
+          <p>Primeira saída hipotética: {first ? `${diagnostics.tiedFirstRules.map(rule => names[rule]).join(" / ")} • Amostra ${first.exitIndex! + 1} • ${fmt(first.pnl!)} USDT` : "Nenhuma regra acionada"}</p>
+          {diagnostics.tiedFirstRules.length > 1 && <p>Empate na mesma amostra: a ordem real dos gatilhos é desconhecida.</p>}
+          {diagnostics.protectionFloor !== null && <>
+            <p>Piso de proteção desejado: {fmt(diagnostics.protectionFloor)} USDT</p>
+            <p>Resultado observado da proteção: {diagnostics.protectionActualPnl === null ? "Não acionada" : `${fmt(diagnostics.protectionActualPnl)} USDT`}</p>
+            {diagnostics.protectionDifference !== null && <p>Diferença em relação ao piso: {fmt(diagnostics.protectionDifference)} USDT</p>}
+            {diagnostics.protectionBreached && <p className="font-bold text-red-300">Alerta Rita Risk: piso ultrapassado na amostra; proteção não garantida.</p>}
+          </>}
+          <p className="text-slate-300">As estratégias abaixo são independentes. A primeira saída encerraria a comparação conjunta; resultados posteriores não seriam realizados nessa mesma posição. Não simula execução, taxas ou slippage.</p>
+        </div>;
+      })()}
       {simulateDemoExits(scenario).map(r => <div key={r.rule} className="rounded bg-slate-800 p-2 text-xs">
         <div className="flex justify-between gap-2"><b>{names[r.rule]}</b><b className={r.pnl === null ? "text-amber-300" : r.pnl >= 0 ? "text-emerald-300" : "text-red-300"}>{r.pnl === null ? "Indisponível" : `${fmt(r.pnl)} USDT`}</b></div>
         <p className="mt-1 text-slate-300">{r.exitIndex === null ? r.reason : `Amostra ${r.exitIndex + 1} • Preço ${fmt(r.exitPrice!)} • ${r.reason}`}</p>
