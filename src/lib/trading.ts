@@ -133,6 +133,10 @@ function structureOf(c: Candle[]): Market["structure"] {
   return "MISTA";
 }
 
+export function hasDirectionalConsensus(a: Trend, b: Trend): boolean {
+  return a !== "LATERAL" && a === b;
+}
+
 export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: number, headlines?: string[]): Market {
   const closes = c15.map((k) => k.c);
   const price = c5.at(-1)?.c || closes.at(-1) || 0;
@@ -191,7 +195,7 @@ export function analyze(symbol: string, c15: Candle[], c5: Candle[], bank: numbe
   // Lateralidade, divergência ou dados financeiros inválidos vetam novas ordens.
   const riskAmt = bank * 0.01;
   const slDist = Math.max(a * 1.2, price * 0.002);
-  const activeTrend: Trend = research.trend === chart.trend ? research.trend : "LATERAL";
+  const activeTrend: Trend = hasDirectionalConsensus(research.trend, chart.trend) ? research.trend : "LATERAL";
   const agree = activeTrend !== "LATERAL" && Number.isFinite(bank) && bank > 0
     && Number.isFinite(price) && price > 0 && Number.isFinite(slDist) && slDist > 0
     && Number.isFinite(riskAmt) && riskAmt > 0;
