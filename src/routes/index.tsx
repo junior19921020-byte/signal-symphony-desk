@@ -7,6 +7,7 @@ import { dailyLossStatus } from "@/lib/dailyLoss";
 import { evaluateExitVariance, type ExitVariance } from "@/lib/exitVariance";
 import { editDemoTargets } from "@/lib/editDemoTargets";
 import { demoProfitTarget } from "@/lib/demoProfitTarget";
+import { observeDemoExcursion, type ObservedExcursion } from "@/lib/demoExcursion";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
@@ -36,10 +37,10 @@ export const Route = createFileRoute("/")({
 });
 
 interface Msg { from: "user" | "agent"; text: string }
-interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number; provenance?: TradeProvenance }
+interface Position { id: string; symbol: string; side: Side; entry: number; sl: number; tp: number; qty: number; provenance?: TradeProvenance; excursion?: ObservedExcursion }
 interface TradeProvenance { openedBy: string; openedVia: "MANUAL" | "CHAT" | "AUTOMATICO"; openedAt: number; approvedBy: "Rita Risk"; plannedRisk: number; riskPercent: number; decision: Side }
 
-interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number; provenance?: TradeProvenance; exitVariance?: ExitVariance }
+interface Trade { id: string; side: Side; entry: number; exit: number; pnl: number; result: "TP" | "SL" | "IA" | "MANUAL"; closedAt?: number; provenance?: TradeProvenance; exitVariance?: ExitVariance; excursion?: ObservedExcursion }
 interface Settings { apiKey: string; symbol: string; bank: number }
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -132,7 +133,7 @@ function Index() {
     const closing = cur.filter((p) => ids.includes(p.id));
     if (!closing.length) return;
     const done: Trade[] = closing.map((p) => ({
-      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance, exitVariance: evaluateExitVariance(p, price, result),
+      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance, exitVariance: evaluateExitVariance(p, price, result), excursion: p.excursion,
       pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
     }));
     signalUsedRef.current = true;
@@ -251,6 +252,21 @@ function Index() {
     const id = setInterval(() => void tick(), 5000);
     return () => { alive = false; clearInterval(id); };
   }, [settings.symbol, ready]);
+
+  // Observa apenas cotações recentes; não reconstrói máximas históricas nem executa ordens.
+  useEffect(() => {
+    if (!ready || quoteAt <= 0) return;
+    const cur = posRef.current;
+    let changed = false;
+    const next = cur.map((p) => {
+      if (p.symbol !== settings.symbol) return p;
+      const excursion = observeDemoExcursion(p, live, quoteAt, Date.now());
+      if (!excursion || (p.excursion && p.excursion.lastObservedAt >= quoteAt)) return p;
+      changed = true;
+      return { ...p, excursion };
+    });
+    if (changed) { posRef.current = next; setPositions(next); }
+  }, [ready, quoteAt, live, settings.symbol]);
 
   // Verifica limites demo independentemente do botão de análise.
   // A cotação precisa ser recente; esta lógica funciona apenas com a página ativa.
@@ -573,6 +589,7 @@ function Index() {
               <div key={p.id} className="rounded border border-slate-700 p-2 text-xs">
                 <div className="flex justify-between"><b className={p.side === "COMPRA" ? "text-green-400" : "text-red-400"}>{p.side} {p.symbol}</b><b className={pnl >= 0 ? "text-green-400" : "text-red-400"}>{target?.currentPnl === null || !target ? "Cotação indisponível" : `${fmt(pnl)} USDT`}</b></div>
                 <div className="text-slate-400">Entrada {fmt(p.entry)} • SL {fmt(p.sl)} • TP {fmt(p.tp)} • Qtd {fmt(p.qty, 5)}</div>
+                {p.excursion && <div className="mt-1 text-slate-300">Desde o início do monitoramento: maior lucro observado <span className="text-green-400">+{fmt(p.excursion.maxFavorablePnl)} USDT</span> • maior perda observada <span className="text-red-400">{fmt(p.excursion.maxAdversePnl)} USDT</span>. Não inclui períodos sem cotação.</div>}
                 {target && (
                   <div className="my-2 rounded bg-slate-800 p-2">
                     <div className="flex flex-wrap justify-between gap-2">
@@ -621,6 +638,7 @@ function Index() {
               <div key={t.id} className="text-xs text-slate-300"><div className="flex justify-between gap-2">
                 <span>{t.side} {fmt(t.entry)} → {fmt(t.exit)} ({{ TP: "Take Profit", SL: "Stop Loss", IA: "Encerrada pela IA", MANUAL: "Manual" }[t.result] ?? t.result})</span>
                 <b className={t.pnl >= 0 ? "text-green-400" : "text-red-400"}>{fmt(t.pnl)}</b></div>
+                {t.excursion && <div className="mt-1 text-[11px] text-slate-300">Máximo lucro observado: +{fmt(t.excursion.maxFavorablePnl)} USDT • Máxima perda observada: {fmt(t.excursion.maxAdversePnl)} USDT • Realizado: {fmt(t.pnl)} USDT. Apenas durante monitoramento ativo.</div>}
                 {t.exitVariance && (
                   <div className="mt-1 rounded bg-slate-800 p-2 text-[11px]">
                     <div>Rita Risk • {t.result === "SL" ? "Stop Loss" : "Take Profit"} configurado: {fmt(t.exitVariance.plannedPrice)} • Saída efetiva: {fmt(t.exitVariance.actualPrice)}</div>
