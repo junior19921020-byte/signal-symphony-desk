@@ -4,7 +4,7 @@ import { OfficeMap, statusFor, type Agent } from "@/components/OfficeMap";
 import { fetchMarket, fmt, levels, marketContext, parseIntent, pnlOf, type Market, type Side } from "@/lib/trading";
 import { agentChat } from "@/lib/agent.functions";
 import { demoOrderRejection } from "@/lib/demoRisk";
-import { auditDecision, appendAudit, type DecisionAudit } from "@/lib/decisionAudit";
+import { auditDecision, appendAudit, parseAuditHistory, type DecisionAudit } from "@/lib/decisionAudit";
 import { MemoryEngine } from "@/lib/memoryEngine";
 import { SecondBrainGraph } from "@/components/SecondBrainGraph";
 
@@ -75,6 +75,7 @@ function Index() {
     setTrades(load("td_trades", []));
     setAuto(load("td_auto", "manual"));
     setNextRunAt(load("td_next_run", 0));
+    try { setAudit(parseAuditHistory(localStorage.getItem("td_decision_audit_v1"))); } catch { setAudit([]); }
     setReady(true);
   }, []);
   useEffect(() => { if (ready) save("td_agents", agents); }, [agents, ready]);
@@ -83,6 +84,7 @@ function Index() {
   useEffect(() => { if (ready) save("td_trades", trades); }, [trades, ready]);
   useEffect(() => { if (ready) save("td_auto", auto); }, [auto, ready]);
   useEffect(() => { if (ready) save("td_next_run", nextRunAt); }, [nextRunAt, ready]);
+  useEffect(() => { if (ready) save("td_decision_audit_v1", audit); }, [audit, ready]);
   useEffect(() => { posRef.current = positions; }, [positions]);
   useEffect(() => { liveRef.current = live; }, [live]);
 
@@ -283,8 +285,8 @@ function Index() {
       {tab === "brain" ? <SecondBrainGraph /> : (<>
       <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Auditoria de decisões demo">
         <h2 className="text-sm font-bold text-[#d4af37]">Auditoria de Decisões (Demo)</h2>
-        <p className="mt-1 text-slate-400">Últimas decisões desta sessão; nenhum registro envia ordens.</p>
-        {audit.length === 0 ? <p className="mt-2">Nenhuma análise registrada nesta sessão.</p> : <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">{audit.slice(0, 10).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="font-bold">{new Date(entry.at).toLocaleTimeString("pt-BR")} • {entry.symbol} • {entry.decision}</div><div>Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">{entry.reason}</div></div>)}</div>}
+        <p className="mt-1 text-slate-400">Últimas 100 decisões salvas neste navegador; nenhum registro envia ordens.</p>
+        {audit.length === 0 ? <p className="mt-2">Nenhuma análise registrada neste navegador.</p> : <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">{audit.slice(0, 10).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="font-bold">{new Date(entry.at).toLocaleTimeString("pt-BR")} • {entry.symbol} • {entry.decision}</div><div>Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">{entry.reason}</div></div>)}</div>}
       </section>
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
