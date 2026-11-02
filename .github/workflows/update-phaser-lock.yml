@@ -1,0 +1,28 @@
+name: Update Phaser lockfile (PR 93 only)
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - ".github/workflows/update-phaser-lock.yml"
+permissions:
+  contents: write
+jobs:
+  regenerate-lock:
+    if: github.event.pull_request.number == 93 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/phaser-isometric-prototype'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/phaser-isometric-prototype
+          persist-credentials: true
+      - uses: oven-sh/setup-bun@v2
+      - name: Update Bun lockfile
+        run: bun install --lockfile-only
+      - name: Verify frozen install
+        run: bun install --frozen-lockfile
+      - name: Commit lockfile to PR branch
+        run: |
+          git add bun.lock
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build: synchronize Phaser bun.lock'
+          git push origin HEAD:feature/phaser-isometric-prototype
