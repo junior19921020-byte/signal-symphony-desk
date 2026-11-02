@@ -49,7 +49,8 @@ describe("DEMO API authorization boundary (no deployed API)", () => {
       approvalId: "approval-1", ownerId: "owner-a", orderId: "order-2", valid: true,
     }))).status).toBe(403);
     expect((await authorize(max, verify, async () => { throw Error("down"); })).status).toBe(403);
-    expect((await authorize({ ...max, targetOrderId: undefined })).status).toBe(403);
+    const { targetOrderId: _omitted, ...maxNoOrder } = max;
+    expect((await authorize(maxNoOrder)).status).toBe(403);
   });
   it("does not let Ana approve risk or allow REAL mode", async () => {
     expect((await authorize({ capability: "risk:decide" })).status).toBe(403);
