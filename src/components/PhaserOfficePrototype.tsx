@@ -77,6 +77,17 @@ export function PhaserOfficePrototype() {
             desk.strokePoints([{ x: p.x, y: p.y - 27 }, { x: p.x + 25, y: p.y - 15 }, { x: p.x, y: p.y - 3 }, { x: p.x - 25, y: p.y - 15 }], true);
             this.add.rectangle(p.x, p.y - 31, 20, 15, 0x0f172a).setStrokeStyle(2, 0x38bdf8).setDepth(p.y + 2);
             this.add.rectangle(p.x, p.y - 22, 3, 5, 0x94a3b8).setDepth(p.y + 3);
+            // Cadeira ao lado da mesa, dentro do mesmo tile bloqueado.
+            const chair = this.add.graphics().setDepth(p.y + 4);
+            chair.fillStyle(0x1e293b);
+            chair.fillRoundedRect(p.x + 12, p.y - 18, 13, 18, 3);
+            chair.fillStyle(0x475569);
+            chair.fillRoundedRect(p.x + 9, p.y - 7, 16, 7, 2);
+            chair.lineStyle(2, 0x94a3b8);
+            chair.lineBetween(p.x + 17, p.y, p.x + 17, p.y + 6);
+            chair.lineBetween(p.x + 12, p.y + 6, p.x + 22, p.y + 6);
+            // Pequeno teclado e indicador de tela para dar vida a estacao.
+            this.add.rectangle(p.x - 5, p.y - 13, 12, 3, 0xcbd5e1).setDepth(p.y + 5);
           }
           const findPath = (start: [number, number], goal: [number, number]) => {
             const queue: Array<[number, number]> = [start];
