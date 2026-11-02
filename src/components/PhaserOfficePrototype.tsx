@@ -53,35 +53,45 @@ export function PhaserOfficePrototype() {
           // O corredor central permanece livre e permite contornar os móveis.
           const blocked = new Set([...partitions, "2,2", "3,2", "2,3", "6,5", "6,6", "5,6"]);
           const tile = (col: number, row: number) => ({ x: 320 + (col - row) * 32, y: 55 + (col + row) * 16 });
+          // Painéis de vidro isométricos contínuos: preservam exatamente os
+          // mesmos tiles bloqueados, aberturas e algoritmo de navegação.
+          // Cada painel segue o eixo do piso, sem virar um cubo independente.
           for (const key of partitions) {
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
-            // Parede isometrica com altura, topo e face lateral.
-            // Geometria apenas visual: tiles e portas seguem inalterados.
-            const wall = this.add.graphics().setDepth(p.y + 2);
-            wall.fillStyle(0x334155, 0.95);
-            wall.fillPoints([
-              { x: p.x - 19, y: p.y - 10 }, { x: p.x + 17, y: p.y - 10 },
-              { x: p.x + 17, y: p.y - 43 }, { x: p.x - 19, y: p.y - 43 },
-            ], true);
-            wall.fillStyle(0x64748b, 1);
-            wall.fillPoints([
-              { x: p.x + 17, y: p.y - 43 }, { x: p.x + 23, y: p.y - 48 },
-              { x: p.x + 23, y: p.y - 15 }, { x: p.x + 17, y: p.y - 10 },
-            ], true);
-            wall.fillStyle(0xcbd5e1, 1);
-            wall.fillPoints([
-              { x: p.x - 19, y: p.y - 43 }, { x: p.x - 13, y: p.y - 48 },
-              { x: p.x + 23, y: p.y - 48 }, { x: p.x + 17, y: p.y - 43 },
-            ], true);
-            wall.lineStyle(1, 0x94a3b8, 0.85);
-            wall.lineBetween(p.x - 19, p.y - 43, p.x - 19, p.y - 10);
-            wall.lineBetween(p.x + 17, p.y - 43, p.x + 17, p.y - 10);
-            // Janela estreita translúcida para manter visibilidade do ambiente.
-            wall.fillStyle(0x7dd3fc, 0.28);
-            wall.fillRect(p.x - 11, p.y - 37, 18, 12);
-            wall.lineStyle(1, 0x93c5fd, 0.75);
-            wall.strokeRect(p.x - 11, p.y - 37, 18, 12);
+            const alongCol = row === 4;
+            const dx = alongCol ? 32 : -32;
+            const dy = 16;
+            const halfX = dx / 2;
+            const halfY = dy / 2;
+            const wallHeight = 47;
+            const wall = this.add.graphics().setDepth(p.y + 3);
+            // Rodapé contínuo, perfil metálico e vidro translúcido.
+            const bottomA = { x: p.x - halfX, y: p.y - halfY };
+            const bottomB = { x: p.x + halfX, y: p.y + halfY };
+            const topA = { x: bottomA.x, y: bottomA.y - wallHeight };
+            const topB = { x: bottomB.x, y: bottomB.y - wallHeight };
+            wall.fillStyle(0x7dd3fc, 0.20);
+            wall.fillPoints([bottomA, bottomB, topB, topA], true);
+            wall.lineStyle(4, 0x475569, 1);
+            wall.lineBetween(bottomA.x, bottomA.y, bottomB.x, bottomB.y);
+            wall.lineStyle(3, 0xcbd5e1, 1);
+            wall.lineBetween(topA.x, topA.y, topB.x, topB.y);
+            wall.lineStyle(1, 0x93c5fd, 0.65);
+            wall.lineBetween(bottomA.x, bottomA.y - 9, bottomB.x, bottomB.y - 9);
+            // Montantes apenas nas extremidades de cada sequência de painéis.
+            const previous = alongCol ? `${col - 1},${row}` : `${col},${row - 1}`;
+            const next = alongCol ? `${col + 1},${row}` : `${col},${row + 1}`;
+            wall.lineStyle(3, 0x94a3b8, 1);
+            if (!partitions.has(previous)) {
+              wall.lineBetween(bottomA.x, bottomA.y, topA.x, topA.y);
+            }
+            if (!partitions.has(next)) {
+              wall.lineBetween(bottomB.x, bottomB.y, topB.x, topB.y);
+            }
+            // Reflexo diagonal discreto, sem ocultar os personagens.
+            wall.lineStyle(2, 0xffffff, 0.22);
+            wall.lineBetween(topA.x + 5, topA.y + 7, bottomB.x - 5, bottomB.y - 8);
           }
           // Marcos de porta puramente visuais: nao entram no conjunto blocked.
           // Preservam as aberturas (indices 1, 4 e 7) e o pathfinding existente.
