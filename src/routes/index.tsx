@@ -724,9 +724,9 @@ function Index() {
                   return <div className="mt-2 rounded border border-sky-700 bg-sky-950/30 p-2 text-sky-100" aria-label="Prévia da proteção dinâmica demo">
                     <b>Prévia da proteção dinâmica (somente leitura)</b>
                     <p>Exemplo fixo: ativar em +5 USDT, distância do pico 3 USDT. Não configurado para executar.</p>
-                    {preview.status === "INVALID" || preview.status === "STALE"
-                      ? <p>Cotação inválida ou desatualizada — cálculo suspenso.</p>
-                      : <p>Lucro atual: {fmt(preview.pnl)} USDT • Pico observado: {fmt(preview.next.peakPnl)} USDT • {preview.floor === null ? "Aguardando ativação" : `Piso hipotético: ${fmt(preview.floor)} USDT`} • {preview.shouldClose ? "Gatilho hipotético atingido; nenhuma ordem enviada" : "Sem gatilho de saída nesta amostra"}</p>}
+                    {"pnl" in preview
+                      ? <p>Lucro atual: {fmt(preview.pnl)} USDT • Pico observado: {fmt(preview.next.peakPnl)} USDT • {preview.floor === null ? "Aguardando ativação" : `Piso hipotético: ${fmt(preview.floor)} USDT`} • {preview.shouldClose ? "Gatilho hipotético atingido; nenhuma ordem enviada" : "Sem gatilho de saída nesta amostra"}</p>
+                      : <p>Cotação inválida ou desatualizada — cálculo suspenso.</p>}
                     <p>Esta prévia não altera posição, stop, take, saldo ou autorização da Rita Risk. O pico é parcial: só inclui observações com a página ativa.</p>
                   </div>;
                 })()}
