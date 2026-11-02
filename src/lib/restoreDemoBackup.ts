@@ -5,35 +5,42 @@ export interface RestorableDemoBackup {
   positions: unknown[]; trades: unknown[]; audit: unknown[]; targetEdits: unknown[];
 }
 const record = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
-const finite = (x: unknown) => typeof x === "number" && Number.isFinite(x);
+const finite = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
 export function parseRestorableDemoBackup(raw: string): RestorableDemoBackup {
   previewDemoBackup(raw);
-  const data: unknown = JSON.parse(raw);
-  if (!record(data) || !record(data.account)) throw new Error("Backup inválido.");
-  if (!Array.isArray(data.positions) || data.positions.length !== 0)
+  const parsed: unknown = JSON.parse(raw);
+  if (!record(parsed) || !record(parsed["account"])) throw new Error("Backup inválido.");
+  const data = parsed;
+  const account = data["account"];
+  if (!Array.isArray(data["positions"]) || data["positions"].length !== 0)
     throw new Error("Por segurança, a restauração de backups com posições abertas ainda não é permitida.");
-  if (!Array.isArray(data.trades) || !Array.isArray(data.audit) || !Array.isArray(data.targetEdits))
+  if (!Array.isArray(data["trades"]) || !Array.isArray(data["audit"]) || !Array.isArray(data["targetEdits"]))
     throw new Error("Histórico inválido.");
-  for (const trade of data.trades) {
-    if (!record(trade) || !finite(trade.entry) || trade.entry <= 0 || !finite(trade.exit) || trade.exit <= 0 ||
-      !finite(trade.pnl) || (trade.closedAt !== undefined && (!finite(trade.closedAt) || trade.closedAt <= 0)))
+  const trades = data["trades"] as unknown[];
+  const audit = data["audit"] as unknown[];
+  const targetEdits = data["targetEdits"] as unknown[];
+  for (const trade of trades) {
+    if (!record(trade) || !finite(trade["entry"]) || trade["entry"] <= 0 ||
+      !finite(trade["exit"]) || trade["exit"] <= 0 || !finite(trade["pnl"]) ||
+      (trade["closedAt"] !== undefined && (!finite(trade["closedAt"]) || trade["closedAt"] <= 0)))
       throw new Error("Trade com valores inválidos.");
   }
-  for (const entry of data.audit) {
-    if (!record(entry) || typeof entry.id !== "string" || !finite(entry.at) ||
-      typeof entry.symbol !== "string" || typeof entry.reason !== "string")
+  for (const entry of audit) {
+    if (!record(entry) || typeof entry["id"] !== "string" || !finite(entry["at"]) ||
+      typeof entry["symbol"] !== "string" || typeof entry["reason"] !== "string")
       throw new Error("Registro de auditoria inválido.");
   }
-  for (const edit of data.targetEdits) {
-    if (!record(edit) || typeof edit.id !== "string" ||
-      ![edit.at, edit.oldTp, edit.newTp, edit.oldSl, edit.newSl].every(finite))
+  for (const edit of targetEdits) {
+    if (!record(edit) || typeof edit["id"] !== "string" ||
+      ![edit["at"], edit["oldTp"], edit["newTp"], edit["oldSl"], edit["newSl"]].every(finite))
       throw new Error("Edição de meta inválida.");
   }
-  return {
-    balance: data.account.balance as number, bank: data.account.bank as number,
-    symbol: data.account.symbol as string, positions: [], trades: data.trades,
-    audit: data.audit, targetEdits: data.targetEdits,
-  };
+  const balance = account["balance"];
+  const bank = account["bank"];
+  const symbol = account["symbol"];
+  if (!finite(balance) || !finite(bank) || typeof symbol !== "string")
+    throw new Error("Backup inválido.");
+  return { balance, bank, symbol, positions: [], trades, audit, targetEdits };
 }
 
 /** Atomic best-effort browser restore with rollback on storage errors. No network or orders. */
@@ -50,7 +57,7 @@ export function restoreDemoBackupToStorage(storage: Pick<Storage, "getItem" | "s
   const previousSettings = storage.getItem("td_settings");
   let settings: Record<string, unknown> = {};
   try { const parsed: unknown = JSON.parse(previousSettings ?? "{}"); if (record(parsed)) settings = parsed; } catch { /* default */ }
-  updates.td_settings = JSON.stringify({ ...settings, symbol: backup.symbol, bank: backup.bank });
+  updates["td_settings"] = JSON.stringify({ ...settings, symbol: backup.symbol, bank: backup.bank });
   const before = Object.fromEntries(Object.keys(updates).map(k => [k, storage.getItem(k)]));
   try {
     for (const [key, value] of Object.entries(updates)) storage.setItem(key, value);

@@ -33,36 +33,40 @@ export function createPinnedRs256TokenVerifier(
       for (const part of parts) {
         if (Buffer.from(part, "base64url").toString("base64url") !== part) return null;
       }
+      const [headerPart, payloadPart, signaturePart] = parts as [string, string, string];
       const decode = (part: string): unknown => JSON.parse(Buffer.from(part, "base64url").toString("utf8"));
-      const header = decode(parts[0]);
+      const header = decode(headerPart);
       if (!header || typeof header !== "object") return null;
       const h = header as Record<string, unknown>;
-      if (h.alg !== "RS256" || h.kid !== key.keyId ||
-          h.typ !== "JWT" || h.crit !== undefined ||
-          h.jku !== undefined || h.jwk !== undefined || h.x5u !== undefined)
+      if (h["alg"] !== "RS256" || h["kid"] !== key.keyId ||
+          h["typ"] !== "JWT" || h["crit"] !== undefined ||
+          h["jku"] !== undefined || h["jwk"] !== undefined || h["x5u"] !== undefined)
         return null;
-      const payload = decode(parts[1]);
+      const payload = decode(payloadPart);
       if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
       const p = payload as Record<string, unknown>;
-      const signature = Buffer.from(parts[2], "base64url");
+      const signature = Buffer.from(signaturePart, "base64url");
       if (signature.length !== (publicKey.asymmetricKeyDetails?.modulusLength ?? 0) / 8) return null;
-      if (!verifySignature("RSA-SHA256", Buffer.from(parts[0] + "." + parts[1]), publicKey, signature))
+      if (!verifySignature("RSA-SHA256", Buffer.from(headerPart + "." + payloadPart), publicKey, signature))
         return null;
-      if (typeof p.iss !== "string" || typeof p.sub !== "string" ||
-          typeof p.exp !== "number" || typeof p.iat !== "number" ||
-          (p.nbf !== undefined && typeof p.nbf !== "number") ||
-          !(typeof p.aud === "string" ||
-            (Array.isArray(p.aud) && p.aud.length > 0 && p.aud.every(a => typeof a === "string"))))
+      if (typeof p["iss"] !== "string" || typeof p["sub"] !== "string" ||
+          typeof p["exp"] !== "number" || typeof p["iat"] !== "number" ||
+          (p["nbf"] !== undefined && typeof p["nbf"] !== "number") ||
+          !(typeof p["aud"] === "string" ||
+            (Array.isArray(p["aud"]) && p["aud"].length > 0 && p["aud"].every(a => typeof a === "string"))))
         return null;
+      const aud = p["aud"];
+      const nbf = p["nbf"];
+      const jti = p["jti"];
       return {
-        issuer: p.iss,
-        subject: p.sub,
-        audience: typeof p.aud === "string" ? [p.aud] : p.aud as string[],
-        expiresAtSeconds: p.exp,
-        issuedAtSeconds: p.iat,
-        notBeforeSeconds: p.nbf as number | undefined,
-        tokenId: typeof p.jti === "string" ? p.jti : undefined,
-      } as CryptoVerifiedTokenClaims;
+        issuer: p["iss"],
+        subject: p["sub"],
+        audience: typeof aud === "string" ? [aud] : aud as string[],
+        expiresAtSeconds: p["exp"],
+        issuedAtSeconds: p["iat"],
+        notBeforeSeconds: typeof nbf === "number" ? nbf : undefined,
+        tokenId: typeof jti === "string" ? jti : undefined,
+      } as unknown as CryptoVerifiedTokenClaims;
     } catch {
       return null;
     }
