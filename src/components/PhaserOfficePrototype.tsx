@@ -145,6 +145,11 @@ export function PhaserOfficePrototype() {
             { name: "Agente 5", col: 2, row: 0, shirt: 0xbe123c },
             { name: "Agente 6", col: 0, row: 6, shirt: 0x0369a1 },
           ];
+          // Colegas estaticos ocupam tiles: a rota nao pode atravessar avatares.
+          // Mantem os corredores centrais e portas existentes desobstruidos.
+          for (const member of demoTeam) {
+            blocked.add(`${member.col},${member.row}`);
+          }
           for (const member of demoTeam) {
             const p = tile(member.col, member.row);
             const colleague = this.add.container(p.x, p.y).setDepth(p.y + 10);
