@@ -35,19 +35,22 @@ export async function verifyRitaDecision(
   const v = input as Record<string, unknown>;
   const keys = ['version','decisionId','ownerId','orderId','approved','issuedAt','expiresAt','issuer','audience'];
   if (Object.keys(v).length !== keys.length || keys.some((k) => !Object.hasOwn(v,k))) return false;
-  if (v.version !== 1 || v.issuer !== 'signal-symphony-rita' || v.audience !== 'signal-symphony-demo-risk') return false;
-  if (![v.ownerId,v.orderId,v.decisionId].every((id) => typeof id === 'string' && UUID.test(id))) return false;
-  if (v.ownerId !== expected.ownerId || v.orderId !== expected.orderId || v.decisionId !== expected.decisionId) return false;
-  if (typeof v.approved !== 'boolean' || !Number.isSafeInteger(v.issuedAt) || !Number.isSafeInteger(v.expiresAt)) return false;
-  if (!Number.isFinite(nowMs) || v.issuedAt > nowMs || v.expiresAt <= nowMs ||
-      v.expiresAt <= v.issuedAt || v.expiresAt - v.issuedAt > 300_000 ||
-      nowMs - v.issuedAt > 300_000) return false;
+  if (v["version"] !== 1 || v["issuer"] !== 'signal-symphony-rita' || v["audience"] !== 'signal-symphony-demo-risk') return false;
+  if (![v["ownerId"],v["orderId"],v["decisionId"]].every((id) => typeof id === 'string' && UUID.test(id))) return false;
+  if (v["ownerId"] !== expected.ownerId || v["orderId"] !== expected.orderId || v["decisionId"] !== expected.decisionId) return false;
+  const issuedAt = v["issuedAt"];
+  const expiresAt = v["expiresAt"];
+  if (typeof v["approved"] !== 'boolean' || typeof issuedAt !== 'number' || typeof expiresAt !== 'number' ||
+      !Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(expiresAt)) return false;
+  if (!Number.isFinite(nowMs) || issuedAt > nowMs || expiresAt <= nowMs ||
+      expiresAt <= issuedAt || expiresAt - issuedAt > 300_000 ||
+      nowMs - issuedAt > 300_000) return false;
   if (!(signature instanceof Uint8Array) || signature.length !== 256 ||
       pinnedPublicKey.algorithm.name !== 'RSASSA-PKCS1-v1_5' ||
       pinnedPublicKey.type !== 'public' || pinnedPublicKey.usages.includes('sign')) return false;
   try {
     return await crypto.subtle.verify(
-      { name: 'RSASSA-PKCS1-v1_5' }, pinnedPublicKey, signature,
+      { name: 'RSASSA-PKCS1-v1_5' }, pinnedPublicKey, new Uint8Array(signature),
       encoder.encode(canonicalRitaPayload(v as unknown as RitaEnvelope)),
     );
   } catch { return false; }

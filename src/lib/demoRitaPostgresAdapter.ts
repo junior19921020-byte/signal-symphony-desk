@@ -35,7 +35,7 @@ export function createDemoRitaPostgresAdapter(provider: TransactionProvider): Ri
              ) AS accepted`,
             [decision.ownerId, decision.orderId, decision.decisionId, consumptionId],
           );
-          if (result.rows.length !== 1 || result.rows[0].accepted !== true) {
+          if (result.rows.length !== 1 || result.rows[0]?.accepted !== true) {
             // Throw to force rollback of INSERT; never commit an unconsumed approval.
             throw new Error('DEMO risk approval was not consumed');
           }

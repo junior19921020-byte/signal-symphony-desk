@@ -17,9 +17,9 @@ describe('Rita PostgreSQL transactional adapter contract', () => {
   const adapter=createDemoRitaPostgresAdapter({transaction});
   expect(await adapter.insertAndConsumeAtomically(decision,id)).toBe(true);
   expect(query).toHaveBeenCalledTimes(2);
-  expect(query.mock.calls[0][1][0]).toBe(decision.decisionId);
-  expect(query.mock.calls[1][1]).toEqual([decision.ownerId,decision.orderId,decision.decisionId,id]);
-  expect(query.mock.calls[0][0]).toContain('$1::uuid');
+  expect(query.mock.calls[0]?.[1]?.[0]).toBe(decision.decisionId);
+  expect(query.mock.calls[1]?.[1]).toEqual([decision.ownerId,decision.orderId,decision.decisionId,id]);
+  expect(query.mock.calls[0]?.[0]).toContain('$1::uuid');
  });
  it('throws inside transaction on rejected consumption so provider can rollback', async () => {
   const query=vi.fn().mockResolvedValueOnce({rows:[],rowCount:1})

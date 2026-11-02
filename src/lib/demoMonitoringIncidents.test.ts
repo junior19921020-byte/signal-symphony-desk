@@ -13,7 +13,7 @@ describe("summarizeMonitoringIncidents", () => {
     expect(summarizeMonitoringIncidents(events,43000)[0]).toMatchObject({durationMs:40000,severity:"PAUSA"});
   });
   it("keeps offline interruptions critical", () => {
-    expect(summarizeMonitoringIncidents([{at:1000,state:"PAUSADA",reason:"SEM_REDE"}],18000)[0].severity).toBe("CRITICO");
+    expect(summarizeMonitoringIncidents([{at:1000,state:"PAUSADA",reason:"SEM_REDE"}],18000)[0]?.severity).toBe("CRITICO");
   });
   it("ignores future timestamps and never mutates input", () => {
     const events=Object.freeze([{at:20000,state:"ATIVA"},{at:1000,state:"SEM_COTACAO"}]);

@@ -24,6 +24,7 @@ import { evaluateDemoExits } from "@/lib/demoExits";
 import { demoPerformance } from "@/lib/demoPerformance";
 import { demoStrategyDiagnostics } from "@/lib/demoStrategyDiagnostics";
 import { auditDecision, appendAudit, parseAuditHistory, type DecisionAudit } from "@/lib/decisionAudit";
+import { evaluateDemoTrailing } from "@/lib/demoTrailingRisk";
 import { MemoryEngine } from "@/lib/memoryEngine";
 import { SecondBrainGraph } from "@/components/SecondBrainGraph";
 
@@ -159,7 +160,12 @@ function Index() {
   useEffect(() => {
     if (!ready || monitorNow <= 0) return;
     const reason = monitoring.state === "PAUSADA" ? (!monitorVisible ? "ABA_OCULTA" : "SEM_REDE") : undefined;
-    setMonitorEvents(prev => prev[0]?.state === monitoring.state && prev[0]?.reason === reason ? prev : [{at:monitorNow,state:monitoring.state,reason},...prev].slice(0,10));
+    setMonitorEvents(prev => {
+      if (prev[0]?.state === monitoring.state && prev[0]?.reason === reason) return prev;
+      const event: { at: number; state: string; reason?: "ABA_OCULTA" | "SEM_REDE" } = { at: monitorNow, state: monitoring.state };
+      if (reason !== undefined) event.reason = reason;
+      return [event, ...prev].slice(0, 10);
+    });
   }, [ready, monitoring.state, monitorNow, monitorVisible]);
 
   const closePositions = useCallback((ids: string[], price: number, result: Trade["result"]) => {
@@ -167,10 +173,17 @@ function Index() {
     const cur = posRef.current;
     const closing = cur.filter((p) => ids.includes(p.id));
     if (!closing.length) return;
-    const done: Trade[] = closing.map((p) => ({
-      id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(), provenance: p.provenance, exitVariance: evaluateExitVariance(p, price, result), excursion: p.excursion,
-      pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
-    }));
+    const done: Trade[] = closing.map((p) => {
+      const trade: Trade = {
+        id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(),
+        pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
+      };
+      const variance = evaluateExitVariance(p, price, result);
+      if (variance) trade.exitVariance = variance;
+      if (p.provenance) trade.provenance = p.provenance;
+      if (p.excursion) trade.excursion = p.excursion;
+      return trade;
+    });
     signalUsedRef.current = true;
     setSignalUsed(true);
     const keep = cur.filter((p) => !ids.includes(p.id));
@@ -327,9 +340,12 @@ function Index() {
   }, [ready, quoteAt, live, settings.symbol]);
 
   const toggleTrailingDemo = (id: string) => {
-    const next = posRef.current.map((p) => p.id === id
-      ? { ...p, trailingEnabled: !p.trailingEnabled, trailing: undefined }
-      : p);
+    const next: Position[] = posRef.current.map((p) => {
+      if (p.id !== id) return p;
+      const updated: Position = { ...p, trailingEnabled: !p.trailingEnabled };
+      delete updated.trailing;
+      return updated;
+    });
     posRef.current = next;
     setPositions(next);
   };
@@ -418,7 +434,8 @@ function Index() {
     const preventiveRejection = preventiveRiskGate(tradesRef.current, posRef.current, { entry: market.price, sl: market.sl, qty: market.qty }, Date.now(), settings.bank);
     if (preventiveRejection) { setLog(preventiveRejection); return; }
     if (positions.some((p) => p.symbol === market.symbol && p.side === side)) { setLog(`Já existe ${side} aberta em ${market.symbol}; ordem repetida bloqueada.`); return; }
-    setPositions((ps) => [...ps, { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty, provenance: { openedBy: "Operador humano", openedVia: "MANUAL", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: market.risk, riskPercent: 1, decision: side } }].slice(-20));
+    const open: Position = { id: String(Date.now()), symbol: market.symbol, side, entry: market.price, sl: market.sl, tp: market.tp, qty: market.qty, provenance: { openedBy: "Operador humano", openedVia: "MANUAL", openedAt: Date.now(), approvedBy: "Rita Risk", plannedRisk: market.risk, riskPercent: 1, decision: side } };
+    setPositions((ps) => [...ps, open].slice(-20));
     consumeSignal();
     setNotice(`✓ ${side} executada: ${market.symbol} @ ${fmt(market.price)}`);
   };
@@ -707,9 +724,9 @@ function Index() {
                   return <div className="mt-2 rounded border border-sky-700 bg-sky-950/30 p-2 text-sky-100" aria-label="Prévia da proteção dinâmica demo">
                     <b>Prévia da proteção dinâmica (somente leitura)</b>
                     <p>Exemplo fixo: ativar em +5 USDT, distância do pico 3 USDT. Não configurado para executar.</p>
-                    {preview.status === "INVALID" || preview.status === "STALE"
-                      ? <p>Cotação inválida ou desatualizada — cálculo suspenso.</p>
-                      : <p>Lucro atual: {fmt(preview.pnl)} USDT • Pico observado: {fmt(preview.next.peakPnl)} USDT • {preview.floor === null ? "Aguardando ativação" : `Piso hipotético: ${fmt(preview.floor)} USDT`} • {preview.shouldClose ? "Gatilho hipotético atingido; nenhuma ordem enviada" : "Sem gatilho de saída nesta amostra"}</p>}
+                    {"pnl" in preview
+                      ? <p>Lucro atual: {fmt(preview.pnl)} USDT • Pico observado: {fmt(preview.next.peakPnl)} USDT • {preview.floor === null ? "Aguardando ativação" : `Piso hipotético: ${fmt(preview.floor)} USDT`} • {preview.shouldClose ? "Gatilho hipotético atingido; nenhuma ordem enviada" : "Sem gatilho de saída nesta amostra"}</p>
+                      : <p>Cotação inválida ou desatualizada — cálculo suspenso.</p>}
                     <p>Esta prévia não altera posição, stop, take, saldo ou autorização da Rita Risk. O pico é parcial: só inclui observações com a página ativa.</p>
                   </div>;
                 })()}

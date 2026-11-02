@@ -7,7 +7,7 @@ export function summarizeMonitoringIncidents(events: readonly MonitoringEvent[],
   const incidents: MonitoringIncident[] = [];
   for (let i=0;i<sorted.length;i++) {
     const current = sorted[i];
-    if (current.state === "ATIVA") continue;
+    if (!current || current.state === "ATIVA") continue;
     const next = sorted[i+1];
     const end = next ? next.at : null;
     const durationMs = Math.max(0,(end ?? now)-current.at);

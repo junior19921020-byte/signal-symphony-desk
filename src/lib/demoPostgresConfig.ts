@@ -19,7 +19,7 @@ const integer = (value: string | undefined, fallback: number, min: number, max: 
 export function parseDemoPostgresConfig(
   env: Readonly<Record<string, string | undefined>>,
 ): DemoPostgresConfig | null {
-  const raw = env.DEMO_DATABASE_URL;
+  const raw = env["DEMO_DATABASE_URL"];
   if (!raw || raw.length > 4096 || /[\s]/.test(raw)) return null;
   let url: URL;
   try { url = new URL(raw); } catch { return null; }
@@ -32,9 +32,9 @@ export function parseDemoPostgresConfig(
   if (url.searchParams.getAll('sslmode').length !== 1 ||
       url.searchParams.get('sslmode') !== 'verify-full') return null;
   if ([...url.searchParams.keys()].some((key) => key !== 'sslmode')) return null;
-  const maxConnections = integer(env.DEMO_DB_POOL_MAX, 3, 1, 5);
-  const connectionTimeoutMs = integer(env.DEMO_DB_CONNECT_TIMEOUT_MS, 3000, 500, 10000);
-  const idleTimeoutMs = integer(env.DEMO_DB_IDLE_TIMEOUT_MS, 10000, 1000, 30000);
+  const maxConnections = integer(env["DEMO_DB_POOL_MAX"], 3, 1, 5);
+  const connectionTimeoutMs = integer(env["DEMO_DB_CONNECT_TIMEOUT_MS"], 3000, 500, 10000);
+  const idleTimeoutMs = integer(env["DEMO_DB_IDLE_TIMEOUT_MS"], 10000, 1000, 30000);
   if (maxConnections === null || connectionTimeoutMs === null || idleTimeoutMs === null) return null;
   return { connectionString: raw, maxConnections, connectionTimeoutMs, idleTimeoutMs, sslMode: 'verify-full' };
 }

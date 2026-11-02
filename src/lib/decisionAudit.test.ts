@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendAudit, auditDecision } from "./decisionAudit";
+import { appendAudit, auditDecision, type DecisionAudit } from "./decisionAudit";
 import type { Market } from "./trading";
 
 const market = (overrides: Record<string, unknown> = {}): Market => ({
@@ -23,11 +23,11 @@ describe("decision audit", () => {
   });
   it("keeps only the latest 100 entries", () => {
     const entry = auditDecision(market(), "AUTOMATICO");
-    const result = Array.from({ length: 105 }).reduce(
-      (items, _, i) => appendAudit(items, { ...entry, id: String(i) }), [] as typeof entry[],
+    const result = Array.from({ length: 105 }).reduce<DecisionAudit[]>(
+      (items, _, i) => appendAudit(items, { ...entry, id: String(i) }), [],
     );
     expect(result).toHaveLength(100);
-    expect(result[0].id).toBe("104");
-    expect(result[99].id).toBe("5");
+    expect(result[0]?.id).toBe("104");
+    expect(result[99]?.id).toBe("5");
   });
 });

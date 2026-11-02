@@ -18,11 +18,11 @@ export type DemoAgentAuthorization = {
   director: DemoDirector;
   capability: DemoCapability;
   serverVerifiedIdentity: boolean;
-  riskApprovalId?: string;
-  riskApprovalOwnerId?: string;
-  riskApprovalOrderId?: string;
-  targetOrderId?: string;
-  riskApprovalValid?: boolean;
+  riskApprovalId?: string | undefined;
+  riskApprovalOwnerId?: string | undefined;
+  riskApprovalOrderId?: string | undefined;
+  targetOrderId?: string | undefined;
+  riskApprovalValid?: boolean | undefined;
 };
 
 const capabilities: Readonly<Record<DemoDirector, readonly DemoCapability[]>> = {

@@ -13,8 +13,8 @@ export function verifyRestoredDemoBackup(raw: string, storage: Pick<Storage, "ge
     ? rawSettings as Record<string, unknown> : {};
   const fields: Array<[string, unknown, unknown]> = [
     ["saldo", expected.balance, read("td_balance")],
-    ["banca", expected.bank, settings.bank],
-    ["ativo", expected.symbol, settings.symbol],
+    ["banca", expected.bank, settings["bank"]],
+    ["ativo", expected.symbol, settings["symbol"]],
     ["posições", expected.positions, read("td_positions")],
     ["trades", expected.trades, read("td_trades")],
     ["auditorias", expected.audit, read("td_decision_audit_v1")],

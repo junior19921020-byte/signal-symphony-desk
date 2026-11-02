@@ -375,7 +375,7 @@ export function OfficeMap(props: {
           action: actionMsg,
         },
       });
-      replyText = res.ok ? res.text : `⚠️ ${res.error}`;
+      replyText = res.text;
     } catch {
       replyText = market
         ? `Aqui é ${ag.name}: analisando ${market.symbol} agora em $${fmt(market.price)} (RSI ${fmt(market.rsi, 0)}, EMA9 $${fmt(market.ema9)} vs EMA21 $${fmt(market.ema21)}). Pesquisa: ${market.research.trend} | Gráfico: ${market.chart.trend} | Sinal: ${market.signal} (SL $${fmt(market.sl)} / TP $${fmt(market.tp)}).`
@@ -800,7 +800,7 @@ export function OfficeMap(props: {
             const stCode = ag.station || `C0${(idx % 8) + 1}`;
             const isSpawning = !!spawningIds[ag.id];
 
-            let target = DESK_COORDS[stCode] || DESK_COORDS.C01!;
+            let target = DESK_COORDS[stCode] || DESK_COORDS["C01"]!;
             if (mode !== "Atendendo") {
               const spots = ACTIVITY_SPOTS[mode];
               target = spots[idx % spots.length] || target;

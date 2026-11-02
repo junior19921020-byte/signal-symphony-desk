@@ -12,7 +12,7 @@ export interface DemoTrailingInput {
   now: number;
   activateAtUsdt: number;
   trailDistanceUsdt: number;
-  previous?: DemoTrailingState;
+  previous?: DemoTrailingState | undefined;
 }
 export type DemoTrailingEvaluation =
   | { status: "INVALID" | "STALE"; next: null; shouldClose: false }

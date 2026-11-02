@@ -21,7 +21,7 @@ export function evaluateDemoExits(
 ): Array<{ id: string; result: DemoExit }> {
   if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(quotedAt) ||
       quotedAt <= 0 || quotedAt > now || now - quotedAt > 15000) return [];
-  return positions.flatMap((p) => {
+  return positions.flatMap((p): Array<{ id: string; result: DemoExit }> => {
     if (p.symbol !== symbol || !p.id || !Number.isFinite(p.entry) || p.entry <= 0 ||
         !Number.isFinite(p.qty) || p.qty <= 0 ||
         !Number.isFinite(p.sl) || !Number.isFinite(p.tp) ||

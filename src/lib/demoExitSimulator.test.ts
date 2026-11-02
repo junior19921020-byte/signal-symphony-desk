@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { simulateDemoExits, diagnoseDemoExits } from "./demoExitSimulator";
+import { simulateDemoExits, diagnoseDemoExits, type DemoExitResult } from "./demoExitSimulator";
 
 const base = {
   entry: 100, side: "COMPRA" as const, qty: 1, stopLoss: 95, takeProfit: 110,
@@ -7,9 +7,11 @@ const base = {
   profitTargetUsdt: 5, protectAfterUsdt: 5, protectFloorUsdt: 3,
   agentExitIndex: 2,
 };
+const { agentExitIndex: _omitted, ...baseNoAgent } = base;
 describe("read-only demo exit simulator", () => {
   it("compares independently observed exit triggers", () => {
-    const [tp, sl, target, protect, agent] = simulateDemoExits(base);
+    const [tp, sl, target, protect, agent] = simulateDemoExits(base) as
+      [DemoExitResult, DemoExitResult, DemoExitResult, DemoExitResult, DemoExitResult];
     expect(tp.exitIndex).toBe(3);
     expect(sl.exitIndex).toBe(4);
     expect(target.pnl).toBe(6);
@@ -18,7 +20,8 @@ describe("read-only demo exit simulator", () => {
     expect(agent.pnl).toBe(3);
   });
   it("supports short scenarios", () => {
-    const [tp, sl] = simulateDemoExits({ ...base, side: "VENDA", stopLoss: 105, takeProfit: 90, observedPrices: [100, 106, 89] });
+    const [tp, sl] = simulateDemoExits({ ...base, side: "VENDA", stopLoss: 105, takeProfit: 90, observedPrices: [100, 106, 89] }) as
+      [DemoExitResult, DemoExitResult];
     expect(tp.exitIndex).toBe(2);
     expect(sl.exitIndex).toBe(1);
   });
@@ -27,8 +30,8 @@ describe("read-only demo exit simulator", () => {
     expect(results.every(result => result.pnl === null)).toBe(true);
   });
   it("does not fabricate agent decisions", () => {
-    const result = simulateDemoExits({ ...base, agentExitIndex: undefined });
-    expect(result[4].pnl).toBeNull();
+    const result = simulateDemoExits(baseNoAgent);
+    expect(result[4]?.pnl).toBeNull();
   });
 });
 
@@ -44,7 +47,7 @@ describe("demo exit diagnostics", () => {
     expect(d.tiedFirstRules).toEqual(["PROFIT_TARGET", "AGENT"]);
   });
   it("handles no observed exits without inventing an execution", () => {
-    const d = diagnoseDemoExits({ ...base, observedPrices: [100], agentExitIndex: undefined })!;
+    const d = diagnoseDemoExits({ ...baseNoAgent, observedPrices: [100] })!;
     expect(d.firstExit).toBeNull();
     expect(d.protectionBreached).toBe(false);
   });
