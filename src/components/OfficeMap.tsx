@@ -305,7 +305,7 @@ export function OfficeMap(props: {
 
         return prev.map((a, i) => (i === idx ? { ...a, activity: nextAct } : a));
       });
-    }, 11000);
+    }, 22000);
 
     return () => clearInterval(interval);
   }, [autonomyEnabled, market?.signal]);
@@ -361,7 +361,14 @@ export function OfficeMap(props: {
         const destination = mode === "Atendendo"
           ? (DESK_COORDS[station] || DESK_COORDS.C01!)
           : ACTIVITY_SPOTS[mode][idx % ACTIVITY_SPOTS[mode].length]!;
-        const current = next[agent.id] || { x: destination.x, y: destination.y };
+        // Inicializa a posição uma única vez na estação, não no novo destino.
+        // Isso evita que uma mudança de atividade produza teletransporte.
+        const initialStation = DESK_COORDS[station] || DESK_COORDS.C01!;
+        const current = next[agent.id] || { x: initialStation.x, y: initialStation.y };
+        if (!next[agent.id]) {
+          next[agent.id] = current;
+          changed = true;
+        }
         const key = `${mode}:${station}:${destination.x}:${destination.y}`;
         let route = walkingRoutesRef.current[agent.id];
         if (!route || route.destination !== key) {
@@ -487,6 +494,8 @@ export function OfficeMap(props: {
       allowedSide: "AMBOS",
       autonomous: true,
     };
+    walkingPositionsRef.current[id] = { x: 475, y: 155 };
+    setWalkingPositions((prev) => ({ ...prev, [id]: { x: 475, y: 155 } }));
     setSpawningIds((s) => ({ ...s, [id]: true }));
     saveAgentsList([...localAgents, newAg]);
     pushNotice({
@@ -910,8 +919,11 @@ export function OfficeMap(props: {
             const walking = walkingPositions[ag.id];
             const isWalking = !!walkingRoutesRef.current[ag.id]?.points.length && !isSpawning;
 
-            const x = isSpawning ? 475 : (walking?.x ?? target.x);
-            const y = isSpawning ? 155 : (walking?.y ?? target.y);
+            // Sempre renderizar a posição persistida; nunca trocar para o destino
+            // durante o render (isso causava salto antes do primeiro tick).
+            const initialStation = DESK_COORDS[stCode] || DESK_COORDS.C01!;
+            const x = walking?.x ?? initialStation.x;
+            const y = walking?.y ?? initialStation.y;
 
             const bubbleText = bubbles[ag.id];
             const isHovered = hoveredId === ag.id;
