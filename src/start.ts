@@ -32,11 +32,7 @@ const supabaseAuthMiddleware = createMiddleware({ type: "function" }).client(
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     return next({
-      client: {
-        request: {
-          headers: token ? { authorization: `Bearer ${token}` } : {},
-        },
-      },
+      headers: token ? { authorization: `Bearer ${token}` } : {},
     });
   },
 );
