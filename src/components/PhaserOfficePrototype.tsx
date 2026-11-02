@@ -177,7 +177,7 @@ export function PhaserOfficePrototype() {
             const station = tile(7, 0);
             const rest = tile(8, 0);
             const setStatus = (message: string) => {
-              if (statusRef.current) statusRef.current.textContent = message;
+              if (statusRef.current) statusRef.current.textContent = message.replace("Agente 2: ", "");
             };
             let phase = 0;
             const cycle = () => {
@@ -283,9 +283,18 @@ export function PhaserOfficePrototype() {
   return (
     <div style={{ width: "100%" }}>
       <div ref={host} role="img" aria-label="Protótipo isométrico Phaser, ainda em testes" style={{ width: "100%", minHeight: 240, touchAction: "none" }} />
-      <div ref={statusRef} role="status" aria-live="polite" style={{ marginTop: 8, padding: "10px 12px", background: "#0f172a", color: "#bae6fd", borderRadius: 8, fontSize: 14 }}>
-        Agente 2: aguardando
-      </div>
+      <section aria-label="Painel demonstrativo dos seis agentes" style={{ marginTop: 10, padding: 12, background: "#0f172a", color: "#e2e8f0", borderRadius: 8, fontSize: 13 }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Equipe virtual • demonstração</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: 8 }}>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Cíntia</strong><div>Recepção</div><div style={{ color: "#93c5fd" }}>Controle por toque</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 2</strong><div>Trading</div><div ref={statusRef} role="status" aria-live="polite" style={{ color: "#bae6fd" }}>Aguardando</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 3</strong><div>Recepção</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 4</strong><div>Comitê de Risco</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 5</strong><div>Diretoria</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 6</strong><div>Recepção</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+        </div>
+        <div style={{ marginTop: 8, color: "#94a3b8", fontSize: 11 }}>Posições e atividades ilustrativas; não representam estados reais de trading.</div>
+      </section>
     </div>
   );
 }
