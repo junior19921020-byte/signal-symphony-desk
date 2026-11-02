@@ -279,8 +279,10 @@ function Index() {
         if (alive) {
           setQuoteFetchFailed(price === null);
           if (price !== null) {
+            const receivedAt = Date.now();
             setLive(price);
-            setQuoteAt(Date.now());
+            setQuoteAt(receivedAt);
+            setMonitorNow(receivedAt);
           }
         }
       } catch {

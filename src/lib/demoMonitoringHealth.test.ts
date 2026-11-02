@@ -14,6 +14,12 @@ describe("demoMonitoringHealth", () => {
     expect(demoMonitoringHealth({...base,price:0,lastAttemptFailed:true}).state).toBe("FALHA_ATUALIZACAO");
     expect(demoMonitoringHealth({...base,now:17001,lastAttemptFailed:true}).state).toBe("DESATUALIZADA");
   });
+  it("accepts an atomic fresh quote timestamp while rejecting future or stale timestamps", () => {
+    const receivedAt = 1793572700000;
+    expect(demoMonitoringHealth({...base,quotedAt:receivedAt,now:receivedAt}).state).toBe("ATIVA");
+    expect(demoMonitoringHealth({...base,quotedAt:receivedAt,now:receivedAt - 1}).reliable).toBe(false);
+    expect(demoMonitoringHealth({...base,quotedAt:receivedAt,now:receivedAt + 15001}).state).toBe("DESATUALIZADA");
+  });
   it("pauses when hidden or offline", () => {
     expect(demoMonitoringHealth({...base,visible:false}).state).toBe("PAUSADA");
     expect(demoMonitoringHealth({...base,online:false}).state).toBe("PAUSADA");
