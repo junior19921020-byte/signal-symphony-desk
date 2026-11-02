@@ -99,7 +99,7 @@ function Index() {
   const [log, setLog] = useState<string>("");
   const [audit, setAudit] = useState<DecisionAudit[]>([]);
   const [auditFilter, setAuditFilter] = useState<"TODAS" | "BLOQUEADA" | "APROVADA">("TODAS");
-  const [tab, setTab] = useState<"desk" | "brain" | "agents" | "reports" | "audit" | "account">("desk");
+  const [tab, setTab] = useState<"desk" | "brain" | "agents" | "reports" | "audit" | "account">("agents");
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editProfit, setEditProfit] = useState("");
@@ -524,9 +524,9 @@ function Index() {
       </header>
 
       <nav aria-label="Áreas do escritório" className="mt-4">
-        <button type="button" aria-expanded={menuOpen} aria-controls="desk-menu" onClick={() => setMenuOpen(v => !v)} className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-left font-semibold text-[#d4af37]">☰ Menu • {({desk:"Mesa de Operações",brain:"Segundo Cérebro",agents:"Agentes",reports:"Relatórios",audit:"Auditoria",account:"Minha Conta"} as const)[tab]}</button>
+        <button type="button" aria-expanded={menuOpen} aria-controls="desk-menu" onClick={() => setMenuOpen(v => !v)} className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-left font-semibold text-[#d4af37]">☰ Menu • {({desk:"Mesa de Operações",brain:"Segundo Cérebro",agents:"Escritório • Início",reports:"Relatórios",audit:"Auditoria",account:"Minha Conta"} as const)[tab]}</button>
         {menuOpen && <div id="desk-menu" className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-slate-700 bg-slate-900 p-2">
-          {([{id:"desk",label:"Mesa de Operações"},{id:"agents",label:"Agentes"},{id:"brain",label:"Segundo Cérebro"},{id:"reports",label:"Relatórios"},{id:"audit",label:"Auditoria"},{id:"account",label:"Minha Conta"}] as const).map(item =>
+          {([{id:"desk",label:"Mesa de Operações"},{id:"agents",label:"Escritório • Início"},{id:"brain",label:"Segundo Cérebro"},{id:"reports",label:"Relatórios"},{id:"audit",label:"Auditoria"},{id:"account",label:"Minha Conta"}] as const).map(item =>
             <button type="button" key={item.id} aria-current={tab === item.id ? "page" : undefined} onClick={() => {setTab(item.id);setMenuOpen(false);window.scrollTo({top:0,behavior:"smooth"});}} className={`min-h-11 rounded-lg p-2 text-sm font-semibold ${tab === item.id ? "bg-[#d4af37] text-slate-900" : "bg-slate-800 text-slate-200"}`}>{item.label}</button>)}
         </div>}
       </nav>
