@@ -50,3 +50,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f db/migrations/0003_demo_risk_approval_consumptions.sql
       - name: Verify one-time approval consumption restrictions
         run: psql -v ON_ERROR_STOP=1 -f db/tests/0003_risk_approval_consumptions_integration.sql
+      - name: Apply atomic DEMO risk transition
+        run: psql -v ON_ERROR_STOP=1 -f db/migrations/0004_demo_atomic_risk_transition.sql
+      - name: Verify atomic DEMO risk transition
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/0004_atomic_risk_transition_integration.sql
