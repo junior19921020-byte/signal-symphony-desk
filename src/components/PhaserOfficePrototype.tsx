@@ -287,13 +287,13 @@ export function PhaserOfficePrototype() {
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Equipe virtual • demonstração</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: 8 }}>
           <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Cíntia</strong><div>Recepção</div><div style={{ color: "#93c5fd" }}>Controle por toque</div></div>
-          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 2</strong><div>Trading</div><div ref={statusRef} role="status" aria-live="polite" style={{ color: "#bae6fd" }}>Aguardando</div></div>
-          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 3</strong><div>Recepção</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
-          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 4</strong><div>Comitê de Risco</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
-          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 5</strong><div>Diretoria</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Max Trader</strong><div>Mesa de Execução • visual</div><div ref={statusRef} role="status" aria-live="polite" style={{ color: "#bae6fd" }}>Aguardando</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Ana News</strong><div>Pesquisa & Notícias • visual</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Rita Risk</strong><div>Gestão de Risco • visual</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
+          <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Sofia Quant</strong><div>Análise Gráfica • visual</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
           <div style={{ padding: 8, border: "1px solid #334155", borderRadius: 6 }}><strong>Agente 6</strong><div>Recepção</div><div style={{ color: "#94a3b8" }}>Em posição • demo</div></div>
         </div>
-        <div style={{ marginTop: 8, color: "#94a3b8", fontSize: 11 }}>Posições e atividades ilustrativas; não representam estados reais de trading.</div>
+        <div style={{ marginTop: 8, color: "#94a3b8", fontSize: 11 }}>Nomes e funções encontrados no código; vínculos dos avatares são ilustrativos. Nenhum estado ou operação financeira é consultado.</div>
       </section>
     </div>
   );
