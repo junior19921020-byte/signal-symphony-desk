@@ -28,6 +28,11 @@ export function createPinnedRs256TokenVerifier(
       if (credential.length > 8192) return null;
       const parts = credential.split(".");
       if (parts.length !== 3 || parts.some(p => !p || !/^[A-Za-z0-9_-]+$/.test(p))) return null;
+      // Reject non-canonical Base64URL (including ignored trailing bits) in every JWT segment.
+      // Otherwise distinct token strings can decode to the same signed bytes.
+      for (const part of parts) {
+        if (Buffer.from(part, "base64url").toString("base64url") !== part) return null;
+      }
       const decode = (part: string): unknown => JSON.parse(Buffer.from(part, "base64url").toString("utf8"));
       const header = decode(parts[0]);
       if (!header || typeof header !== "object") return null;
