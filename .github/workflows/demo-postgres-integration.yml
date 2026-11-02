@@ -54,3 +54,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f db/migrations/0004_demo_atomic_risk_transition.sql
       - name: Verify atomic DEMO risk transition
         run: psql -v ON_ERROR_STOP=1 -f db/tests/0004_atomic_risk_transition_integration.sql
+      - name: Apply Rita decision integrity protections
+        run: psql -v ON_ERROR_STOP=1 -f db/migrations/0005_demo_rita_decision_integrity.sql
+      - name: Verify Rita decision integrity
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/0005_rita_decision_integrity_integration.sql
