@@ -66,11 +66,12 @@ export function PhaserOfficePrototype() {
           for (const key of partitions) {
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
-            // Parede com face, sombra e acabamento; a abertura permanece livre.
-            this.add.rectangle(p.x + 2, p.y - 13, 39, 31, 0x0f172a).setDepth(p.y + 1);
-            this.add.rectangle(p.x, p.y - 17, 35, 32, 0x64748b).setDepth(p.y + 2);
-            this.add.rectangle(p.x, p.y - 34, 37, 5, 0xcbd5e1).setDepth(p.y + 3);
-            this.add.rectangle(p.x - 10, p.y - 17, 3, 29, 0x94a3b8).setDepth(p.y + 4);
+            // Divisoria baixa e semitransparente para preservar a visibilidade.
+            // Mantem exatamente os mesmos tiles bloqueados e portas livres.
+            this.add.rectangle(p.x + 2, p.y - 7, 39, 18, 0x0f172a, 0.5).setDepth(p.y + 1);
+            this.add.rectangle(p.x, p.y - 9, 35, 18, 0x64748b, 0.68).setDepth(p.y + 2);
+            this.add.rectangle(p.x, p.y - 19, 37, 4, 0xcbd5e1, 0.9).setDepth(p.y + 3);
+            this.add.rectangle(p.x - 10, p.y - 9, 3, 16, 0x94a3b8, 0.75).setDepth(p.y + 4);
           }
           // Marcos de porta puramente visuais: nao entram no conjunto blocked.
           // Preservam as aberturas (indices 1, 4 e 7) e o pathfinding existente.
