@@ -635,8 +635,9 @@ export function OfficeMap(props: {
           👆 Toque em qualquer agente para fazer perguntas à IA ou configurar horário, função e atividade
         </div>
 
-        {/* SVG ISOMÉTRICO CORRIGIDO (SEM XADREZ PRETO — PISO CREME CLARO SÓLIDO + PISO DE MADEIRA QUENTE) */}
-        <svg viewBox="0 0 920 520" style={{ width: "100%", height: "auto", display: "block" }}>
+        {/* Cena isométrica: rolagem horizontal em telas pequenas, sem reduzir agentes a pontos ilegíveis. */}
+        <div role="region" aria-label="Escritório isométrico, deslize horizontalmente para explorar" tabIndex={0} style={{ overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", borderRadius: 12 }}>
+        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: "100%", height: "auto", display: "block", minWidth: 560 }}>
           <defs>
             <filter id="floorDropShadow" x="-15%" y="-15%" width="130%" height="140%">
               <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.32" />
@@ -880,6 +881,7 @@ export function OfficeMap(props: {
             );
           })}
         </svg>
+        </div>
       </div>
 
       {/* PAINEL EXPANSÍVEL QUANDO CLICA EM QUADRO / AVISOS / RELATÓRIO / VOZ */}
