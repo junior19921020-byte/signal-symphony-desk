@@ -720,6 +720,16 @@ function Index() {
                       Diferença de execução: {t.exitVariance.difference >= 0 ? "+" : ""}{fmt(t.exitVariance.difference)} USDT
                       {t.result === "SL" && t.exitVariance.difference < -0.005 ? " • Risco excedido" : ""}
                     </div>
+                    <div className="mt-1 text-slate-300">
+                      {t.exitVariance.difference < -0.005
+                        ? "Execução DEMO desfavorável em relação ao gatilho configurado."
+                        : t.exitVariance.difference > 0.005
+                          ? "Execução DEMO favorável em relação ao gatilho configurado."
+                          : "Saída DEMO no preço do gatilho configurado (diferença inferior a 0,01 USDT)."}
+                    </div>
+                    <div className="text-amber-300">
+                      O histórico mostra apenas o preço amostrado no fechamento. Não é possível determinar se a diferença decorreu de salto entre cotações, atraso de atualização ou outro fator. Não representa slippage medido em bolsa.
+                    </div>
                   </div>
                 )}
                 <div className="text-[10px] text-slate-500">Origem: {t.provenance ? `${t.provenance.openedBy} (${t.provenance.openedVia}) • Rita Risk • Risco planejado ${fmt(t.provenance.plannedRisk)} USDT` : "não registrada (operação antiga)"}</div>
