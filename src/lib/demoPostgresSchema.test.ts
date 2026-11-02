@@ -3,9 +3,8 @@
  * These tests do NOT execute PostgreSQL or prove runtime tenant isolation.
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import sql from "../../db/migrations/0001_demo_schema.sql?raw";
 
-const sql = readFileSync(new URL("../../db/migrations/0001_demo_schema.sql", import.meta.url), "utf8");
 const tables = [
   "accounts", "demo_broker_accounts", "demo_positions", "demo_orders",
   "risk_decisions", "agent_events", "market_observations", "audit_events",
