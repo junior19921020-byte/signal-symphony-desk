@@ -40,7 +40,8 @@ export async function verifyRitaDecision(
   if (v["ownerId"] !== expected.ownerId || v["orderId"] !== expected.orderId || v["decisionId"] !== expected.decisionId) return false;
   const issuedAt = v["issuedAt"];
   const expiresAt = v["expiresAt"];
-  if (typeof v["approved"] !== 'boolean' || !Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(expiresAt)) return false;
+  if (typeof v["approved"] !== 'boolean' || typeof issuedAt !== 'number' || typeof expiresAt !== 'number' ||
+      !Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(expiresAt)) return false;
   if (!Number.isFinite(nowMs) || issuedAt > nowMs || expiresAt <= nowMs ||
       expiresAt <= issuedAt || expiresAt - issuedAt > 300_000 ||
       nowMs - issuedAt > 300_000) return false;

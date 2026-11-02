@@ -7,6 +7,7 @@ const base = {
   profitTargetUsdt: 5, protectAfterUsdt: 5, protectFloorUsdt: 3,
   agentExitIndex: 2,
 };
+const { agentExitIndex: _omitted, ...baseNoAgent } = base;
 describe("read-only demo exit simulator", () => {
   it("compares independently observed exit triggers", () => {
     const [tp, sl, target, protect, agent] = simulateDemoExits(base) as
@@ -29,7 +30,6 @@ describe("read-only demo exit simulator", () => {
     expect(results.every(result => result.pnl === null)).toBe(true);
   });
   it("does not fabricate agent decisions", () => {
-    const { agentExitIndex: _omitted, ...baseNoAgent } = base;
     const result = simulateDemoExits(baseNoAgent);
     expect(result[4]?.pnl).toBeNull();
   });

@@ -176,9 +176,10 @@ function Index() {
     const done: Trade[] = closing.map((p) => {
       const trade: Trade = {
         id: p.id, side: p.side, entry: p.entry, exit: price, result, closedAt: Date.now(),
-        exitVariance: evaluateExitVariance(p, price, result),
         pnl: (p.side === "COMPRA" ? price - p.entry : p.entry - price) * p.qty,
       };
+      const variance = evaluateExitVariance(p, price, result);
+      if (variance) trade.exitVariance = variance;
       if (p.provenance) trade.provenance = p.provenance;
       if (p.excursion) trade.excursion = p.excursion;
       return trade;

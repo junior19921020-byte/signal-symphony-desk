@@ -9,9 +9,10 @@ const finite = (x: unknown): x is number => typeof x === "number" && Number.isFi
 export function parseRestorableDemoBackup(raw: string): RestorableDemoBackup {
   previewDemoBackup(raw);
   const parsed: unknown = JSON.parse(raw);
-  if (!record(parsed) || !record(parsed["account"])) throw new Error("Backup inválido.");
+  if (!record(parsed)) throw new Error("Backup inválido.");
   const data = parsed;
   const account = data["account"];
+  if (!record(account)) throw new Error("Backup inválido.");
   if (!Array.isArray(data["positions"]) || data["positions"].length !== 0)
     throw new Error("Por segurança, a restauração de backups com posições abertas ainda não é permitida.");
   if (!Array.isArray(data["trades"]) || !Array.isArray(data["audit"]) || !Array.isArray(data["targetEdits"]))
