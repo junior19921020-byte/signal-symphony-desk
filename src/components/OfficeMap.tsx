@@ -694,6 +694,38 @@ export function OfficeMap(props: {
             <polygon points="355,342 530,430 530,404 355,316" fill="#38bdf8" fillOpacity="0.22" stroke="#bae6fd" strokeWidth="1.2" />
             <polygon points="280,390 355,342 355,316 280,364" fill="#0284c7" fillOpacity="0.24" stroke="#bae6fd" strokeWidth="1.2" />
 
+            {/* Detalhes visuais pixel-art corporativos: somente SVG, sem lógica ou acesso a dados. */}
+            <g aria-hidden="true" shapeRendering="crispEdges">
+              {/* Tapetes e sinalização das áreas do escritório */}
+              <polygon points="300,114 345,91 390,113 345,136" fill="#d4a843" fillOpacity="0.20" stroke="#b88a2c" strokeWidth="1" />
+              <polygon points="555,172 609,199 579,216 525,189" fill="#d4a843" fillOpacity="0.14" stroke="#c59b43" strokeWidth="1" />
+              <g transform="translate(308 112)">
+                <rect x="0" y="0" width="74" height="17" rx="2" fill="#171923" stroke="#d4a843" />
+                <text x="37" y="11.5" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#f7d778">DIRETORIA</text>
+              </g>
+              <g transform="translate(544 145)">
+                <rect x="0" y="0" width="100" height="17" rx="2" fill="#171923" stroke="#d4a843" />
+                <text x="50" y="11.5" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#f7d778">MESA DE TRADING</text>
+              </g>
+              <g transform="translate(335 352)">
+                <rect x="0" y="0" width="95" height="17" rx="2" fill="#171923" stroke="#d4a843" />
+                <text x="47.5" y="11.5" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#f7d778">COMITÊ DE RISCO</text>
+              </g>
+              {/* Luminárias e quadros digitais com pixels decorativos, sem sinais financeiros. */}
+              <g transform="translate(590 102)">
+                <polygon points="0,0 45,22 45,44 0,22" fill="#111827" stroke="#d4a843" strokeWidth="2" />
+                <polyline points="7,17 16,20 24,14 32,21 39,17" fill="none" stroke="#67e8f9" strokeWidth="2" />
+                <rect x="7" y="24" width="7" height="3" fill="#facc15" />
+                <rect x="17" y="29" width="7" height="3" fill="#facc15" />
+                <rect x="27" y="34" width="7" height="3" fill="#facc15" />
+              </g>
+              <g transform="translate(166 240)">
+                <polygon points="0,0 24,-12 24,-6 0,6" fill="#facc15" />
+                <rect x="-2" y="6" width="5" height="12" fill="#475569" />
+                <polygon points="-8,18 9,18 13,22 -12,22" fill="#334155" />
+              </g>
+            </g>
+
             {/* 1. DIRETORIA EXECUTIVA (Sofá Caramelo + Mesa Diretor + Tapete) */}
             <polygon points="285,155 345,122 390,145 330,178" fill="#e7e2d3" opacity="0.7" />
             <g transform="translate(290, 140)">
