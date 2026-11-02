@@ -617,7 +617,7 @@ function Index() {
         </section>
       )}
 
-      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label="Desempenho da conta demo">
+      <details className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label="Análises avançadas da mesa DEMO">\n        <summary className="cursor-pointer font-semibold text-[#d4af37]">📊 Análises avançadas • desempenho, estratégia e Rita Risk</summary>\n        <p className="mt-2 text-xs text-slate-400">Abra para consultar os relatórios detalhados sem sobrecarregar a Mesa de Operações.</p>\n      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label="Desempenho da conta demo">
         <h2 className="font-bold text-[#d4af37]">Painel de Desempenho (Demo)</h2>
         <p className="mt-1 text-xs text-slate-400">Calculado apenas sobre operações encerradas salvas neste navegador. Não representa resultados de uma conta real.</p>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -673,6 +673,7 @@ function Index() {
       </section>
 
       <DemoExitPanel />
+      </details>
 
       <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
         <h2 className="font-bold text-[#d4af37]">Posições Abertas & Histórico de Trades</h2>
