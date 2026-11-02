@@ -1,3 +1,4 @@
+import { summarizeMonitoringIncidents } from "@/lib/demoMonitoringIncidents";
 import { demoMonitoringHealth } from "@/lib/demoMonitoringHealth";
 import { demoExitQuality } from "@/lib/demoExitQuality";
 import { observeDemoTrailing, type PersistedDemoTrailing } from "@/lib/demoTrailingState";
@@ -653,6 +654,17 @@ function Index() {
           <p className="mt-1 text-slate-300">Última amostra: {quoteAt > 0 ? new Date(quoteAt).toLocaleTimeString("pt-BR") : "nenhuma"} • SL/TP demo automáticos exigem cotação recente, conexão e página visível.</p>
           <p className="mt-1 text-amber-300">Sem monitoramento contínuo com a página fechada. Os registros abaixo são locais e podem não capturar interrupções enquanto o navegador estiver suspenso.</p>
           <div className="mt-1 text-slate-300">Últimas mudanças observadas: {monitorEvents.length ? monitorEvents.slice(0, 4).map(e => `${new Date(e.at).toLocaleTimeString("pt-BR")} ${e.state}`).join(" • ") : "nenhuma"}</div>
+        </div>
+        <div className="mt-2 rounded border border-slate-700 bg-slate-800 p-2 text-xs" aria-label="Incidentes de monitoramento Rita Risk">
+          <p className="font-bold text-[#d4af37]">Rita Risk • Incidentes de Monitoramento (Demo)</p>
+          <p className="mt-1 text-slate-300">Eventos observados nesta sessão, sem reconstruir períodos em que o navegador esteve suspenso. Gravidade informativa: crítico a partir de 15 segundos; não altera os bloqueios.</p>
+          {summarizeMonitoringIncidents(monitorEvents, monitorNow).length === 0 ? <p className="mt-1 text-green-300">Nenhum incidente registrado nesta sessão.</p> :
+            <ul className="mt-2 space-y-1">{summarizeMonitoringIncidents(monitorEvents, monitorNow).slice(0, 5).map((incident, index) =>
+              <li key={`${incident.start}-${index}`} className="rounded bg-slate-900 p-2">
+                <span className={incident.severity === "CRITICO" ? "font-bold text-red-300" : "font-bold text-amber-300"}>{incident.severity}</span>
+                {" • "}{incident.state} • {new Date(incident.start).toLocaleTimeString("pt-BR")}
+                {" • "}{Math.round(incident.durationMs / 1000)}s {incident.ongoing ? "(em andamento)" : "(encerrado)"}
+              </li>)}</ul>}
         </div>
         <p className="text-xs text-amber-300">Stop/Take demo monitorados somente enquanto esta página estiver ativa. Não há proteção garantida com o app fechado ou sem conexão.</p>
         <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
