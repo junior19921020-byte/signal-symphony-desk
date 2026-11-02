@@ -8,6 +8,13 @@ describe("summarizeMonitoringIncidents", () => {
     expect(result[0]).toMatchObject({state:"PAUSADA",durationMs:2000,ongoing:true,severity:"ATENCAO"});
     expect(result[1]).toMatchObject({state:"DESATUALIZADA",durationMs:17000,ongoing:false,severity:"CRITICO"});
   });
+  it("labels long hidden-page pauses as PAUSA", () => {
+    const events = [{at:1000,state:"ATIVA"},{at:2000,state:"PAUSADA",reason:"ABA_OCULTA" as const},{at:42000,state:"ATIVA"}];
+    expect(summarizeMonitoringIncidents(events,43000)[0]).toMatchObject({durationMs:40000,severity:"PAUSA"});
+  });
+  it("keeps offline interruptions critical", () => {
+    expect(summarizeMonitoringIncidents([{at:1000,state:"PAUSADA",reason:"SEM_REDE"}],18000)[0].severity).toBe("CRITICO");
+  });
   it("ignores future timestamps and never mutates input", () => {
     const events=Object.freeze([{at:20000,state:"ATIVA"},{at:1000,state:"SEM_COTACAO"}]);
     expect(summarizeMonitoringIncidents(events,15000)).toMatchObject([{durationMs:14000,ongoing:true}]);
