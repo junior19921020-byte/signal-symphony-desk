@@ -24,7 +24,16 @@ export function PhaserOfficePrototype() {
             for (let col = 0; col < 9; col++) {
               const x = 320 + (col - row) * 32;
               const y = 55 + (col + row) * 16;
-              g.fillStyle((col + row) % 2 ? 0xcbd5e1 : 0xe2e8f0, 1);
+              // Setores visuais discretos; somente a cor muda, sem colisao.
+              const zone = col < 4 && row < 4 ? 0 : col >= 5 && row < 4 ? 1 : col < 4 && row >= 5 ? 2 : col >= 5 && row >= 5 ? 3 : 4;
+              const floorColors = [
+                [0xdbeafe, 0xbfdbfe], // Diretoria
+                [0xd1fae5, 0xa7f3d0], // Trading
+                [0xfef3c7, 0xfde68a], // Recepcao
+                [0xf3e8ff, 0xe9d5ff], // Risco
+                [0xe2e8f0, 0xcbd5e1], // Corredores e portas
+              ];
+              g.fillStyle(floorColors[zone][(col + row) % 2], 1);
               g.lineStyle(1, 0x94a3b8, 0.8);
               g.fillPoints([{x,y:y-16},{x:x+32,y},{x,y:y+16},{x:x-32,y}], true);
               g.strokePoints([{x,y:y-16},{x:x+32,y},{x,y:y+16},{x:x-32,y}], true);
