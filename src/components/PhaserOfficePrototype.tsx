@@ -18,23 +18,35 @@ export function PhaserOfficePrototype() {
         constructor() { super("office-prototype"); }
         create() {
           const g = this.add.graphics();
+          const tile = (col: number, row: number) => ({ x: 320 + (col - row) * 32, y: 55 + (col + row) * 16 });
+          // Divisão visual por setores; colisões são definidas separadamente abaixo.
+          const sectors = [
+            { name: "DIRETORIA", col: 1, row: 1, color: 0xd6b48a },
+            { name: "TRADING", col: 6, row: 1, color: 0x9bc7d8 },
+            { name: "RECEPÇÃO", col: 1, row: 6, color: 0xb9d6bd },
+            { name: "RISCO", col: 6, row: 6, color: 0xd6b5c9 },
+          ];
           // Piso isométrico com losangos de 64x32 pixels.
           for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
               const x = 320 + (col - row) * 32;
               const y = 55 + (col + row) * 16;
-              g.fillStyle((col + row) % 2 ? 0xcbd5e1 : 0xe2e8f0, 1);
+              const zone = col < 4 && row < 4 ? 0xd6b48a : col >= 5 && row < 4 ? 0x9bc7d8 : col < 4 && row >= 5 ? 0xb9d6bd : col >= 5 && row >= 5 ? 0xd6b5c9 : ((col + row) % 2 ? 0xcbd5e1 : 0xe2e8f0);
+              g.fillStyle(zone, 1);
               g.lineStyle(1, 0x94a3b8, 0.8);
               g.fillPoints([{x,y:y-16},{x:x+32,y},{x,y:y+16},{x:x-32,y}], true);
               g.strokePoints([{x,y:y-16},{x:x+32,y},{x,y:y+16},{x:x-32,y}], true);
             }
+          }
+          for (const sector of sectors) {
+            const p = tile(sector.col, sector.row);
+            this.add.text(p.x, p.y - 46, sector.name, { color: "#f8fafc", fontSize: "10px", backgroundColor: "#1e293b", padding: { x: 4, y: 3 } }).setOrigin(0.5).setDepth(1000);
           }
           this.add.text(14, 12, "PROTÓTIPO • MOTOR PHASER", { color: "#facc15", fontSize: "15px" });
           this.add.text(14, 35, "Cena de teste — não conectada ao trading", { color: "#ffffff", fontSize: "11px" });
           // Mapa lógico independente dos gráficos: X = obstáculo, . = piso.
           // O corredor central permanece livre e permite contornar os móveis.
           const blocked = new Set(["2,2", "3,2", "2,3", "6,5", "6,6", "5,6"]);
-          const tile = (col: number, row: number) => ({ x: 320 + (col - row) * 32, y: 55 + (col + row) * 16 });
           for (const key of blocked) {
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
