@@ -61,26 +61,26 @@ export function DemoLoginGate({ children }: { children: ReactNode }) {
     }
   }
 
-  if (checking) return <main className="min-h-screen flex items-center justify-center p-6" role="status">Verificando acesso…</main>;
+  if (checking) return <main className="min-h-screen flex items-center justify-center bg-[#070e1e] p-6 text-cyan-200" role="status">Verificando acesso…</main>;
   if (session) return <>{children}</>;
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background p-6">
-      <section className="w-full max-w-sm space-y-5 rounded-xl border bg-card p-6 text-card-foreground">
-        <h1 className="text-2xl font-semibold">Signal Symphony Desk</h1>
-        <p className="text-sm text-muted-foreground">Acesso privado · ambiente de simulação DEMO</p>
+    <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,#143b59_0%,#0b1730_42%,#050a15_100%)] p-6 text-slate-100">
+      <section className="w-full max-w-sm space-y-5 rounded-2xl border border-cyan-500/30 bg-[#101e36]/95 p-6 text-slate-100 shadow-[0_0_55px_rgba(14,165,233,0.12)]">
+        <h1 className="text-2xl font-bold tracking-tight text-cyan-100">Signal Symphony Desk</h1>
+        <p className="text-sm text-slate-300">Acesso privado · ambiente de simulação DEMO</p>
         <form onSubmit={signIn} className="space-y-3">
           <label className="block text-sm">E-mail
-            <input className="mt-1 w-full rounded border bg-background p-2" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="mt-1 w-full rounded-lg border border-slate-600 bg-[#081326] p-3 text-white outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} />
           </label>
           <label className="block text-sm">Senha
-            <input className="mt-1 w-full rounded border bg-background p-2" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} />
+            <input className="mt-1 w-full rounded-lg border border-slate-600 bg-[#081326] p-3 text-white outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} />
           </label>
-          <button className="w-full rounded bg-primary p-2 text-primary-foreground disabled:opacity-50" disabled={busy} type="submit">Entrar com e-mail</button>
+          <button className="w-full rounded-lg bg-cyan-500 p-3 font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-50" disabled={busy} type="submit">Entrar com e-mail</button>
         </form>
-        <button className="w-full rounded border p-2 disabled:opacity-50" disabled={busy} onClick={signInGoogle} type="button">Entrar com Google</button>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        <p className="text-xs text-muted-foreground">Cadastro público não disponível nesta tela. A restrição real de contas deve ser aplicada no servidor e no provedor de autenticação.</p>
+        <button className="w-full rounded-lg border border-cyan-400/60 bg-slate-800/80 p-3 font-medium text-cyan-100 hover:bg-slate-700 disabled:opacity-50" disabled={busy} onClick={signInGoogle} type="button">Entrar com Google</button>
+        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        <p className="text-xs text-slate-400">Cadastro público não disponível nesta tela. A restrição real de contas deve ser aplicada no servidor e no provedor de autenticação.</p>
       </section>
     </main>
   );
