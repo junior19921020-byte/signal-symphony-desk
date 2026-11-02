@@ -140,10 +140,10 @@ export function PhaserOfficePrototype() {
           agent.setDepth(origin.y + 10);
           // Equipe ilustrativa: cinco colegas visuais sem conexao com trading.
           const demoTeam = [
-            { name: "Agente 2", col: 8, row: 0, shirt: 0x0f766e },
-            { name: "Agente 3", col: 0, row: 8, shirt: 0x7c3aed },
-            { name: "Agente 4", col: 8, row: 8, shirt: 0xb45309 },
-            { name: "Agente 5", col: 2, row: 0, shirt: 0xbe123c },
+            { name: "Max Trader", col: 8, row: 0, shirt: 0x0f766e },
+            { name: "Ana News", col: 0, row: 8, shirt: 0x7c3aed },
+            { name: "Rita Risk", col: 8, row: 8, shirt: 0xb45309 },
+            { name: "Sofia Quant", col: 2, row: 0, shirt: 0xbe123c },
             { name: "Agente 6", col: 0, row: 6, shirt: 0x0369a1 },
           ];
           // Colegas estaticos ocupam tiles: a rota nao pode atravessar avatares.
@@ -157,7 +157,7 @@ export function PhaserOfficePrototype() {
           for (const member of demoTeam) {
             const p = tile(member.col, member.row);
             const colleague = this.add.container(p.x, p.y).setDepth(p.y + 10);
-            if (member.name === "Agente 2") movingColleague = colleague;
+            if (member.name === "Max Trader") movingColleague = colleague;
             colleague.add([
               this.add.ellipse(0, 0, 18, 6, 0x0f172a, 0.3),
               this.add.rectangle(-4, -5, 5, 12, 0x1e293b),
