@@ -31,8 +31,8 @@ export function DemoExitPanel() {
       side, entry: parse(entry), qty: parse(qty), stopLoss: parse(sl), takeProfit: parse(tp),
       observedPrices: prices,
       profitTargetUsdt: parse(target), protectAfterUsdt: parse(arm), protectFloorUsdt: parse(floor),
-      agentExitIndex: agentIndex.trim() === "" ? undefined : Number(agentIndex) - 1,
     };
+    if (agentIndex.trim() !== "") next.agentExitIndex = Number(agentIndex) - 1;
     if (prices.length > 500) { setError("Máximo de 500 amostras por simulação."); return; }
     if (!prices.length || ![next.entry, next.qty, next.stopLoss, next.takeProfit].every(v => Number.isFinite(v) && v > 0)
       || prices.some(v => !Number.isFinite(v) || v <= 0)
