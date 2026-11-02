@@ -12,10 +12,10 @@ describe("validateDemoServerSnapshot", () => {
     expect(validateDemoServerSnapshot(sample,"other",2000).valid).toBe(false);
     expect(validateDemoServerSnapshot({...sample,capturedAt:3000},"test-owner",2000).valid).toBe(false);
     expect(validateDemoServerSnapshot({...sample,positions:[...sample.positions,...sample.positions]},"test-owner",2000).valid).toBe(false);
-    expect(validateDemoServerSnapshot({...sample,positions:[{...sample.positions[0],stopLoss:81000}]},"test-owner",2000).valid).toBe(false);
+    expect(validateDemoServerSnapshot({...sample,positions:[{...sample.positions[0]!,stopLoss:81000}]},"test-owner",2000).valid).toBe(false);
   });
   it("rejects nonpositive prices and wrong stop direction for sells", () => {
-    expect(validateDemoServerSnapshot({...sample,positions:[{...sample.positions[0],quantity:0}]},"test-owner",2000).valid).toBe(false);
-    expect(validateDemoServerSnapshot({...sample,positions:[{...sample.positions[0],side:"VENDA"}]},"test-owner",2000).valid).toBe(false);
+    expect(validateDemoServerSnapshot({...sample,positions:[{...sample.positions[0]!,quantity:0}]},"test-owner",2000).valid).toBe(false);
+    expect(validateDemoServerSnapshot({...sample,positions:[{...sample.positions[0]!,side:"VENDA"}]},"test-owner",2000).valid).toBe(false);
   });
 });

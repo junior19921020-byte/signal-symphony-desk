@@ -28,7 +28,7 @@ describe('Rita DEMO signed decision', () => {
       { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048,
         publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' }, true, ['sign','verify']);
     expect(await verifyRitaDecision(envelope, signature, other.publicKey, expected, now)).toBe(false);
-    const bad = signature.slice(); bad[0] ^= 1;
+    const bad = signature.slice(); bad[0] = (bad[0] ?? 0) ^ 1;
     expect(await verifyRitaDecision(envelope, bad, keys.publicKey, expected, now)).toBe(false);
   });
 });
