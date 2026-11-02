@@ -137,6 +137,28 @@ export function PhaserOfficePrototype() {
           const origin = tile(...location);
           agent.setPosition(origin.x, origin.y);
           agent.setDepth(origin.y + 10);
+          // Equipe ilustrativa: cinco colegas visuais sem conexao com trading.
+          const demoTeam = [
+            { name: "Agente 2", col: 8, row: 0, shirt: 0x0f766e },
+            { name: "Agente 3", col: 0, row: 8, shirt: 0x7c3aed },
+            { name: "Agente 4", col: 8, row: 8, shirt: 0xb45309 },
+            { name: "Agente 5", col: 2, row: 0, shirt: 0xbe123c },
+            { name: "Agente 6", col: 0, row: 6, shirt: 0x0369a1 },
+          ];
+          for (const member of demoTeam) {
+            const p = tile(member.col, member.row);
+            const colleague = this.add.container(p.x, p.y).setDepth(p.y + 10);
+            colleague.add([
+              this.add.ellipse(0, 0, 18, 6, 0x0f172a, 0.3),
+              this.add.rectangle(-4, -5, 5, 12, 0x1e293b),
+              this.add.rectangle(4, -5, 5, 12, 0x1e293b),
+              this.add.rectangle(0, -17, 15, 19, member.shirt),
+              this.add.circle(0, -33, 8, 0xf5c99a),
+              this.add.arc(0, -37, 8, 180, 360, false, 0x422006),
+              this.add.text(0, -52, member.name, { fontSize: "9px", color: "#ffffff", backgroundColor: "#0f172a", padding: { x: 2, y: 1 } }).setOrigin(0.5),
+            ]);
+          }
+          agent.add(this.add.text(0, -53, "Cíntia", { fontSize: "10px", color: "#ffffff", backgroundColor: "#1e3a8a", padding: { x: 3, y: 1 } }).setOrigin(0.5));
           let walking = false;
           const walkTo = (goal: [number, number]) => {
             if (walking || blocked.has(goal.join(","))) return;
