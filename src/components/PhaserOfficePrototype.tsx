@@ -134,12 +134,19 @@ export function PhaserOfficePrototype() {
           this.input.addPointer(1);
           let lastPinchDistance = 0;
           let suppressTap = false;
+          let previousCenter: { x: number; y: number } | null = null;
           this.input.on("pointermove", () => {
             const active = this.input.manager.pointers.filter((p) => p.isDown);
-            if (active.length < 2) { lastPinchDistance = 0; return; }
+            if (active.length < 2) { lastPinchDistance = 0; previousCenter = null; return; }
             suppressTap = true;
             const [a, b] = active;
             const distance = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+            const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            if (previousCenter && camera.zoom > 1) {
+              camera.scrollX -= (center.x - previousCenter.x) / camera.zoom;
+              camera.scrollY -= (center.y - previousCenter.y) / camera.zoom;
+            }
+            previousCenter = center;
             if (lastPinchDistance > 0 && distance > 0) {
               camera.setZoom(Phaser.Math.Clamp(camera.zoom * distance / lastPinchDistance, 1, 1.8));
             }
@@ -147,6 +154,7 @@ export function PhaserOfficePrototype() {
           });
           this.input.on("pointerup", () => {
             lastPinchDistance = 0;
+            previousCenter = null;
             if (this.input.manager.pointers.every((p) => !p.isDown)) suppressTap = false;
           });
           this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
