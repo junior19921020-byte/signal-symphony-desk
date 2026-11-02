@@ -33,7 +33,9 @@ export function simulateTrailingProfit(input: TrailingProfitInput): TrailingProf
   let floorAtExit: number | null = null;
   const floorBySample: Array<number | null> = [];
   for (let i = 0; i < input.observedPrices.length; i++) {
-    const pnl = pnlAt(input.observedPrices[i]);
+    const price = input.observedPrices[i];
+    if (price === undefined) continue;
+    const pnl = pnlAt(price);
     peak = Math.max(peak, pnl);
     if (armedAt === null && peak >= input.activateAtUsdt) armedAt = i;
     const floor = armedAt === null ? null : peak - input.trailDistanceUsdt;
@@ -43,10 +45,11 @@ export function simulateTrailingProfit(input: TrailingProfitInput): TrailingProf
       floorAtExit = floor;
     }
   }
-  const exitPnl = exitIndex === null ? null : pnlAt(input.observedPrices[exitIndex]);
+  const exitPrice = exitIndex === null ? undefined : input.observedPrices[exitIndex];
+  const exitPnl = exitPrice === undefined ? null : pnlAt(exitPrice);
   return {
     peakPnl: peak, activatedAtIndex: armedAt, exitIndex,
-    exitPrice: exitIndex === null ? null : input.observedPrices[exitIndex],
+    exitPrice: exitPrice ?? null,
     exitPnl, floorAtExit,
     floorBreached: exitPnl !== null && floorAtExit !== null && exitPnl < floorAtExit,
     floorBySample,

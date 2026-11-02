@@ -30,7 +30,11 @@ export function simulateDemoExits(input: DemoExitScenario): DemoExitResult[] {
   const pnlAt = (price: number) => (input.side === "COMPRA" ? price - input.entry : input.entry - price) * input.qty;
   const stopHit = (price: number) => input.side === "COMPRA" ? price <= input.stopLoss : price >= input.stopLoss;
   const takeHit = (price: number) => input.side === "COMPRA" ? price >= input.takeProfit : price <= input.takeProfit;
-  const resultAt = (rule: ExitRule, index: number, reason: string): DemoExitResult => ({ rule, exitIndex: index, exitPrice: input.observedPrices[index], pnl: pnlAt(input.observedPrices[index]), reason });
+  const resultAt = (rule: ExitRule, index: number, reason: string): DemoExitResult => {
+    const price = input.observedPrices[index];
+    if (price === undefined) return unavailable(rule, "Amostra indisponível");
+    return { rule, exitIndex: index, exitPrice: price, pnl: pnlAt(price), reason };
+  };
   const find = (rule: ExitRule, test: (price: number, i: number) => boolean): DemoExitResult => {
     const index = input.observedPrices.findIndex(test);
     return index < 0 ? unavailable(rule, "Gatilho não observado nas amostras") : resultAt(rule, index, "Gatilho observado; preço hipotético da amostra");
