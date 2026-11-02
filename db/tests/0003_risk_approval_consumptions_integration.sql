@@ -29,7 +29,7 @@ BEGIN
   RAISE EXCEPTION 'Cross-owner risk decision accepted';
  EXCEPTION WHEN foreign_key_violation OR unique_violation THEN NULL;
  END;
-END $;
+END $$;
 CREATE ROLE demo_ci_risk_reader NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA desk TO demo_ci_risk_reader;
 GRANT EXECUTE ON FUNCTION desk.current_owner_id() TO demo_ci_risk_reader;
