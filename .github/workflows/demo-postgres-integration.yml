@@ -1,0 +1,43 @@
+name: DEMO PostgreSQL integration
+on:
+  pull_request:
+    paths:
+      - "db/**"
+      - ".github/workflows/demo-postgres-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_DB: demo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d demo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: demo_test
+      PGUSER: postgres
+      PGPASSWORD: local-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Apply portable DEMO schema
+        run: psql -v ON_ERROR_STOP=1 -f db/migrations/0001_demo_schema.sql
+      - name: Verify constraints and default-deny access
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/0001_schema_integration.sql
