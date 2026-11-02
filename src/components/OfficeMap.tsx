@@ -859,6 +859,15 @@ export function OfficeMap(props: {
                 key={ag.id}
                 transform={`translate(${x}, ${y})`}
                 style={{ transition: "transform 1.35s cubic-bezier(0.22, 1, 0.36, 1)", cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Conversar com ${ag.name}, ${ag.role}`}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openAgentModal(ag, "CHAT");
+                  }
+                }}
                 onClick={() => openAgentModal(ag, "CHAT")}
                 onMouseEnter={() => setHoveredId(ag.id)}
                 onMouseLeave={() => setHoveredId(null)}
@@ -867,13 +876,24 @@ export function OfficeMap(props: {
                 {mode === "Atendendo" && !isSpawning && (
                   <ellipse cx="0" cy="7" rx="7" ry="4" fill="#1e293b" stroke="#475569" strokeWidth="0.8" />
                 )}
-                <rect x="-4" y="3" width="3.2" height="7" rx="1" fill="#1e293b" />
-                <rect x="0.8" y="3" width="3.2" height="7" rx="1" fill="#1e293b" />
-                <rect x="-6" y="-8" width="12" height="12" rx="3" fill={ag.color} stroke="#ffffff" strokeWidth="0.8" />
-                <circle cx="0" cy="-14" r="5.5" fill="#fde68a" />
-                <path d="M -5.5 -15 Q 0 -22 5.5 -15 Z" fill={ag.hair || "#111827"} />
-                <circle cx="-2" cy="-14" r="0.8" fill="#0f172a" />
-                <circle cx="2" cy="-14" r="0.8" fill="#0f172a" />
+                {/* Avatar pixel-art corporativo: roupas, braços, cabelo e rosto em blocos. */}
+                <g shapeRendering="crispEdges">
+                  <rect x="-5" y="2" width="4" height="8" fill="#1e293b" />
+                  <rect x="1" y="2" width="4" height="8" fill="#1e293b" />
+                  <rect x="-6" y="9" width="5" height="2" fill="#0f172a" />
+                  <rect x="1" y="9" width="5" height="2" fill="#0f172a" />
+                  <rect x="-8" y="-8" width="3" height="10" fill="#e9b97e" />
+                  <rect x="5" y="-8" width="3" height="10" fill="#e9b97e" />
+                  <rect x="-6" y="-10" width="12" height="13" fill={ag.color} stroke="#f8fafc" strokeWidth="0.7" />
+                  <rect x="-1" y="-9" width="2" height="7" fill="#f8fafc" />
+                  <rect x="-1" y="-3" width="2" height="3" fill="#d4a843" />
+                  <rect x="-5" y="-20" width="10" height="11" fill="#f5c99a" />
+                  <rect x="-6" y="-21" width="12" height="4" fill={ag.hair || "#111827"} />
+                  <rect x="-6" y="-18" width="3" height="4" fill={ag.hair || "#111827"} />
+                  <rect x="-3" y="-15" width="2" height="2" fill="#172033" />
+                  <rect x="2" y="-15" width="2" height="2" fill="#172033" />
+                  <rect x="-1" y="-11" width="3" height="1" fill="#a65f4a" />
+                </g>
 
                 {/* Pílula do Nome + Estação (Estilo do Vídeo) */}
                 <g transform="translate(0, -28)">
