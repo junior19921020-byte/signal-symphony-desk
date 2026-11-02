@@ -82,7 +82,7 @@ function Index() {
   const [monitorVisible, setMonitorVisible] = useState(true);
   const [monitorOnline, setMonitorOnline] = useState(true);
   const [quoteFetchFailed, setQuoteFetchFailed] = useState(false);
-  const [monitorEvents, setMonitorEvents] = useState<{ at: number; state: string }[]>([]);
+  const [monitorEvents, setMonitorEvents] = useState<{ at: number; state: string; reason?: "ABA_OCULTA" | "SEM_REDE" }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [auto, setAuto] = useState("manual");
@@ -158,8 +158,9 @@ function Index() {
   const monitoring = demoMonitoringHealth({ price: live, quotedAt: quoteAt, now: monitorNow, visible: monitorVisible, online: monitorOnline, lastAttemptFailed: quoteFetchFailed });
   useEffect(() => {
     if (!ready || monitorNow <= 0) return;
-    setMonitorEvents(prev => prev[0]?.state === monitoring.state ? prev : [{at:monitorNow,state:monitoring.state},...prev].slice(0,10));
-  }, [ready, monitoring.state, monitorNow]);
+    const reason = monitoring.state === "PAUSADA" ? (!monitorVisible ? "ABA_OCULTA" : "SEM_REDE") : undefined;
+    setMonitorEvents(prev => prev[0]?.state === monitoring.state && prev[0]?.reason === reason ? prev : [{at:monitorNow,state:monitoring.state,reason},...prev].slice(0,10));
+  }, [ready, monitoring.state, monitorNow, monitorVisible]);
 
   const closePositions = useCallback((ids: string[], price: number, result: Trade["result"]) => {
     if (!ids.length || price <= 0) return;
@@ -657,12 +658,12 @@ function Index() {
         </div>
         <div className="mt-2 rounded border border-slate-700 bg-slate-800 p-2 text-xs" aria-label="Incidentes de monitoramento Rita Risk">
           <p className="font-bold text-[#d4af37]">Rita Risk • Incidentes de Monitoramento (Demo)</p>
-          <p className="mt-1 text-slate-300">Eventos observados nesta sessão, sem reconstruir períodos em que o navegador esteve suspenso. Gravidade informativa: crítico a partir de 15 segundos; não altera os bloqueios.</p>
+          <p className="mt-1 text-slate-300">Eventos observados nesta sessão, sem reconstruir períodos em que o navegador esteve suspenso. Aba oculta aparece como PAUSA (sem proteção contínua); falha de rede/cotação pode ser CRÍTICA a partir de 15 segundos. Não altera os bloqueios.</p>
           {summarizeMonitoringIncidents(monitorEvents, monitorNow).length === 0 ? <p className="mt-1 text-green-300">Nenhum incidente registrado nesta sessão.</p> :
             <ul className="mt-2 space-y-1">{summarizeMonitoringIncidents(monitorEvents, monitorNow).slice(0, 5).map((incident, index) =>
               <li key={`${incident.start}-${index}`} className="rounded bg-slate-900 p-2">
                 <span className={incident.severity === "CRITICO" ? "font-bold text-red-300" : "font-bold text-amber-300"}>{incident.severity}</span>
-                {" • "}{incident.state} • {new Date(incident.start).toLocaleTimeString("pt-BR")}
+                {" • "}{incident.state}{incident.reason === "ABA_OCULTA" ? " (aba oculta; monitoramento interrompido)" : incident.reason === "SEM_REDE" ? " (sem rede)" : ""} • {new Date(incident.start).toLocaleTimeString("pt-BR")}
                 {" • "}{Math.round(incident.durationMs / 1000)}s {incident.ongoing ? "(em andamento)" : "(encerrado)"}
               </li>)}</ul>}
         </div>
