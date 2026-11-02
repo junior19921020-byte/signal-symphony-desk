@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
  */
 export function PhaserOfficePrototype() {
   const host = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!host.current) return;
     let game: import("phaser").Game | undefined;
@@ -175,9 +176,9 @@ export function PhaserOfficePrototype() {
             const colleague = movingColleague;
             const station = tile(7, 0);
             const rest = tile(8, 0);
-            const status = this.add.text(320, 375, "Agente 2: aguardando", {
-              fontSize: "11px", color: "#bae6fd", backgroundColor: "#0f172a",
-            }).setScrollFactor(0).setDepth(1200);
+            const setStatus = (message: string) => {
+              if (statusRef.current) statusRef.current.textContent = message;
+            };
             let phase = 0;
             const cycle = () => {
               if (walking) {
@@ -186,7 +187,7 @@ export function PhaserOfficePrototype() {
               }
               if (phase === 0 || phase === 2) {
                 const destination = phase === 0 ? station : rest;
-                status.setText("Agente 2: deslocamento demonstrativo");
+                setStatus("Agente 2: deslocamento demonstrativo");
                 this.tweens.add({
                   targets: colleague,
                   x: destination.x,
@@ -199,7 +200,7 @@ export function PhaserOfficePrototype() {
                   },
                 });
               } else {
-                status.setText(phase === 1
+                setStatus(phase === 1
                   ? "Agente 2: simulando monitoramento"
                   : "Agente 2: pausa demonstrativa");
                 phase = phase === 1 ? 2 : 0;
@@ -279,5 +280,12 @@ export function PhaserOfficePrototype() {
     })().catch((error) => console.error("Falha ao iniciar protótipo Phaser", error));
     return () => { cancelled = true; game?.destroy(true); };
   }, []);
-  return <div ref={host} role="img" aria-label="Protótipo isométrico Phaser, ainda em testes" style={{ width: "100%", minHeight: 240 }} />;
+  return (
+    <div style={{ width: "100%" }}>
+      <div ref={host} role="img" aria-label="Protótipo isométrico Phaser, ainda em testes" style={{ width: "100%", minHeight: 240, touchAction: "none" }} />
+      <div ref={statusRef} role="status" aria-live="polite" style={{ marginTop: 8, padding: "10px 12px", background: "#0f172a", color: "#bae6fd", borderRadius: 8, fontSize: 14 }}>
+        Agente 2: aguardando
+      </div>
+    </div>
+  );
 }
