@@ -1,3 +1,4 @@
+import { DemoLoginGate } from "@/components/DemoLoginGate";
 import { summarizeMonitoringIncidents } from "@/lib/demoMonitoringIncidents";
 import { demoMonitoringHealth } from "@/lib/demoMonitoringHealth";
 import { demoExitQuality } from "@/lib/demoExitQuality";
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: Index,
+  component: () => <DemoLoginGate><Index /></DemoLoginGate>,
 });
 
 interface Msg { from: "user" | "agent"; text: string }
