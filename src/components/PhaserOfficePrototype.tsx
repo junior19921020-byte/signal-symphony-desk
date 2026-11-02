@@ -56,15 +56,27 @@ export function PhaserOfficePrototype() {
           for (const key of partitions) {
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
-            this.add.rectangle(p.x, p.y - 15, 36, 28, 0x334155).setDepth(p.y + 2);
-            this.add.rectangle(p.x, p.y - 30, 36, 4, 0xfbbf24).setDepth(p.y + 3);
+            // Parede com face, sombra e acabamento; a abertura permanece livre.
+            this.add.rectangle(p.x + 2, p.y - 13, 39, 31, 0x0f172a).setDepth(p.y + 1);
+            this.add.rectangle(p.x, p.y - 17, 35, 32, 0x64748b).setDepth(p.y + 2);
+            this.add.rectangle(p.x, p.y - 34, 37, 5, 0xcbd5e1).setDepth(p.y + 3);
+            this.add.rectangle(p.x - 10, p.y - 17, 3, 29, 0x94a3b8).setDepth(p.y + 4);
           }
           for (const key of blocked) {
             if (partitions.has(key)) continue;
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
-            this.add.rectangle(p.x, p.y - 9, 34, 17, 0x8b5e3c).setDepth(p.y);
-            this.add.rectangle(p.x, p.y - 19, 30, 10, 0xb78b5c).setDepth(p.y + 1);
+            // Mesa isometrica com tampo losangular, suporte e monitor.
+            const desk = this.add.graphics().setDepth(p.y + 1);
+            desk.fillStyle(0x475569);
+            desk.fillRect(p.x - 13, p.y - 17, 6, 17);
+            desk.fillRect(p.x + 7, p.y - 17, 6, 17);
+            desk.fillStyle(0x8b5e3c);
+            desk.fillPoints([{ x: p.x, y: p.y - 27 }, { x: p.x + 25, y: p.y - 15 }, { x: p.x, y: p.y - 3 }, { x: p.x - 25, y: p.y - 15 }], true);
+            desk.lineStyle(2, 0xd6a875);
+            desk.strokePoints([{ x: p.x, y: p.y - 27 }, { x: p.x + 25, y: p.y - 15 }, { x: p.x, y: p.y - 3 }, { x: p.x - 25, y: p.y - 15 }], true);
+            this.add.rectangle(p.x, p.y - 31, 20, 15, 0x0f172a).setStrokeStyle(2, 0x38bdf8).setDepth(p.y + 2);
+            this.add.rectangle(p.x, p.y - 22, 3, 5, 0x94a3b8).setDepth(p.y + 3);
           }
           const findPath = (start: [number, number], goal: [number, number]) => {
             const queue: Array<[number, number]> = [start];
