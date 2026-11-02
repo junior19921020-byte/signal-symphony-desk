@@ -45,3 +45,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f db/migrations/0002_demo_owner_rls.sql
       - name: Verify owner isolation
         run: psql -v ON_ERROR_STOP=1 -f db/tests/0002_owner_rls_integration.sql
+
+      - name: Apply one-time risk approval consumption schema
+        run: psql -v ON_ERROR_STOP=1 -f db/migrations/0003_demo_risk_approval_consumptions.sql
+      - name: Verify one-time approval consumption restrictions
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/0003_risk_approval_consumptions_integration.sql
