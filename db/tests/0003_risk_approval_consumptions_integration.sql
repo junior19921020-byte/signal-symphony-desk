@@ -27,9 +27,9 @@ BEGIN
   INSERT INTO desk.demo_risk_approval_consumptions(id,owner_id,order_id,risk_decision_id) VALUES
    ('50000000-0000-0000-0000-000000000044','00000000-0000-0000-0000-000000000042','30000000-0000-0000-0000-000000000042','40000000-0000-0000-0000-000000000041');
   RAISE EXCEPTION 'Cross-owner risk decision accepted';
- EXCEPTION WHEN foreign_key_violation THEN NULL;
+ EXCEPTION WHEN foreign_key_violation OR unique_violation THEN NULL;
  END;
-END $$;
+END $;
 CREATE ROLE demo_ci_risk_reader NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA desk TO demo_ci_risk_reader;
 GRANT EXECUTE ON FUNCTION desk.current_owner_id() TO demo_ci_risk_reader;
