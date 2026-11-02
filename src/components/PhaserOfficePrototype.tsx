@@ -31,11 +31,36 @@ export function PhaserOfficePrototype() {
           }
           this.add.text(14, 12, "PROTÓTIPO • MOTOR PHASER", { color: "#facc15", fontSize: "15px" });
           this.add.text(14, 35, "Cena de teste — não conectada ao trading", { color: "#ffffff", fontSize: "11px" });
+          // Divisorias fisicas: portas abertas nos eixos centrais.
+          const partitions = new Set<string>();
+          for (let i = 0; i < 9; i++) {
+            if (i !== 4 && i !== 5) {
+              partitions.add(`${i},4`);
+              partitions.add(`4,${i}`);
+            }
+          }
+          const roomLabels = [
+            { text: "DIRETORIA", col: 1, row: 1 },
+            { text: "TRADING", col: 7, row: 1 },
+            { text: "RECEPCAO", col: 1, row: 7 },
+            { text: "COMITE DE RISCO", col: 7, row: 7 },
+          ];
+          for (const room of roomLabels) {
+            const p = { x: 320 + (room.col - room.row) * 32, y: 55 + (room.col + room.row) * 16 };
+            this.add.text(p.x, p.y - 30, room.text, { fontSize: "10px", color: "#fef3c7", backgroundColor: "#1e293b", padding: { x: 3, y: 2 } }).setOrigin(0.5).setDepth(600);
+          }
           // Mapa lógico independente dos gráficos: X = obstáculo, . = piso.
           // O corredor central permanece livre e permite contornar os móveis.
-          const blocked = new Set(["2,2", "3,2", "2,3", "6,5", "6,6", "5,6"]);
+          const blocked = new Set([...partitions, "2,2", "3,2", "2,3", "6,5", "6,6", "5,6"]);
           const tile = (col: number, row: number) => ({ x: 320 + (col - row) * 32, y: 55 + (col + row) * 16 });
+          for (const key of partitions) {
+            const [col, row] = key.split(",").map(Number);
+            const p = tile(col, row);
+            this.add.rectangle(p.x, p.y - 15, 36, 28, 0x334155).setDepth(p.y + 2);
+            this.add.rectangle(p.x, p.y - 30, 36, 4, 0xfbbf24).setDepth(p.y + 3);
+          }
           for (const key of blocked) {
+            if (partitions.has(key)) continue;
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
             this.add.rectangle(p.x, p.y - 9, 34, 17, 0x8b5e3c).setDepth(p.y);
