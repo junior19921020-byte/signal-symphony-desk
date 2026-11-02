@@ -1,3 +1,4 @@
+import { demoExitQuality } from "@/lib/demoExitQuality";
 import { observeDemoTrailing, type PersistedDemoTrailing } from "@/lib/demoTrailingState";
 import { DemoExitPanel } from "@/components/DemoExitPanel";
 import { verifyRestoredDemoBackup } from "@/lib/demoBackupIntegrity";
@@ -387,6 +388,7 @@ function Index() {
   const winRate = trades.length ? (wins / trades.length) * 100 : 0;
   const performance = demoPerformance(trades);
   const diagnostics = demoStrategyDiagnostics(trades);
+  const exitQuality = demoExitQuality(trades);
   const excursionCoverage = trades.filter(t => t.excursion && Number.isFinite(t.excursion.maxFavorablePnl) && Number.isFinite(t.excursion.maxAdversePnl)).length;
   const exportDemoBackup = () => {
     try {
@@ -585,6 +587,21 @@ function Index() {
           </div>
         )}
         <p className="mt-2 text-xs text-slate-400">Os mesmos trades aparecem nos dois agrupamentos; não some os resultados das duas seções. Resultados históricos não garantem desempenho futuro.</p>
+      </section>
+
+      <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Qualidade das saídas demo">
+        <h2 className="text-sm font-bold text-[#d4af37]">Rita Risk • Qualidade das Saídas (Demo)</h2>
+        <p className="mt-1 text-slate-300">Comparação somente de leitura entre gatilhos SL/TP configurados e preços amostrados no encerramento.</p>
+        <p className="mt-2 font-semibold">Cobertura: {exitQuality.eligible} de {exitQuality.total} operações encerradas • {exitQuality.missing} sem comparação válida (inclui saídas manuais/IA e registros antigos).</p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="rounded bg-slate-800 p-2"><strong className="block text-lg">{exitQuality.atTarget}</strong>No gatilho</div>
+          <div className="rounded bg-slate-800 p-2 text-green-300"><strong className="block text-lg">{exitQuality.favorable}</strong>Favoráveis</div>
+          <div className="rounded bg-slate-800 p-2 text-red-300"><strong className="block text-lg">{exitQuality.unfavorable}</strong>Desfavoráveis</div>
+        </div>
+        <p className="mt-2">Impacto favorável: +{fmt(exitQuality.favorableImpact)} USDT</p>
+        <p>Impacto desfavorável: {fmt(exitQuality.unfavorableImpact)} USDT</p>
+        <p className="font-semibold">Diferença líquida nos registros comparáveis: {exitQuality.netImpact >= 0 ? "+" : ""}{fmt(exitQuality.netImpact)} USDT</p>
+        <p className="mt-2 text-amber-300">Diferenças observadas no simulador, não slippage medido em bolsa. Não é possível atribuir causa sem dados adicionais. Sem alterar ordens, saldos ou limites da Rita Risk.</p>
       </section>
 
       <DemoExitPanel />
