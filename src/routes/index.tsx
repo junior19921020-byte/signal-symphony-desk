@@ -80,6 +80,7 @@ function Index() {
   const [monitorNow, setMonitorNow] = useState(0);
   const [monitorVisible, setMonitorVisible] = useState(true);
   const [monitorOnline, setMonitorOnline] = useState(true);
+  const [quoteFetchFailed, setQuoteFetchFailed] = useState(false);
   const [monitorEvents, setMonitorEvents] = useState<{ at: number; state: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -153,7 +154,7 @@ function Index() {
       window.removeEventListener("offline", update);
     };
   }, []);
-  const monitoring = demoMonitoringHealth({ price: live, quotedAt: quoteAt, now: monitorNow, visible: monitorVisible, online: monitorOnline });
+  const monitoring = demoMonitoringHealth({ price: live, quotedAt: quoteAt, now: monitorNow, visible: monitorVisible, online: monitorOnline, lastAttemptFailed: quoteFetchFailed });
   useEffect(() => {
     if (!ready || monitorNow <= 0) return;
     setMonitorEvents(prev => prev[0]?.state === monitoring.state ? prev : [{at:monitorNow,state:monitoring.state},...prev].slice(0,10));
@@ -269,15 +270,21 @@ function Index() {
     let pending = false;
     setLive(0);
     setQuoteAt(0);
+    setQuoteFetchFailed(false);
     const tick = async () => {
       if (pending || !alive) return;
       pending = true;
       try {
         const price = await fetchDemoQuote(settings.symbol);
-        if (alive && price !== null) {
-          setLive(price);
-          setQuoteAt(Date.now());
+        if (alive) {
+          setQuoteFetchFailed(price === null);
+          if (price !== null) {
+            setLive(price);
+            setQuoteAt(Date.now());
+          }
         }
+      } catch {
+        if (alive) setQuoteFetchFailed(true);
       } finally { pending = false; }
     };
     void tick();
@@ -640,7 +647,7 @@ function Index() {
         <div className="mt-2 rounded border border-slate-700 p-2 text-xs"><button type="button" onClick={exportDemoBackup} className="rounded bg-slate-700 px-3 py-2 font-semibold text-white">Exportar backup demo (.json)</button><div className="mt-3"><label htmlFor="demo-backup-preview" className="mb-2 block font-semibold text-white">Conferir arquivo de backup demo</label><label htmlFor="demo-backup-preview" className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-amber-300 bg-amber-400 px-4 py-3 text-sm font-bold text-slate-950 shadow-sm focus-within:ring-2 focus-within:ring-amber-200">📂 Selecionar backup (.json)</label><input id="demo-backup-preview" aria-label="Selecionar arquivo de backup demo JSON" type="file" accept=".json,application/json" className="sr-only" onChange={async (event) => { setBackupPreview(null); setBackupRaw(null); setIntegrityResult(null); setRestoreAcknowledged(false); setBackupError(""); const file = event.currentTarget.files?.[0]; if (!file) return; try { if (file.size > 2_000_000) throw new Error("Arquivo muito grande (máximo 2 MB)."); const raw = await file.text(); setBackupPreview(previewDemoBackup(raw)); setBackupRaw(raw); } catch (err) { setBackupError(err instanceof Error ? err.message : "Backup inválido."); } event.currentTarget.value = ""; }} /><p className="mt-1 text-amber-300">Somente conferência: não importa, não substitui e não executa operações.</p>{backupPreview && <div className="mt-2 rounded bg-slate-800 p-2" role="status"><b>Backup válido para prévia (versão 1)</b><div>Exportado em: {new Date(backupPreview.exportedAt).toLocaleString("pt-BR")}</div><div>Saldo: {fmt(backupPreview.balance)} USDT • Banca: {fmt(backupPreview.bank)} USDT</div><div>Ativo: {backupPreview.symbol} • Posições: {backupPreview.positions} • Trades: {backupPreview.trades}</div><div>Auditorias: {backupPreview.audit} • Edições de metas: {backupPreview.targetEdits}</div></div>}{backupPreview && backupRaw && <div className="mt-3 rounded border border-slate-600 bg-slate-800 p-3"><button type="button" onClick={checkBackupIntegrity} className="min-h-11 w-full rounded-lg bg-emerald-600 px-3 py-3 text-sm font-bold text-white">Verificar integridade dos dados atuais</button><p className="mt-2 text-slate-300">Compara este arquivo com os dados salvos neste navegador. Somente leitura: não restaura nem modifica operações.</p>{integrityResult && <div role="status" className={`mt-2 rounded p-2 ${integrityResult.ok ? "bg-emerald-950 text-emerald-200" : "bg-amber-950 text-amber-200"}`}>{integrityResult.ok ? <b>✓ Backup íntegro: os dados atuais conferem com o arquivo selecionado.</b> : <><b>Diferenças encontradas entre o arquivo e os dados atuais:</b><ul className="mt-1 list-disc pl-5">{integrityResult.differences.map((difference, index) => <li key={index}>{difference}</li>)}</ul><p className="mt-2">Diferenças são esperadas se a conta mudou após a exportação. Nenhum dado foi alterado.</p></>}</div>}</div>}{backupPreview && <div className="mt-3 rounded border border-amber-500/60 bg-slate-900 p-3"><b className="text-amber-300">Restaurar dados demo deste backup</b><p className="mt-1 text-slate-300">Substitui saldo, histórico, auditoria e metas deste navegador. Não sincroniza aparelhos. O piloto ficará manual. Backups com posições abertas não são aceitos.</p><p className="mt-2 text-amber-200">Antes de continuar, use “Exportar backup demo (.json)” acima e guarde a cópia atual.</p><label className="mt-3 flex items-start gap-2 text-slate-200"><input type="checkbox" className="mt-1" checked={restoreAcknowledged} onChange={(event) => setRestoreAcknowledged(event.target.checked)} /><span>Já salvei o backup atual e entendo que os dados locais serão substituídos.</span></label><button type="button" disabled={!restoreAcknowledged || !backupRaw || positions.length > 0} onClick={() => setShowRestoreConfirm(true)} className="mt-3 rounded-lg bg-amber-400 px-4 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">Restaurar backup demo</button>{positions.length > 0 && <p className="mt-2 text-red-300">Restauração bloqueada enquanto houver posições abertas.</p>}</div>}</div><p className="mt-1 text-slate-400">Salva uma cópia local de posições, histórico, auditoria e saldo demo, sem chave de API. Não sincroniza entre aparelhos. A restauração exige arquivo válido, confirmação explícita e ausência de posições abertas.</p>{backupError && <p role="alert" className="mt-1 text-red-400">{backupError}</p>}</div>
         <p className="text-xs text-slate-400">{settings.symbol} cotação demo: {quoteAt ? fmt(live) : "indisponível"} • {quoteAt ? `Atualizada às ${new Date(quoteAt).toLocaleTimeString("pt-BR")}` : "Aguardando cotação"}</p>
         <div className="mt-2 rounded border border-slate-600 bg-slate-800 p-2 text-xs" role="status" aria-label="Saúde do monitoramento demo">
-          <p className="font-bold">Monitoramento DEMO: <span className={monitoring.reliable ? "text-green-300" : "text-amber-300"}>{monitoring.state === "ATIVA" ? "Cotação recente e página ativa" : monitoring.state === "PAUSADA" ? "PAUSADO (aba oculta ou sem rede)" : monitoring.state === "DESATUALIZADA" ? "COTAÇÃO DESATUALIZADA" : "SEM COTAÇÃO VÁLIDA"}</span></p>
+          <p className="font-bold">Monitoramento DEMO: <span className={monitoring.reliable ? "text-green-300" : "text-amber-300"}>{monitoring.state === "ATIVA" ? "Cotação recente e página ativa" : monitoring.state === "PAUSADA" ? "PAUSADO (aba oculta ou sem rede)" : monitoring.state === "DESATUALIZADA" ? "COTAÇÃO DESATUALIZADA" : monitoring.state === "FALHA_ATUALIZACAO" ? "FALHA NA ÚLTIMA ATUALIZAÇÃO" : "SEM COTAÇÃO VÁLIDA"}</span></p>
           <p className="mt-1 text-slate-300">Última amostra: {quoteAt > 0 ? new Date(quoteAt).toLocaleTimeString("pt-BR") : "nenhuma"} • SL/TP demo automáticos exigem cotação recente, conexão e página visível.</p>
           <p className="mt-1 text-amber-300">Sem monitoramento contínuo com a página fechada. Os registros abaixo são locais e podem não capturar interrupções enquanto o navegador estiver suspenso.</p>
           <div className="mt-1 text-slate-300">Últimas mudanças observadas: {monitorEvents.length ? monitorEvents.slice(0, 4).map(e => `${new Date(e.at).toLocaleTimeString("pt-BR")} ${e.state}`).join(" • ") : "nenhuma"}</div>
