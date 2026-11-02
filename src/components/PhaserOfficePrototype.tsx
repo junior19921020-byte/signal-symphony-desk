@@ -141,6 +141,33 @@ export function PhaserOfficePrototype() {
             this.add.rectangle(p.x, p.y - 20, 17, 9, color, 0.85)
               .setDepth(p.y);
           }
+          // Acabamento cenografico: placas de setor e luzes discretas.
+          // Elementos puramente graficos: sem alterar blocked, findPath ou eventos.
+          const sectorDetails = [
+            { col: 1, row: 2, color: 0x2563eb, label: "DIRETORIA" },
+            { col: 7, row: 2, color: 0x059669, label: "TRADING" },
+            { col: 1, row: 6, color: 0xd97706, label: "RECEPCAO" },
+            { col: 7, row: 6, color: 0x7c3aed, label: "RISCO" },
+          ] as const;
+          for (const sector of sectorDetails) {
+            const p = tile(sector.col, sector.row);
+            // A placa flutua acima do piso, sem ocupar uma casa de colisao.
+            const sign = this.add.container(p.x, p.y - 43).setDepth(p.y + 6);
+            sign.add([
+              this.add.rectangle(0, 0, 54, 15, 0x0f172a, 0.94)
+                .setStrokeStyle(1, sector.color),
+              this.add.rectangle(-23, 0, 3, 10, sector.color),
+              this.add.text(3, 0, sector.label, {
+                fontFamily: "monospace", fontSize: "8px", color: "#f8fafc",
+              }).setOrigin(0.5),
+            ]);
+          }
+          // Iluminacao de piso suave nas entradas, sem criar obstaculos.
+          for (const [col, row] of [[1, 4], [7, 4], [4, 1], [4, 7]] as const) {
+            const p = tile(col, row);
+            this.add.ellipse(p.x, p.y + 1, 26, 8, 0xfef3c7, 0.24)
+              .setDepth(p.y - 5);
+          }
           const findPath = (start: [number, number], goal: [number, number]) => {
             const queue: Array<[number, number]> = [start];
             const seen = new Set([start.join(",")]);
