@@ -1,4 +1,5 @@
 import { DemoLoginGate } from "@/components/DemoLoginGate";
+import { AccountProfile } from "@/components/AccountProfile";
 import { summarizeMonitoringIncidents } from "@/lib/demoMonitoringIncidents";
 import { demoMonitoringHealth } from "@/lib/demoMonitoringHealth";
 import { demoExitQuality } from "@/lib/demoExitQuality";
@@ -98,7 +99,8 @@ function Index() {
   const [log, setLog] = useState<string>("");
   const [audit, setAudit] = useState<DecisionAudit[]>([]);
   const [auditFilter, setAuditFilter] = useState<"TODAS" | "BLOQUEADA" | "APROVADA">("TODAS");
-  const [tab, setTab] = useState<"desk" | "brain">("desk");
+  const [tab, setTab] = useState<"desk" | "brain" | "agents" | "reports" | "audit" | "account">("desk");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editProfit, setEditProfit] = useState("");
   const [editRisk, setEditRisk] = useState("");
@@ -521,12 +523,16 @@ function Index() {
         <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900 py-2 text-sm text-slate-300">18º Andar • Mesa de Operações</div>
       </header>
 
-      <nav className="mt-4 grid grid-cols-2 gap-2 text-sm font-semibold">
-        <button onClick={() => setTab("desk")} className={`rounded-lg py-2 ${tab === "desk" ? "bg-[#d4af37] text-slate-900" : "bg-slate-800 text-slate-300"}`}>Mesa de Operações</button>
-        <button onClick={() => setTab("brain")} className={`rounded-lg py-2 ${tab === "brain" ? "bg-[#d4af37] text-slate-900" : "bg-slate-800 text-slate-300"}`}>Segundo Cérebro (Grafo)</button>
+      <nav aria-label="Áreas do escritório" className="mt-4">
+        <button type="button" aria-expanded={menuOpen} aria-controls="desk-menu" onClick={() => setMenuOpen(v => !v)} className="w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-left font-semibold text-[#d4af37]">☰ Menu • {({desk:"Mesa de Operações",brain:"Segundo Cérebro",agents:"Agentes",reports:"Relatórios",audit:"Auditoria",account:"Minha Conta"} as const)[tab]}</button>
+        {menuOpen && <div id="desk-menu" className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-slate-700 bg-slate-900 p-2">
+          {([{id:"desk",label:"Mesa de Operações"},{id:"agents",label:"Agentes"},{id:"brain",label:"Segundo Cérebro"},{id:"reports",label:"Relatórios"},{id:"audit",label:"Auditoria"},{id:"account",label:"Minha Conta"}] as const).map(item =>
+            <button type="button" key={item.id} aria-current={tab === item.id ? "page" : undefined} onClick={() => {setTab(item.id);setMenuOpen(false);window.scrollTo({top:0,behavior:"smooth"});}} className={`min-h-11 rounded-lg p-2 text-sm font-semibold ${tab === item.id ? "bg-[#d4af37] text-slate-900" : "bg-slate-800 text-slate-200"}`}>{item.label}</button>)}
+        </div>}
       </nav>
-
-      {tab === "brain" ? <SecondBrainGraph /> : (<>
+      {tab === "account" && <AccountProfile />}
+      {tab === "brain" && <SecondBrainGraph />}
+      {tab === "reports" && <>
       <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Relatório diário Rita Risk demo">
         <h2 className="text-sm font-bold text-[#d4af37]">Relatório Diário • Rita Risk (Demo)</h2>
         <p className="mt-1 text-slate-300">Hoje, {new Date().toLocaleDateString("pt-BR")} • horário local do dispositivo</p>
@@ -544,6 +550,8 @@ function Index() {
         </div>
         <p className="mt-2 text-slate-400">Aprovações técnicas não são execuções. Vetos na análise não incluem todos os bloqueios preventivos de abertura. Aberturas dependem de registros de origem; operações antigas podem não ter esse dado. Somente dados deste navegador, sem ordens reais.</p>
       </section>
+      </>}
+      {tab === "audit" && <>
       <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Auditoria de decisões demo">
         <h2 className="text-sm font-bold text-[#d4af37]">Auditoria de Decisões (Demo)</h2>
         <p className="mt-1 text-slate-400">Últimas 100 decisões salvas neste navegador; nenhum registro envia ordens.</p>
@@ -558,10 +566,12 @@ function Index() {
         <p className="mt-2 text-slate-400">Esta auditoria registra o consenso técnico e a validação inicial. A aprovação não garante execução: a Rita Risk ainda pode bloquear por limite diário ou risco preventivo. Os registros ficam somente neste navegador.</p>
         {auditVisible.length === 0 ? <p className="mt-2 text-slate-300">Nenhuma decisão encontrada neste filtro.</p> : <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">{auditVisible.slice(0, 20).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="flex flex-wrap items-center gap-2"><span className="font-bold">{new Date(entry.at).toLocaleString("pt-BR")} • {entry.symbol}</span><span className={`rounded px-2 py-1 font-bold ${entry.decision === "BLOQUEADA" ? "bg-amber-950 text-amber-200" : "bg-emerald-950 text-emerald-200"}`}>{entry.decision}</span></div><div className="mt-1">Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">Origem: {entry.source === "AUTOMATICO" ? "Ciclo automático" : entry.source === "MANUAL" ? "Operador" : "Análise"}</div><div className="mt-1 text-slate-300">Motivo: {entry.reason}</div></div>)}</div>}
       </section>
-      <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
+      </>}
+      {tab === "agents" && <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
-      </section>
+      </section>}
 
+      {tab === "desk" && <>
       <section className="mt-4 space-y-2">
         {running ? (
           <button onClick={stopAll} className="w-full rounded-lg bg-red-500 py-3 font-bold text-slate-100">
@@ -840,7 +850,7 @@ function Index() {
             src={`https://s.tradingview.com/widgetembed/?symbol=BINANCE:${settings.symbol}&interval=15&theme=dark&style=1&locale=br`} />
         )}
       </section>
-      </>)}
+      </>}
 
 
       {showSettings && (
