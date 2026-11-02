@@ -89,6 +89,22 @@ export function PhaserOfficePrototype() {
             if (!partitions.has(next)) {
               wall.lineBetween(bottomB.x, bottomB.y, topB.x, topB.y);
             }
+            // Acabamento arquitetonico: travessa superior com espessura,
+            // pequena sombra de base e parafusos apenas nas pontas expostas.
+            // Sao detalhes visuais: nenhum tile ou colisao e alterado.
+            wall.lineStyle(5, 0x1e293b, 0.55);
+            wall.lineBetween(topA.x, topA.y - 2, topB.x, topB.y - 2);
+            wall.lineStyle(2, 0xe2e8f0, 0.95);
+            wall.lineBetween(topA.x, topA.y - 5, topB.x, topB.y - 5);
+            wall.lineStyle(2, 0x0f172a, 0.35);
+            wall.lineBetween(bottomA.x, bottomA.y + 3, bottomB.x, bottomB.y + 3);
+            wall.fillStyle(0xf8fafc, 0.85);
+            if (!partitions.has(previous)) {
+              wall.fillCircle(topA.x, topA.y - 3, 2);
+            }
+            if (!partitions.has(next)) {
+              wall.fillCircle(topB.x, topB.y - 3, 2);
+            }
             // Reflexo diagonal discreto, sem ocultar os personagens.
             wall.lineStyle(2, 0xffffff, 0.22);
             wall.lineBetween(topA.x + 5, topA.y + 7, bottomB.x - 5, bottomB.y - 8);
