@@ -63,6 +63,18 @@ export function PhaserOfficePrototype() {
             this.add.rectangle(p.x, p.y - 34, 37, 5, 0xcbd5e1).setDepth(p.y + 3);
             this.add.rectangle(p.x - 10, p.y - 17, 3, 29, 0x94a3b8).setDepth(p.y + 4);
           }
+          // Marcos de porta puramente visuais: nao entram no conjunto blocked.
+          // Preservam as aberturas (indices 1, 4 e 7) e o pathfinding existente.
+          for (const index of [1, 7]) {
+            for (const [col, row] of [[index, 4], [4, index]]) {
+              const p = tile(col, row);
+              // Pequena soleira e dois batentes baixos, sem cobrir o centro.
+              this.add.rectangle(p.x, p.y + 2, 35, 4, 0xb08d57).setDepth(p.y - 2);
+              this.add.rectangle(p.x - 23, p.y - 10, 4, 21, 0x94a3b8).setDepth(p.y - 1);
+              this.add.rectangle(p.x + 23, p.y - 10, 4, 21, 0x94a3b8).setDepth(p.y - 1);
+              this.add.rectangle(p.x, p.y - 22, 49, 4, 0xcbd5e1).setDepth(p.y - 1);
+            }
+          }
           for (const key of blocked) {
             if (partitions.has(key)) continue;
             const [col, row] = key.split(",").map(Number);
