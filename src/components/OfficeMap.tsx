@@ -559,12 +559,13 @@ export function OfficeMap(props: {
           userSelect: "none",
         }}
       >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", padding: 10, background: "#101827" }}>
         {/* Pílula compacta no canto superior esquerdo */}
         <div
           style={{
-            position: "absolute",
-            top: 10,
-            left: 10,
+            position: "relative",
+            
+            
             zIndex: 10,
             background: "rgba(255,255,255,0.92)",
             padding: "4px 10px",
@@ -586,9 +587,9 @@ export function OfficeMap(props: {
         <button
           onClick={() => openAgentModal(localAgents[0] || propAgents[0]!, "CHAT")}
           style={{
-            position: "absolute",
-            top: 10,
-            right: 10,
+            position: "relative",
+            
+            
             zIndex: 10,
             background: "#0f172a",
             color: "#fde047",
@@ -604,6 +605,7 @@ export function OfficeMap(props: {
           💬 Perguntar aos Agentes
         </button>
 
+        </div>
         {/* TOAST DE AVISO AUTÔNOMO DOS AGENTES */}
         {liveToast && (
           <div
@@ -674,7 +676,7 @@ export function OfficeMap(props: {
         </div>
 
         {/* Cena isométrica: rolagem horizontal em telas pequenas, sem reduzir agentes a pontos ilegíveis. */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "8px 10px", background: "#101827" }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "10px", background: "#101827", position: "relative", zIndex: 12 }}>
           <button type="button" aria-label="Diminuir zoom" onClick={() => setOfficeZoom(z => Math.max(0.75, +(z - 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>−</button>
           <span aria-live="polite" style={{ color: "#facc15", alignSelf: "center", fontSize: 12 }}>{Math.round(officeZoom * 100)}%</span>
           <button type="button" aria-label="Aumentar zoom" onClick={() => setOfficeZoom(z => Math.min(2.5, +(z + 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>+</button>
@@ -685,7 +687,7 @@ export function OfficeMap(props: {
           onTouchMove={e => { if (e.touches.length !== 2 || touchDistanceRef.current === null) return; const d = Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY); if (Math.abs(d - touchDistanceRef.current) > 12) { setOfficeZoom(z => Math.max(0.75, Math.min(2.5, z + (d > touchDistanceRef.current! ? 0.08 : -0.08)))); touchDistanceRef.current = d; } }}
           onTouchEnd={() => { touchDistanceRef.current = null; }}
           style={{ overflow: "auto", maxHeight: "75vh", WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", borderRadius: 12 }}>
-        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: `${officeZoom * 100}%`, height: "auto", display: "block", minWidth: 560 * officeZoom }}>
+        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: `${officeZoom * 100}%`, height: "auto", display: "block", minWidth: `min(100%, ${560 * officeZoom}px)` }}>
           <defs>
             <filter id="floorDropShadow" x="-15%" y="-15%" width="130%" height="140%">
               <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.32" />
