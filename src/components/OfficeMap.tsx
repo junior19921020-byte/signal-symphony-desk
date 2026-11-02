@@ -162,6 +162,12 @@ export function OfficeMap(props: {
   const [activeModalAgent, setActiveModalAgent] = useState<Agent | null>(null);
   const [modalView, setModalView] = useState<"CHAT" | "CONFIG">("CHAT");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [officeZoom, setOfficeZoom] = useState(1);
+  const [walkingPositions, setWalkingPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const walkingPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const officeViewportRef = useRef<HTMLDivElement>(null);
+  const touchDistanceRef = useRef<number | null>(null);
+
   const [spawningIds, setSpawningIds] = useState<Record<string, boolean>>({});
   const [bubbles, setBubbles] = useState<Record<string, string>>({});
   const [autonomyEnabled, setAutonomyEnabled] = useState(true);
@@ -316,6 +322,43 @@ export function OfficeMap(props: {
       });
     }
   }, [market?.signal, market?.price]);
+
+  // Move os avatares progressivamente por pontos de passagem, sem teletransporte.
+  // Trata-se de animação visual; não representa execução de tarefas reais.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = { ...walkingPositionsRef.current };
+      let changed = false;
+      localAgents.forEach((agent, idx) => {
+        const mode = agent.activity || "Atendendo";
+        const station = agent.station || `C0${(idx % 8) + 1}`;
+        const destination = mode === "Atendendo"
+          ? (DESK_COORDS[station] || DESK_COORDS.C01!)
+          : ACTIVITY_SPOTS[mode][idx % ACTIVITY_SPOTS[mode].length]!;
+        const current = next[agent.id] || { x: destination.x, y: destination.y };
+        // Corredor central como passagem entre a ala das mesas e salas comuns.
+        const fromTrading = current.x > 485;
+        const toTrading = destination.x > 485;
+        const waypoint = fromTrading !== toTrading
+          ? (fromTrading ? { x: 485, y: 310 } : { x: 475, y: 305 })
+          : destination;
+        const dist = Math.hypot(waypoint.x - current.x, waypoint.y - current.y);
+        const step = Math.min(3, dist);
+        if (dist > 0.5) {
+          next[agent.id] = { x: current.x + (waypoint.x - current.x) / dist * step, y: current.y + (waypoint.y - current.y) / dist * step };
+          changed = true;
+        } else if (waypoint !== destination) {
+          next[agent.id] = { x: waypoint.x + (destination.x - waypoint.x) * 0.01, y: waypoint.y + (destination.y - waypoint.y) * 0.01 };
+          changed = true;
+        }
+      });
+      if (changed) {
+        walkingPositionsRef.current = next;
+        setWalkingPositions(next);
+      }
+    }, 50);
+    return () => clearInterval(timer);
+  }, [localAgents]);
 
   const counts = useMemo(() => {
     const c = { Atendendo: 0, Pausa: 0, Reunião: 0, Foco: 0 };
@@ -636,8 +679,18 @@ export function OfficeMap(props: {
         </div>
 
         {/* Cena isométrica: rolagem horizontal em telas pequenas, sem reduzir agentes a pontos ilegíveis. */}
-        <div role="region" aria-label="Escritório isométrico, deslize horizontalmente para explorar" tabIndex={0} style={{ overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", borderRadius: 12 }}>
-        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: "100%", height: "auto", display: "block", minWidth: 560 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "8px 10px", background: "#101827" }}>
+          <button type="button" aria-label="Diminuir zoom" onClick={() => setOfficeZoom(z => Math.max(0.75, +(z - 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>−</button>
+          <span aria-live="polite" style={{ color: "#facc15", alignSelf: "center", fontSize: 12 }}>{Math.round(officeZoom * 100)}%</span>
+          <button type="button" aria-label="Aumentar zoom" onClick={() => setOfficeZoom(z => Math.min(2.5, +(z + 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>+</button>
+          <button type="button" onClick={() => { setOfficeZoom(1); officeViewportRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" }); }} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 10px" }}>Centralizar</button>
+        </div>
+        <div ref={officeViewportRef} role="region" aria-label="Escritório isométrico, arraste para explorar e use dois dedos para zoom" tabIndex={0}
+          onTouchStart={e => { if (e.touches.length === 2) touchDistanceRef.current = Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY); }}
+          onTouchMove={e => { if (e.touches.length !== 2 || touchDistanceRef.current === null) return; const d = Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY); if (Math.abs(d - touchDistanceRef.current) > 12) { setOfficeZoom(z => Math.max(0.75, Math.min(2.5, z + (d > touchDistanceRef.current! ? 0.08 : -0.08)))); touchDistanceRef.current = d; } }}
+          onTouchEnd={() => { touchDistanceRef.current = null; }}
+          style={{ overflow: "auto", maxHeight: "75vh", WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", borderRadius: 12 }}>
+        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: `${officeZoom * 100}%`, height: "auto", display: "block", minWidth: 560 * officeZoom }}>
           <defs>
             <filter id="floorDropShadow" x="-15%" y="-15%" width="130%" height="140%">
               <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.32" />
@@ -838,8 +891,9 @@ export function OfficeMap(props: {
               const spots = ACTIVITY_SPOTS[mode];
               target = spots[idx % spots.length] || target;
             }
-            const x = isSpawning ? 475 : target.x;
-            const y = isSpawning ? 155 : target.y;
+            const walking = walkingPositions[ag.id];
+            const x = isSpawning ? 475 : (walking?.x ?? target.x);
+            const y = isSpawning ? 155 : (walking?.y ?? target.y);
 
             const bubbleText = bubbles[ag.id];
             const isHovered = hoveredId === ag.id;
