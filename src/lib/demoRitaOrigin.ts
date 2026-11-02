@@ -14,7 +14,6 @@ export type RitaEnvelope = Readonly<{
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const encoder = new TextEncoder();
-const toHex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
 export function canonicalRitaPayload(v: RitaEnvelope): string {
   // Fixed order, no untrusted extra fields. JSON serialization is unambiguous.
