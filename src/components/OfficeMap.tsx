@@ -657,37 +657,19 @@ export function OfficeMap(props: {
           </div>
         )}
 
-        {/* Barra de Dica Inferior */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 6,
-            left: 10,
-            zIndex: 10,
-            background: "rgba(15,23,42,0.78)",
-            color: "#f1f5f9",
-            padding: "3px 10px",
-            borderRadius: 999,
-            fontSize: 10,
-            fontWeight: 600,
-          }}
-        >
-          👆 Toque em qualquer agente para fazer perguntas à IA ou configurar horário, função e atividade
-        </div>
-
         {/* Cena isométrica: rolagem horizontal em telas pequenas, sem reduzir agentes a pontos ilegíveis. */}
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "10px", background: "#101827", position: "relative", zIndex: 12 }}>
-          <button type="button" aria-label="Diminuir zoom" onClick={() => setOfficeZoom(z => Math.max(0.75, +(z - 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>−</button>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "6px", background: "#101827", position: "relative", zIndex: 12 }}>
+          <button type="button" aria-label="Diminuir zoom" onClick={() => setOfficeZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>−</button>
           <span aria-live="polite" style={{ color: "#facc15", alignSelf: "center", fontSize: 12 }}>{Math.round(officeZoom * 100)}%</span>
           <button type="button" aria-label="Aumentar zoom" onClick={() => setOfficeZoom(z => Math.min(2.5, +(z + 0.25).toFixed(2)))} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 12px" }}>+</button>
-          <button type="button" onClick={() => { setOfficeZoom(1); officeViewportRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" }); }} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 10px" }}>Centralizar</button>
+          <button type="button" onClick={() => { setOfficeZoom(1); officeViewportRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" }); }} style={{ background: "#1e293b", color: "#facc15", border: "1px solid #a68a3a", borderRadius: 8, padding: "6px 10px" }}>Ajustar</button>
         </div>
         <div ref={officeViewportRef} role="region" aria-label="Escritório isométrico, arraste para explorar e use dois dedos para zoom" tabIndex={0}
           onTouchStart={e => { if (e.touches.length === 2) touchDistanceRef.current = Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY); }}
-          onTouchMove={e => { if (e.touches.length !== 2 || touchDistanceRef.current === null) return; const d = Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY); if (Math.abs(d - touchDistanceRef.current) > 12) { setOfficeZoom(z => Math.max(0.75, Math.min(2.5, z + (d > touchDistanceRef.current! ? 0.08 : -0.08)))); touchDistanceRef.current = d; } }}
+          onTouchMove={e => { if (e.touches.length !== 2 || touchDistanceRef.current === null) return; const d = Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY); if (Math.abs(d - touchDistanceRef.current) > 12) { setOfficeZoom(z => Math.max(1, Math.min(2.5, z + (d > touchDistanceRef.current! ? 0.08 : -0.08)))); touchDistanceRef.current = d; } }}
           onTouchEnd={() => { touchDistanceRef.current = null; }}
           style={{ overflow: "auto", maxHeight: "75vh", WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y", borderRadius: 12 }}>
-        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: `${officeZoom * 100}%`, height: "auto", display: "block", minWidth: `min(100%, ${560 * officeZoom}px)` }}>
+        <svg aria-label="Mapa isométrico interativo do escritório de agentes" role="img" viewBox="0 0 920 520" style={{ width: `${officeZoom * 100}%`, height: "auto", display: "block", minWidth: 0 }}>
           <defs>
             <filter id="floorDropShadow" x="-15%" y="-15%" width="130%" height="140%">
               <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#0f172a" floodOpacity="0.32" />
@@ -984,6 +966,9 @@ export function OfficeMap(props: {
             );
           })}
         </svg>
+        </div>
+        <div style={{ padding: "8px 12px", background: "#101827", color: "#e2e8f0", fontSize: 11, lineHeight: 1.4 }}>
+          👆 Toque em um agente para conversar. Use + e − para ampliar e reduzir; Ajustar mostra o andar inteiro.
         </div>
       </div>
 
