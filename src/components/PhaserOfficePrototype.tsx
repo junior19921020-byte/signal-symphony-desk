@@ -122,6 +122,23 @@ export function PhaserOfficePrototype() {
             // Pequeno teclado e indicador de tela para dar vida a estacao.
             this.add.rectangle(p.x - 5, p.y - 13, 12, 3, 0xcbd5e1).setDepth(p.y + 5);
           }
+          // Balcao de recepcao: sprite isometrico independente, sem acesso a servicos.
+          // Posicionado em tile livre da recepcao; a mesma celula entra no mapa logico.
+          const receptionDeskTile: [number, number] = [2, 7];
+          const receptionDeskPosition = tile(...receptionDeskTile);
+          blocked.add(receptionDeskTile.join(","));
+          this.load.image("reception-desk-art", "/office-art/reception-desk.svg");
+          this.load.once("complete", () => {
+            if (!this.textures.exists("reception-desk-art")) return;
+            const receptionDesk = this.add.image(
+              receptionDeskPosition.x, receptionDeskPosition.y,
+              "reception-desk-art",
+            );
+            receptionDesk.setDisplaySize(62, 47);
+            receptionDesk.setOrigin(0.5, 0.84);
+            receptionDesk.setDepth(receptionDeskPosition.y + 6);
+          });
+          this.load.start();
           // Decoracao visual isolada: nao altera tiles, colisao, rotas ou servicos.
           // Os detalhes ficam em areas livres e nao sao interativos.
           const decor = this.add.graphics().setDepth(70);
