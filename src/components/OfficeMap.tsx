@@ -804,6 +804,27 @@ export function OfficeMap(props: {
               </g>
             </g>
 
+            {/* Cenário isométrico moderno: pisos diferenciados, corredores e luminárias.
+                Apenas apresentação SVG: não acessa dados financeiros nem autenticação. */}
+            <g aria-hidden="true" pointerEvents="none">
+              <polygon points="388,236 440,209 550,263 498,291" fill="#b8c9ce" opacity="0.38" />
+              <polygon points="406,288 458,261 543,302 491,329" fill="#b8c9ce" opacity="0.32" />
+              <polygon points="349,334 394,310 474,350 429,374" fill="#b8c9ce" opacity="0.3" />
+              <g stroke="#c5a66a" strokeWidth="1.2" fill="none" opacity="0.85">
+                <polyline points="408,240 439,223 470,239" />
+                <polyline points="416,291 454,271 487,287" />
+                <polyline points="367,337 394,324 420,337" />
+              </g>
+              <g transform="translate(310 102)">
+                <polygon points="0,0 22,-11 44,0 22,11" fill="#f8e4a1" opacity="0.75" />
+                <polygon points="13,-2 22,-7 31,-2 22,3" fill="#fff7d6" />
+              </g>
+              <g transform="translate(566 147)">
+                <polygon points="0,0 22,-11 44,0 22,11" fill="#f8e4a1" opacity="0.75" />
+                <polygon points="13,-2 22,-7 31,-2 22,3" fill="#fff7d6" />
+              </g>
+            </g>
+
             {/* 1. DIRETORIA EXECUTIVA (Sofá Caramelo + Mesa Diretor + Tapete) */}
             <polygon points="285,155 345,122 390,145 330,178" fill="#e7e2d3" opacity="0.7" />
             <g transform="translate(290, 140)">
