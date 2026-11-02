@@ -46,7 +46,8 @@ CREATE TABLE desk.demo_orders (
  created_at timestamptz NOT NULL DEFAULT now(),
  FOREIGN KEY (broker_account_id, owner_id) REFERENCES desk.demo_broker_accounts(id, owner_id),
  FOREIGN KEY (position_id, owner_id) REFERENCES desk.demo_positions(id, owner_id),
- UNIQUE(owner_id, broker_account_id, idempotency_key)
+ UNIQUE(owner_id, broker_account_id, idempotency_key),
+ UNIQUE(id, owner_id)
 );
 CREATE TABLE desk.risk_decisions (
  id uuid PRIMARY KEY,
