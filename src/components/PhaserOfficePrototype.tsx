@@ -31,11 +31,74 @@ export function PhaserOfficePrototype() {
           }
           this.add.text(14, 12, "PROTÓTIPO • MOTOR PHASER", { color: "#facc15", fontSize: "15px" });
           this.add.text(14, 35, "Cena de teste — não conectada ao trading", { color: "#ffffff", fontSize: "11px" });
+          // Mapa lógico independente dos gráficos: X = obstáculo, . = piso.
+          // O corredor central permanece livre e permite contornar os móveis.
+          const blocked = new Set(["2,2", "3,2", "2,3", "6,5", "6,6", "5,6"]);
+          const tile = (col: number, row: number) => ({ x: 320 + (col - row) * 32, y: 55 + (col + row) * 16 });
+          for (const key of blocked) {
+            const [col, row] = key.split(",").map(Number);
+            const p = tile(col, row);
+            this.add.rectangle(p.x, p.y - 9, 34, 17, 0x8b5e3c).setDepth(p.y);
+            this.add.rectangle(p.x, p.y - 19, 30, 10, 0xb78b5c).setDepth(p.y + 1);
+          }
+          const findPath = (start: [number, number], goal: [number, number]) => {
+            const queue: Array<[number, number]> = [start];
+            const seen = new Set([start.join(",")]);
+            const parents = new Map<string, string>();
+            while (queue.length) {
+              const [x, y] = queue.shift()!;
+              const key = `${x},${y}`;
+              if (x === goal[0] && y === goal[1]) {
+                const path: Array<[number, number]> = [];
+                let k: string | undefined = key;
+                while (k) {
+                  const [px, py] = k.split(",").map(Number);
+                  path.unshift([px, py]);
+                  k = parents.get(k);
+                }
+                return path;
+              }
+              for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                const nx = x + dx, ny = y + dy, nk = `${nx},${ny}`;
+                if (nx < 0 || ny < 0 || nx >= 9 || ny >= 9 || blocked.has(nk) || seen.has(nk)) continue;
+                seen.add(nk); parents.set(nk, key); queue.push([nx, ny]);
+              }
+            }
+            return [] as Array<[number, number]>;
+          };
           const agent = this.add.container(320, 190);
           const body = this.add.rectangle(0, -12, 14, 20, 0x2563eb);
           const head = this.add.circle(0, -29, 8, 0xf5c99a);
           agent.add([body, head]);
-          this.tweens.add({ targets: agent, x: 425, y: 245, duration: 3200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          let location: [number, number] = [0, 0];
+          const origin = tile(...location);
+          agent.setPosition(origin.x, origin.y);
+          agent.setDepth(origin.y + 10);
+          let walking = false;
+          const walkTo = (goal: [number, number]) => {
+            if (walking || blocked.has(goal.join(","))) return;
+            const path = findPath(location, goal).slice(1);
+            if (!path.length) return;
+            walking = true;
+            const advance = () => {
+              const next = path.shift();
+              if (!next) { walking = false; return; }
+              const p = tile(...next);
+              this.tweens.add({
+                targets: agent, x: p.x, y: p.y, duration: 230,
+                onUpdate: () => agent.setDepth(agent.y + 10),
+                onComplete: () => { location = next; advance(); },
+              });
+            };
+            advance();
+          };
+          this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+            const x = pointer.worldX - 320, y = pointer.worldY - 55;
+            const col = Math.round((x / 32 + y / 16) / 2);
+            const row = Math.round((y / 16 - x / 32) / 2);
+            if (col >= 0 && col < 9 && row >= 0 && row < 9) walkTo([col, row]);
+          });
+          this.add.text(14, 365, "Toque no piso para caminhar • móveis bloqueiam o trajeto", { color: "#ffffff", fontSize: "12px" });
         }
       }
       game = new Phaser.Game({
