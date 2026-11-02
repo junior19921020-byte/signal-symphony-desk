@@ -104,9 +104,24 @@ export function PhaserOfficePrototype() {
             return [] as Array<[number, number]>;
           };
           const agent = this.add.container(320, 190);
-          const body = this.add.rectangle(0, -12, 14, 20, 0x2563eb);
-          const head = this.add.circle(0, -29, 8, 0xf5c99a);
-          agent.add([body, head]);
+          // Personagem demonstrativo: visual e animacao sem vinculo com agentes reais.
+          const shadow = this.add.ellipse(0, 0, 20, 7, 0x0f172a, 0.35);
+          const leftLeg = this.add.rectangle(-4, -5, 5, 12, 0x1e3a8a);
+          const rightLeg = this.add.rectangle(4, -5, 5, 12, 0x1e3a8a);
+          const body = this.add.rectangle(0, -17, 16, 19, 0x2563eb);
+          const leftArm = this.add.rectangle(-11, -17, 5, 15, 0xf5c99a);
+          const rightArm = this.add.rectangle(11, -17, 5, 15, 0xf5c99a);
+          const head = this.add.circle(0, -34, 9, 0xf5c99a);
+          const hair = this.add.arc(0, -38, 9, 180, 360, false, 0x422006);
+          agent.add([shadow, leftLeg, rightLeg, body, leftArm, rightArm, head, hair]);
+          const walkMotion = this.tweens.add({
+            targets: [leftLeg, rightArm], angle: { from: -15, to: 15 },
+            duration: 180, yoyo: true, repeat: -1, paused: true,
+          });
+          const oppositeMotion = this.tweens.add({
+            targets: [rightLeg, leftArm], angle: { from: 15, to: -15 },
+            duration: 180, yoyo: true, repeat: -1, paused: true,
+          });
           let location: [number, number] = [0, 0];
           const origin = tile(...location);
           agent.setPosition(origin.x, origin.y);
@@ -117,9 +132,11 @@ export function PhaserOfficePrototype() {
             const path = findPath(location, goal).slice(1);
             if (!path.length) return;
             walking = true;
+            walkMotion.resume();
+            oppositeMotion.resume();
             const advance = () => {
               const next = path.shift();
-              if (!next) { walking = false; return; }
+              if (!next) { walking = false; walkMotion.pause(); oppositeMotion.pause(); leftLeg.setAngle(0); rightLeg.setAngle(0); leftArm.setAngle(0); rightArm.setAngle(0); return; }
               const p = tile(...next);
               this.tweens.add({
                 targets: agent, x: p.x, y: p.y, duration: 230,
