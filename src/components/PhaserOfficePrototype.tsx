@@ -169,29 +169,44 @@ export function PhaserOfficePrototype() {
           }
           agent.add(this.add.text(0, -53, "Cíntia", { fontSize: "10px", color: "#ffffff", backgroundColor: "#1e3a8a", padding: { x: 3, y: 1 } }).setOrigin(0.5));
           let walking = false;
-          // Demonstracao isolada: um colega percorre duas casas livres, sem trading.
-          // Ambas permanecem reservadas para o pathfinding da Cíntia.
+          // Ciclo demonstrativo: deslocamento, monitoramento e pausa.
+          // As duas casas ficam reservadas no mapa, sem acesso a trading real.
           if (movingColleague) {
             const colleague = movingColleague;
-            const near = tile(7, 0);
-            const home = tile(8, 0);
-            let atHome = true;
-            this.time.addEvent({
-              delay: 2500,
-              loop: true,
-              callback: () => {
-                if (walking) return;
-                const destination = atHome ? near : home;
+            const station = tile(7, 0);
+            const rest = tile(8, 0);
+            const status = this.add.text(320, 375, "Agente 2: aguardando", {
+              fontSize: "11px", color: "#bae6fd", backgroundColor: "#0f172a",
+            }).setScrollFactor(0).setDepth(1200);
+            let phase = 0;
+            const cycle = () => {
+              if (walking) {
+                this.time.delayedCall(1000, cycle);
+                return;
+              }
+              if (phase === 0 || phase === 2) {
+                const destination = phase === 0 ? station : rest;
+                status.setText("Agente 2: deslocamento demonstrativo");
                 this.tweens.add({
                   targets: colleague,
                   x: destination.x,
                   y: destination.y,
-                  duration: 420,
+                  duration: 650,
                   onUpdate: () => colleague.setDepth(colleague.y + 10),
-                  onComplete: () => { atHome = !atHome; },
+                  onComplete: () => {
+                    phase = phase === 0 ? 1 : 3;
+                    this.time.delayedCall(800, cycle);
+                  },
                 });
-              },
-            });
+              } else {
+                status.setText(phase === 1
+                  ? "Agente 2: simulando monitoramento"
+                  : "Agente 2: pausa demonstrativa");
+                phase = phase === 1 ? 2 : 0;
+                this.time.delayedCall(phase === 2 ? 4500 : 2500, cycle);
+              }
+            };
+            this.time.delayedCall(1200, cycle);
           }
 
           const walkTo = (goal: [number, number]) => {
