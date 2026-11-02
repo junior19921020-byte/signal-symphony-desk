@@ -147,12 +147,16 @@ export function PhaserOfficePrototype() {
           ];
           // Colegas estaticos ocupam tiles: a rota nao pode atravessar avatares.
           // Mantem os corredores centrais e portas existentes desobstruidos.
+          // Reserva duas casas para o primeiro colega mover sem cruzar a Cíntia.
+          blocked.add("7,0");
           for (const member of demoTeam) {
             blocked.add(`${member.col},${member.row}`);
           }
+          let movingColleague: Phaser.GameObjects.Container | undefined;
           for (const member of demoTeam) {
             const p = tile(member.col, member.row);
             const colleague = this.add.container(p.x, p.y).setDepth(p.y + 10);
+            if (member.name === "Agente 2") movingColleague = colleague;
             colleague.add([
               this.add.ellipse(0, 0, 18, 6, 0x0f172a, 0.3),
               this.add.rectangle(-4, -5, 5, 12, 0x1e293b),
@@ -165,6 +169,31 @@ export function PhaserOfficePrototype() {
           }
           agent.add(this.add.text(0, -53, "Cíntia", { fontSize: "10px", color: "#ffffff", backgroundColor: "#1e3a8a", padding: { x: 3, y: 1 } }).setOrigin(0.5));
           let walking = false;
+          // Demonstracao isolada: um colega percorre duas casas livres, sem trading.
+          // Ambas permanecem reservadas para o pathfinding da Cíntia.
+          if (movingColleague) {
+            const colleague = movingColleague;
+            const near = tile(7, 0);
+            const home = tile(8, 0);
+            let atHome = true;
+            this.time.addEvent({
+              delay: 2500,
+              loop: true,
+              callback: () => {
+                if (walking) return;
+                const destination = atHome ? near : home;
+                this.tweens.add({
+                  targets: colleague,
+                  x: destination.x,
+                  y: destination.y,
+                  duration: 420,
+                  onUpdate: () => colleague.setDepth(colleague.y + 10),
+                  onComplete: () => { atHome = !atHome; },
+                });
+              },
+            });
+          }
+
           const walkTo = (goal: [number, number]) => {
             if (walking || blocked.has(goal.join(","))) return;
             const path = findPath(location, goal).slice(1);
