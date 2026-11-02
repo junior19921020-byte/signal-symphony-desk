@@ -12,7 +12,7 @@ const claims = {
   subject: owner,
   issuedAtSeconds: 900,
   expiresAtSeconds: 1100,
-} as CryptoVerifiedTokenClaims;
+} as unknown as CryptoVerifiedTokenClaims;
 const config = {
   expectedIssuer: "https://identity.example.test",
   expectedAudience: "signal-symphony-demo",
