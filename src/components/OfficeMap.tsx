@@ -112,6 +112,30 @@ const ACTIVITY_SPOTS: Record<ActivityMode, Array<{ x: number; y: number; label: 
   ],
 };
 
+
+// Pontos de circulação visuais (coordenadas SVG). Portas e corredores são
+// representados por passagens comuns; nenhuma decisão de trading depende deles.
+type OfficePoint = { x: number; y: number };
+const OFFICE_DOORS: Record<string, OfficePoint> = {
+  desks: { x: 485, y: 305 },
+  lounge: { x: 340, y: 290 },
+  risk: { x: 390, y: 350 },
+  executive: { x: 435, y: 220 },
+};
+const OFFICE_HALL: OfficePoint = { x: 440, y: 310 };
+const officeZone = (point: OfficePoint): keyof typeof OFFICE_DOORS => {
+  if (point.y >= 355 && point.x < 490) return "risk";
+  if (point.y < 205 && point.x < 440) return "executive";
+  if (point.x < 350) return "lounge";
+  return "desks";
+};
+const officeRoute = (from: OfficePoint, to: OfficePoint): OfficePoint[] => {
+  const fromZone = officeZone(from);
+  const toZone = officeZone(to);
+  if (fromZone === toZone) return [to];
+  return [OFFICE_DOORS[fromZone], OFFICE_HALL, OFFICE_DOORS[toZone], to];
+};
+
 export function statusFor(agent: Agent, market: Market | null): string {
   const act = agent.activity || "Atendendo";
   const st = agent.station || `C0${(agent.room % 8) + 1}`;
@@ -165,6 +189,8 @@ export function OfficeMap(props: {
   const [officeZoom, setOfficeZoom] = useState(1);
   const [walkingPositions, setWalkingPositions] = useState<Record<string, { x: number; y: number }>>({});
   const walkingPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const walkingRoutesRef = useRef<Record<string, { destination: string; points: OfficePoint[] }>>({});
+
   const officeViewportRef = useRef<HTMLDivElement>(null);
   const touchDistanceRef = useRef<number | null>(null);
 
@@ -323,8 +349,8 @@ export function OfficeMap(props: {
     }
   }, [market?.signal, market?.price]);
 
-  // Move os avatares progressivamente por pontos de passagem, sem teletransporte.
-  // Trata-se de animação visual; não representa execução de tarefas reais.
+  // Caminhada visual em etapas por portas e corredor; nunca modifica atividade
+  // do agente nem dispara ações financeiras.
   useEffect(() => {
     const timer = setInterval(() => {
       const next = { ...walkingPositionsRef.current };
@@ -336,16 +362,27 @@ export function OfficeMap(props: {
           ? (DESK_COORDS[station] || DESK_COORDS.C01!)
           : ACTIVITY_SPOTS[mode][idx % ACTIVITY_SPOTS[mode].length]!;
         const current = next[agent.id] || { x: destination.x, y: destination.y };
-        // Interpolação contínua: evita saltos instantâneos entre estações.
-        const dist = Math.hypot(destination.x - current.x, destination.y - current.y);
-        const step = Math.min(3, dist);
-        if (dist > 0.5) {
-          next[agent.id] = {
-            x: current.x + (destination.x - current.x) / dist * step,
-            y: current.y + (destination.y - current.y) / dist * step,
-          };
-          changed = true;
+        const key = `${mode}:${station}:${destination.x}:${destination.y}`;
+        let route = walkingRoutesRef.current[agent.id];
+        if (!route || route.destination !== key) {
+          route = { destination: key, points: officeRoute(current, destination) };
+          walkingRoutesRef.current[agent.id] = route;
         }
+        while (route.points.length > 0) {
+          const waypoint = route.points[0]!;
+          const distance = Math.hypot(waypoint.x - current.x, waypoint.y - current.y);
+          if (distance > 0.5) break;
+          route.points.shift();
+        }
+        if (route.points.length === 0) return;
+        const waypoint = route.points[0]!;
+        const distance = Math.hypot(waypoint.x - current.x, waypoint.y - current.y);
+        const step = Math.min(2.5, distance);
+        next[agent.id] = {
+          x: current.x + (waypoint.x - current.x) / distance * step,
+          y: current.y + (waypoint.y - current.y) / distance * step,
+        };
+        changed = true;
       });
       if (changed) {
         walkingPositionsRef.current = next;
@@ -891,7 +928,7 @@ export function OfficeMap(props: {
               <g
                 key={ag.id}
                 transform={`translate(${x}, ${y})`}
-                style={{ transition: "transform 1.35s cubic-bezier(0.22, 1, 0.36, 1)", cursor: "pointer" }}
+                style={{ cursor: "pointer" }}
                 role="button"
                 tabIndex={0}
                 aria-label={`Conversar com ${ag.name}, ${ag.role}`}
