@@ -336,19 +336,14 @@ export function OfficeMap(props: {
           ? (DESK_COORDS[station] || DESK_COORDS.C01!)
           : ACTIVITY_SPOTS[mode][idx % ACTIVITY_SPOTS[mode].length]!;
         const current = next[agent.id] || { x: destination.x, y: destination.y };
-        // Corredor central como passagem entre a ala das mesas e salas comuns.
-        const fromTrading = current.x > 485;
-        const toTrading = destination.x > 485;
-        const waypoint = fromTrading !== toTrading
-          ? (fromTrading ? { x: 485, y: 310 } : { x: 475, y: 305 })
-          : destination;
-        const dist = Math.hypot(waypoint.x - current.x, waypoint.y - current.y);
+        // Interpolação contínua: evita saltos instantâneos entre estações.
+        const dist = Math.hypot(destination.x - current.x, destination.y - current.y);
         const step = Math.min(3, dist);
         if (dist > 0.5) {
-          next[agent.id] = { x: current.x + (waypoint.x - current.x) / dist * step, y: current.y + (waypoint.y - current.y) / dist * step };
-          changed = true;
-        } else if (waypoint !== destination) {
-          next[agent.id] = { x: waypoint.x + (destination.x - waypoint.x) * 0.01, y: waypoint.y + (destination.y - waypoint.y) * 0.01 };
+          next[agent.id] = {
+            x: current.x + (destination.x - current.x) / dist * step,
+            y: current.y + (destination.y - current.y) / dist * step,
+          };
           changed = true;
         }
       });
