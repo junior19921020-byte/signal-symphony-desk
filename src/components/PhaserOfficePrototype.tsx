@@ -129,7 +129,32 @@ export function PhaserOfficePrototype() {
             };
             advance();
           };
+          // Zoom mobile com controles de toque grandes, fora do piso navegavel.
+          const camera = this.cameras.main;
+          const zoomButton = (x: number, symbol: string, change: number) => {
+            const button = this.add.text(x, 335, symbol, {
+              fontSize: "24px", color: "#ffffff", backgroundColor: "#334155",
+              padding: { x: 12, y: 5 },
+            }).setScrollFactor(0).setDepth(1000).setInteractive({ useHandCursor: true });
+            button.on("pointerdown", (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+              event.stopPropagation();
+              camera.setZoom(Phaser.Math.Clamp(camera.zoom + change, 1, 1.6));
+            });
+          };
+          zoomButton(530, "+", 0.2);
+          zoomButton(580, "−", -0.2);
+          this.input.addPointer(1);
+          let lastPinchDistance = 0;
+          this.input.on("pointermove", () => {
+            const [a, b] = this.input.manager.pointers;
+            if (!a?.isDown || !b?.isDown) { lastPinchDistance = 0; return; }
+            const distance = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+            if (lastPinchDistance > 0) camera.setZoom(Phaser.Math.Clamp(camera.zoom * distance / lastPinchDistance, 1, 1.6));
+            lastPinchDistance = distance;
+          });
+          this.input.on("pointerup", () => { lastPinchDistance = 0; });
           this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+            if (this.input.manager.pointers.filter((p) => p.isDown).length > 1) return;
             const x = pointer.worldX - 320, y = pointer.worldY - 55;
             const col = Math.round((x / 32 + y / 16) / 2);
             const row = Math.round((y / 16 - x / 32) / 2);
