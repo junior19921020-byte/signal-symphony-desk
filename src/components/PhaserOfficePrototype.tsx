@@ -49,16 +49,6 @@ export function PhaserOfficePrototype() {
               partitions.add(`4,${i}`);
             }
           }
-          const roomLabels = [
-            { text: "DIRETORIA", col: 1, row: 1 },
-            { text: "TRADING", col: 7, row: 1 },
-            { text: "RECEPCAO", col: 1, row: 7 },
-            { text: "COMITE DE RISCO", col: 7, row: 7 },
-          ];
-          for (const room of roomLabels) {
-            const p = { x: 320 + (room.col - room.row) * 32, y: 55 + (room.col + room.row) * 16 };
-            this.add.text(p.x, p.y - 30, room.text, { fontSize: "10px", color: "#fef3c7", backgroundColor: "#1e293b", padding: { x: 3, y: 2 } }).setOrigin(0.5).setDepth(600);
-          }
           // Mapa lógico independente dos gráficos: X = obstáculo, . = piso.
           // O corredor central permanece livre e permite contornar os móveis.
           const blocked = new Set([...partitions, "2,2", "3,2", "2,3", "6,5", "6,6", "5,6"]);
@@ -66,12 +56,32 @@ export function PhaserOfficePrototype() {
           for (const key of partitions) {
             const [col, row] = key.split(",").map(Number);
             const p = tile(col, row);
-            // Divisoria baixa e semitransparente para preservar a visibilidade.
-            // Mantem exatamente os mesmos tiles bloqueados e portas livres.
-            this.add.rectangle(p.x + 2, p.y - 7, 39, 18, 0x0f172a, 0.5).setDepth(p.y + 1);
-            this.add.rectangle(p.x, p.y - 9, 35, 18, 0x64748b, 0.68).setDepth(p.y + 2);
-            this.add.rectangle(p.x, p.y - 19, 37, 4, 0xcbd5e1, 0.9).setDepth(p.y + 3);
-            this.add.rectangle(p.x - 10, p.y - 9, 3, 16, 0x94a3b8, 0.75).setDepth(p.y + 4);
+            // Parede isometrica com altura, topo e face lateral.
+            // Geometria apenas visual: tiles e portas seguem inalterados.
+            const wall = this.add.graphics().setDepth(p.y + 2);
+            wall.fillStyle(0x334155, 0.95);
+            wall.fillPoints([
+              { x: p.x - 19, y: p.y - 10 }, { x: p.x + 17, y: p.y - 10 },
+              { x: p.x + 17, y: p.y - 43 }, { x: p.x - 19, y: p.y - 43 },
+            ], true);
+            wall.fillStyle(0x64748b, 1);
+            wall.fillPoints([
+              { x: p.x + 17, y: p.y - 43 }, { x: p.x + 23, y: p.y - 48 },
+              { x: p.x + 23, y: p.y - 15 }, { x: p.x + 17, y: p.y - 10 },
+            ], true);
+            wall.fillStyle(0xcbd5e1, 1);
+            wall.fillPoints([
+              { x: p.x - 19, y: p.y - 43 }, { x: p.x - 13, y: p.y - 48 },
+              { x: p.x + 23, y: p.y - 48 }, { x: p.x + 17, y: p.y - 43 },
+            ], true);
+            wall.lineStyle(1, 0x94a3b8, 0.85);
+            wall.lineBetween(p.x - 19, p.y - 43, p.x - 19, p.y - 10);
+            wall.lineBetween(p.x + 17, p.y - 43, p.x + 17, p.y - 10);
+            // Janela estreita translúcida para manter visibilidade do ambiente.
+            wall.fillStyle(0x7dd3fc, 0.28);
+            wall.fillRect(p.x - 11, p.y - 37, 18, 12);
+            wall.lineStyle(1, 0x93c5fd, 0.75);
+            wall.strokeRect(p.x - 11, p.y - 37, 18, 12);
           }
           // Marcos de porta puramente visuais: nao entram no conjunto blocked.
           // Preservam as aberturas (indices 1, 4 e 7) e o pathfinding existente.
@@ -143,22 +153,22 @@ export function PhaserOfficePrototype() {
           }
           // Acabamento cenografico: placas de setor e luzes discretas.
           // Elementos puramente graficos: sem alterar blocked, findPath ou eventos.
+          // Uma unica placa por setor, posicionada na borda externa do mapa.
           const sectorDetails = [
-            { col: 1, row: 2, color: 0x2563eb, label: "DIRETORIA" },
-            { col: 7, row: 2, color: 0x059669, label: "TRADING" },
-            { col: 1, row: 6, color: 0xd97706, label: "RECEPCAO" },
-            { col: 7, row: 6, color: 0x7c3aed, label: "RISCO" },
+            { col: 0, row: 1, color: 0x2563eb, label: "DIRETORIA" },
+            { col: 7, row: 0, color: 0x059669, label: "TRADING" },
+            { col: 1, row: 8, color: 0xd97706, label: "RECEPCAO" },
+            { col: 8, row: 7, color: 0x7c3aed, label: "RISCO" },
           ] as const;
           for (const sector of sectorDetails) {
             const p = tile(sector.col, sector.row);
-            // A placa flutua acima do piso, sem ocupar uma casa de colisao.
-            const sign = this.add.container(p.x, p.y - 43).setDepth(p.y + 6);
+            const sign = this.add.container(p.x, p.y - 56).setDepth(900);
             sign.add([
-              this.add.rectangle(0, 0, 54, 15, 0x0f172a, 0.94)
+              this.add.rectangle(0, 0, 66, 16, 0x0f172a, 0.96)
                 .setStrokeStyle(1, sector.color),
-              this.add.rectangle(-23, 0, 3, 10, sector.color),
+              this.add.rectangle(-29, 0, 3, 10, sector.color),
               this.add.text(3, 0, sector.label, {
-                fontFamily: "monospace", fontSize: "8px", color: "#f8fafc",
+                fontFamily: "monospace", fontSize: "9px", color: "#f8fafc",
               }).setOrigin(0.5),
             ]);
           }
