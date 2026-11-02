@@ -31,10 +31,10 @@ export function PhaserOfficePrototype() {
           }
           this.add.text(14, 12, "PROTÓTIPO • MOTOR PHASER", { color: "#facc15", fontSize: "15px" });
           this.add.text(14, 35, "Cena de teste — não conectada ao trading", { color: "#ffffff", fontSize: "11px" });
-          // Divisorias fisicas: portas abertas nos eixos centrais.
+          // Portas em cada extremidade das divisorias, e cruzamento central livre.
           const partitions = new Set<string>();
           for (let i = 0; i < 9; i++) {
-            if (i !== 4 && i !== 5) {
+            if (i !== 1 && i !== 4 && i !== 7) {
               partitions.add(`${i},4`);
               partitions.add(`4,${i}`);
             }
