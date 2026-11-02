@@ -908,6 +908,8 @@ export function OfficeMap(props: {
               target = spots[idx % spots.length] || target;
             }
             const walking = walkingPositions[ag.id];
+            const isWalking = !!walkingRoutesRef.current[ag.id]?.points.length && !isSpawning;
+
             const x = isSpawning ? 475 : (walking?.x ?? target.x);
             const y = isSpawning ? 155 : (walking?.y ?? target.y);
 
@@ -948,12 +950,24 @@ export function OfficeMap(props: {
                 )}
                 {/* Avatar pixel-art corporativo: roupas, braços, cabelo e rosto em blocos. */}
                 <g shapeRendering="crispEdges">
-                  <rect x="-5" y="2" width="4" height="8" fill="#1e293b" />
-                  <rect x="1" y="2" width="4" height="8" fill="#1e293b" />
-                  <rect x="-6" y="9" width="5" height="2" fill="#0f172a" />
-                  <rect x="1" y="9" width="5" height="2" fill="#0f172a" />
-                  <rect x="-8" y="-8" width="3" height="10" fill="#e9b97e" />
-                  <rect x="5" y="-8" width="3" height="10" fill="#e9b97e" />
+                  <g>
+                    {isWalking && <animateTransform attributeName="transform" type="rotate" values="-15 0 2;15 0 2;-15 0 2" dur="0.42s" repeatCount="indefinite" />}
+                    <rect x="-5" y="2" width="4" height="8" fill="#1e293b" />
+                    <rect x="-6" y="9" width="5" height="2" fill="#0f172a" />
+                  </g>
+                  <g>
+                    {isWalking && <animateTransform attributeName="transform" type="rotate" values="15 0 2;-15 0 2;15 0 2" dur="0.42s" repeatCount="indefinite" />}
+                    <rect x="1" y="2" width="4" height="8" fill="#1e293b" />
+                    <rect x="1" y="9" width="5" height="2" fill="#0f172a" />
+                  </g>
+                  <g>
+                    {isWalking && <animateTransform attributeName="transform" type="rotate" values="12 -6 -8;-12 -6 -8;12 -6 -8" dur="0.42s" repeatCount="indefinite" />}
+                    <rect x="-8" y="-8" width="3" height="10" fill="#e9b97e" />
+                  </g>
+                  <g>
+                    {isWalking && <animateTransform attributeName="transform" type="rotate" values="-12 6 -8;12 6 -8;-12 6 -8" dur="0.42s" repeatCount="indefinite" />}
+                    <rect x="5" y="-8" width="3" height="10" fill="#e9b97e" />
+                  </g>
                   <rect x="-6" y="-10" width="12" height="13" fill={ag.color} stroke="#f8fafc" strokeWidth="0.7" />
                   <rect x="-1" y="-9" width="2" height="7" fill="#f8fafc" />
                   <rect x="-1" y="-3" width="2" height="3" fill="#d4a843" />
@@ -969,7 +983,7 @@ export function OfficeMap(props: {
                 <g transform="translate(0, -28)">
                   <rect x="-38" y="-9" width="76" height="13" rx="6.5" fill={pillColor} stroke="#ffffff" strokeWidth="0.8" />
                   <text x="0" y="-0.5" fontSize="6.3" fill="#ffffff" fontWeight="bold" textAnchor="middle">
-                    {isSpawning ? "Recepção -> Mesa" : `${ag.name.slice(0, 10)} • ${mode === "Atendendo" ? stCode : mode}`}
+                    {isSpawning ? "Recepção -> Mesa" : `${ag.name.slice(0, 10)} • ${isWalking ? "Caminhando" : mode === "Atendendo" ? stCode : mode}`}
                   </text>
                 </g>
 
