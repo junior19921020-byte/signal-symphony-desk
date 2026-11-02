@@ -112,6 +112,35 @@ export function PhaserOfficePrototype() {
             // Pequeno teclado e indicador de tela para dar vida a estacao.
             this.add.rectangle(p.x - 5, p.y - 13, 12, 3, 0xcbd5e1).setDepth(p.y + 5);
           }
+          // Decoracao visual isolada: nao altera tiles, colisao, rotas ou servicos.
+          // Os detalhes ficam em areas livres e nao sao interativos.
+          const decor = this.add.graphics().setDepth(70);
+          const addPlant = (col: number, row: number) => {
+            const p = tile(col, row);
+            decor.fillStyle(0x92400e, 1);
+            decor.fillRoundedRect(p.x - 7, p.y - 12, 14, 12, 3);
+            decor.fillStyle(0x166534, 1);
+            decor.fillCircle(p.x - 5, p.y - 17, 7);
+            decor.fillCircle(p.x + 5, p.y - 19, 8);
+            decor.fillStyle(0x22c55e, 1);
+            decor.fillCircle(p.x, p.y - 24, 7);
+          };
+          // Pequenos vasos decorativos, sem bloquear as passagens.
+          addPlant(0, 2);
+          addPlant(8, 2);
+          addPlant(0, 7);
+          addPlant(8, 7);
+          // Quadros de parede e letreiros de setor, apenas cenograficos.
+          for (const [col, row, color] of [
+            [1, 0, 0x1d4ed8], [7, 0, 0x059669],
+            [0, 7, 0xd97706], [7, 8, 0x7c3aed],
+          ] as const) {
+            const p = tile(col, row);
+            this.add.rectangle(p.x, p.y - 20, 23, 15, 0xf8fafc)
+              .setStrokeStyle(2, 0x475569).setDepth(p.y - 1);
+            this.add.rectangle(p.x, p.y - 20, 17, 9, color, 0.85)
+              .setDepth(p.y);
+          }
           const findPath = (start: [number, number], goal: [number, number]) => {
             const queue: Array<[number, number]> = [start];
             const seen = new Set([start.join(",")]);
