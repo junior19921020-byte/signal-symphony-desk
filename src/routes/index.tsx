@@ -569,7 +569,7 @@ function Index() {
       </>}
       {tab === "agents" && <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
         <OfficeMap agents={agents} market={market} onSelect={setSelected} />
-      </section>
+      </section>}
 
       {tab === "desk" && <>
       <section className="mt-4 space-y-2">
