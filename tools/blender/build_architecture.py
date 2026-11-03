@@ -20,7 +20,7 @@ def mat(name, color, metallic=0, roughness=0.5, alpha=1):
     bs.inputs["Roughness"].default_value=roughness
     if alpha<1:
         bs.inputs["Alpha"].default_value=alpha
-        m.surface_render_method="DITHERED"
+        if hasattr(m, "surface_render_method"):\n            m.surface_render_method="DITHERED"\n        else:\n            m.blend_method="BLEND"
     return m
 
 floor=mat("Hall - dark stone",(0.075,0.10,0.14),0.15)
@@ -100,7 +100,7 @@ cam.data.type="ORTHO"
 cam.data.ortho_scale=30
 bpy.context.scene.camera=cam
 scene=bpy.context.scene
-scene.render.engine="BLENDER_EEVEE_NEXT"
+scene.render.engine="BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
 scene.render.resolution_x=1600
 scene.render.resolution_y=1000
 scene.render.resolution_percentage=100
