@@ -48,59 +48,61 @@ def segment(name,a,b,height,material,thickness=0.13,z=0):
     obj.rotation_euler[2]=math.atan2(dy,dx)
     return obj
 
-# 20 x 16 m footprint, entrance at front (negative Y).
-cube("Structural foundation",(0,0,-0.22),(20,16,0.44),wall)
-cube("Main hall",(0,-1,0.035),(8,13.5,0.07),floor)
-# Entire-company shell: rear management, left research, right trading,
-# front-left reception, front-right risk. No furniture or agents.
+# Version 2: 40 x 30 metre company-wide architectural footprint.
+# Rear: management, research and trading; front: reception and risk.
+# All geometry is deliberately furniture-free.
+W, D = 40.0, 30.0
+cube("Structural foundation",(0,0,-0.22),(W,D,0.44),wall)
+cube("Central circulation hall",(0,-1.5,0.035),(12,26,0.07),floor)
 zones=[
- ("Research",(-6,4.3),(8,6.8)),
- ("Trading",(6,4.3),(8,6.8)),
- ("Reception",(-6,-4.7),(8,5.7)),
- ("Risk",(6,-4.7),(8,5.7)),
- ("Management",(0,6.9),(8,2.2)),
+ ("Research and news",(-14,6),(12,17)),
+ ("Trading",(14,6),(12,17)),
+ ("Reception",(-14,-10.5),(12,8.5)),
+ ("Risk management",(14,-10.5),(12,8.5)),
+ ("Board and directors",(0,11.5),(12,7)),
 ]
 for name,(x,y),(w,d) in zones:
-    cube(name+" floor",(x,y,0.05),(w,d,0.1),wood)
-# perimeter walls; front entrance 3m wide.
+    cube(name+" floor",(x,y,0.05),(w,d,0.10),wood)
+# Outside walls, with a generous 5-metre entrance facing the viewer.
 for name,a,b in [
- ("West exterior",(-10,-8),(-10,8)),
- ("East exterior",(10,-8),(10,8)),
- ("North exterior",(-10,8),(10,8)),
- ("Front left",(-10,-8),(-1.5,-8)),
- ("Front right",(1.5,-8),(10,-8)),
+ ("West exterior",(-20,-15),(-20,15)),
+ ("East exterior",(20,-15),(20,15)),
+ ("North exterior",(-20,15),(20,15)),
+ ("Front left",(-20,-15),(-2.5,-15)),
+ ("Front right",(2.5,-15),(20,-15)),
 ]:
-    segment(name,a,b,3.5,wall,0.24)
-# Glazed interior corridor partitions, with 2m gaps per zone.
-for x in (-4,4):
-    for ya,yb in [(-7.8,-5.6),(-3.6,1.7),(3.7,7.7)]:
-        segment("Glass corridor partition",(x,ya),(x,yb),2.8,glass,0.08)
-        segment("Top glass frame",(x,ya),(x,yb),0.10,metal,0.11,2.75)
-# Horizontal zone partitions, doorway gaps facing the hall.
-for y in (-1.0,):
-    for xa,xb in [(-10,-7),(-5,-4),(4,5),(7,10)]:
-        segment("Room division",(xa,y),(xb,y),3,glass,0.10)
-# Rear director's room partition and 2m door gap.
-for xa,xb in [(-4,-1),(1,4)]:
-    segment("Management glass",(xa,5.8),(xb,5.8),3,glass,0.10)
-# Entrance and room thresholds.
-cube("Main entrance threshold",(0,-7.85,0.08),(3,0.24,0.16),light)
+    segment(name,a,b,4.2,wall,0.26)
+# Long glazed partitions along the central circulation spine.
+# Gaps are reserved for future animated door objects.
+for x in (-8,8):
+    for ya,yb in [(-14.7,-12),(-9,-2),(1,8),(11,14.7)]:
+        segment("Central glass partition",(x,ya),(x,yb),3.5,glass,0.09)
+        segment("Central glass upper frame",(x,ya),(x,yb),0.11,metal,0.12,3.45)
+# Research/trading separated from reception/risk, with corridor-side access.
+for xa,xb in [(-20,-8),(8,20)]:
+    segment("Department separation",(xa,-5.5),(xb,-5.5),3.5,glass,0.10)
+    segment("Department upper frame",(xa,-5.5),(xb,-5.5),0.11,metal,0.12,3.45)
+# Boardroom spans the rear centre, with a 3-metre doorway.
+for xa,xb in [(-8,-1.5),(1.5,8)]:
+    segment("Boardroom glazed front",(xa,8),(xb,8),3.5,glass,0.10)
+    segment("Boardroom upper frame",(xa,8),(xb,8),0.11,metal,0.12,3.45)
+cube("Wide entrance threshold",(0,-14.8,0.08),(5,0.28,0.16),light)
 # Architectural camera.
 world=bpy.context.scene.world
 world.color=(0.16,0.18,0.23)
-bpy.ops.object.light_add(type="AREA",location=(0,-2,14))
+bpy.ops.object.light_add(type="AREA",location=(0,-2,24))
 lamp=bpy.context.object
 lamp.name="Architectural softbox"
-lamp.data.energy=3500
+lamp.data.energy=6500
 lamp.data.shape="RECTANGLE"
-lamp.data.size=16
-lamp.data.size_y=12
-bpy.ops.object.camera_add(location=(23,-29,28))
+lamp.data.size=32
+lamp.data.size_y=26
+bpy.ops.object.camera_add(location=(48,-62,55))
 cam=bpy.context.object
 direction=Vector((0,0,0))-cam.location
 cam.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
 cam.data.type="ORTHO"
-cam.data.ortho_scale=30
+cam.data.ortho_scale=65
 bpy.context.scene.camera=cam
 scene=bpy.context.scene
 scene.render.engine="BLENDER_EEVEE"
