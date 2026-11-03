@@ -364,9 +364,16 @@ export function PhaserOfficePrototype() {
           const collar = this.add.rectangle(0, -25, 8, 3, 0xe2e8f0);
           const belt = this.add.rectangle(0, -9, 15, 3, 0x1e40af);
           const badge = this.add.rectangle(5, -19, 4, 5, 0xf8fafc);
+          // Rosto e cabelo em camadas pixel-art, sem mudar o hitbox ou o movimento.
           const eyes = [
             this.add.rectangle(-3, -34, 2, 2, 0x1e293b),
             this.add.rectangle(3, -34, 2, 2, 0x1e293b),
+            this.add.rectangle(0, -30, 4, 1, 0x9a563e),
+            this.add.rectangle(-8, -39, 4, 4, 0x422006),
+            this.add.rectangle(8, -39, 4, 4, 0x422006),
+            this.add.rectangle(-3, -42, 9, 2, 0x713f12),
+            this.add.rectangle(-6, -18, 2, 7, 0x1d4ed8),
+            this.add.rectangle(6, -18, 2, 7, 0x1d4ed8),
           ];
           const shoes = [
             this.add.rectangle(-4, 1, 7, 3, 0x0f172a),
@@ -419,6 +426,13 @@ export function PhaserOfficePrototype() {
               this.add.rectangle(5, -18, 3, 4, 0xf8fafc),
               this.add.rectangle(-3, -33, 2, 2, 0x1e293b),
               this.add.rectangle(3, -33, 2, 2, 0x1e293b),
+              // Expressão, cabelo em pixels e detalhes do uniforme.
+              this.add.rectangle(0, -29, 4, 1, 0x9a563e),
+              this.add.rectangle(-7, -38, 3, 4, 0x422006),
+              this.add.rectangle(7, -38, 3, 4, 0x422006),
+              this.add.rectangle(-3, -41, 8, 2, 0x713f12),
+              this.add.rectangle(-5, -18, 2, 7, 0xffffff, 0.35),
+              this.add.rectangle(5, -18, 2, 7, 0x0f172a, 0.25),
               this.add.rectangle(-4, 1, 7, 3, 0x0f172a),
               this.add.rectangle(4, 1, 7, 3, 0x0f172a),
               this.add.text(0, -52, member.name, { fontSize: "9px", color: "#ffffff", backgroundColor: "#0f172a", padding: { x: 2, y: 1 } }).setOrigin(0.5),
