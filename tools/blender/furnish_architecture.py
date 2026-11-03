@@ -47,6 +47,7 @@ def desk(name,x,y,width=2.2,depth=1.05):
     cube(name+" monitor",(x,y+0.14,1.36),(0.88,0.065,0.53),screen)
     cube(name+" monitor stand",(x,y+0.14,1.06),(0.075,0.075,0.18),steel)
     cube(name+" keyboard",(x,y-0.28,0.952),(0.72,0.21,0.025),steel)
+    cube(name+" mouse",(x+0.50,y-0.28,0.97),(0.11,0.17,0.04),steel)
 
 # The chair back must be opposite the desk/monitor direction.
 def chair(name,x,y,faces_positive_y=False):
@@ -54,11 +55,18 @@ def chair(name,x,y,faces_positive_y=False):
     cube(name+" back",(x,y+(-0.27 if faces_positive_y else 0.27),0.98),(0.65,0.12,0.94),fabric)
     cube(name+" support",(x,y,0.27),(0.09,0.09,0.46),steel)
     cube(name+" base",(x,y,0.10),(0.60,0.60,0.07),steel)
+    for dx in (-0.32,0.32):
+        cube(name+" armrest",(x+dx,y,0.79),(0.10,0.36,0.07),fabric)
+        cube(name+" arm support",(x+dx,y,0.67),(0.06,0.08,0.22),steel)
+    for i in range(5):
+        a=2*math.pi*i/5
+        cube(name+" wheel",(x+0.31*math.cos(a),y+0.31*math.sin(a),0.075),(0.12,0.12,0.11),steel)
 
 # Reception: welcome counter with clear passage along the glass wall.
 cube("Reception welcome counter",(-14,-10.8,0.73),(4.2,0.95,1.38),lightwood)
 cube("Reception counter dark cap",(-14,-10.8,1.44),(4.3,1.03,0.09),steel)
 cube("Reception service monitor",(-14,-10.45,1.80),(0.95,0.09,0.55),screen)
+cube("Reception front detail",(-14,-11.29,0.90),(3.35,0.022,0.17),accent)
 chair("Receptionist chair",-14,-9.55)
 # Research: two independent workstations and a reading table.
 for x,y in [(-16.8,6.3),(-12.4,6.3),(-16.8,1.4),(-12.4,1.4)]:
@@ -72,12 +80,16 @@ for x,y in [(11.5,6.5),(16.3,6.5),(11.5,1.3),(16.3,1.3)]:
     desk("Trading station",x,y,2.6,1.2)
     chair("Trading operator",x,y-1.25,faces_positive_y=True)
     cube("Trading secondary display",(x+0.78,y+0.14,1.37),(0.66,0.065,0.48),screen)
+    cube("Trading third display",(x-0.78,y+0.14,1.37),(0.66,0.065,0.48),screen)
+    cube("Trading third display stand",(x-0.78,y+0.14,1.07),(0.07,0.07,0.18),steel)
 # Risk: compact analysis desks.
 for x,y in [(11.5,-10.1),(16.1,-10.1)]:
     desk("Risk analysis station",x,y,2.2,1.0)
     chair("Risk analyst",x,y-1.12,faces_positive_y=True)
 # Executive room: board table and chairs; no corridor obstructions.
 cube("Boardroom meeting table",(0,11.5,0.79),(5.2,1.65,0.15),oak)
+cube("Boardroom table inset",(0,11.5,0.873),(3.5,0.70,0.012),lightwood)
+cube("Boardroom conference hub",(0,11.5,0.90),(0.46,0.28,0.04),steel)
 for x in (-2.0,0,2.0):
     chair("Boardroom north chair",x,12.8)
     chair("Boardroom south chair",x,10.2,faces_positive_y=True)
