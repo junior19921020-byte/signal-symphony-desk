@@ -130,6 +130,50 @@ for x,y in [(-18.5,12.5),(18.5,12.5),(-18.5,-7.3),(18.5,-7.3)]:
     cube("Planter",(x,y,0.32),(0.68,0.68,0.64),steel)
     cube("Plant foliage",(x,y,0.94),(0.85,0.85,0.85),green)
 
+
+# Optional interior lighting and department identity. The approved shell remains untouched.
+def luminous_material(name, color, strength=2.0):
+    mat=material(name,color,roughness=0.35)
+    nodes=mat.node_tree.nodes
+    bs=nodes.get("Principled BSDF")
+    bs.inputs["Emission Color"].default_value=(*color,1)
+    bs.inputs["Emission Strength"].default_value=strength
+    return mat
+
+warm_strip=luminous_material("Warm ceiling-strip diffuser",(1.0,0.78,0.48),1.8)
+cool_strip=luminous_material("Cool operations-strip diffuser",(0.28,0.67,0.85),1.5)
+
+def area_light(name,x,y,z,power=350,size=4.0):
+    data=bpy.data.lights.new(name,"AREA")
+    data.energy=power
+    data.shape="DISK"
+    data.size=size
+    obj=bpy.data.objects.new(name,data)
+    collection.objects.link(obj)
+    obj.location=(x,y,z)
+    # Area lights point down along their local negative Z axis.
+    return obj
+
+# Fixtures are high enough to avoid all desks, chairs and glass partitions.
+# Small ceiling-free luminous bars make the lighting visible in isometric renders.
+for label,x,y,width,mat in [
+    ("Research", -14.5,7.8,4.5,warm_strip),
+    ("Reception",-14.4,-8.3,3.5,warm_strip),
+    ("Executive",0,12.4,4.0,warm_strip),
+    ("Trading",14.0,8.6,5.0,cool_strip),
+    ("Risk",14.0,-9.0,3.7,cool_strip),
+]:
+    cube(label+" overhead linear light",(x,y,3.50),(width,0.095,0.055),mat)
+    area_light(label+" soft area light",x,y,3.55,300 if label!="Trading" else 420,4.5)
+
+# Improve legibility of monitor arrays without modifying trading functionality.
+monitor_glow=luminous_material("Operations monitor glow",(0.045,0.28,0.39),0.75)
+for x in (11.3,14.0,16.7):
+    cube("Trading market ticker highlight",(x,13.49,2.83),(1.77,0.012,0.045),monitor_glow)
+
+scene=bpy.context.scene
+scene.render.image_settings.file_format="PNG"
+
 scene=bpy.context.scene
 scene.render.filepath=str(out/"architecture_furnished.png")
 bpy.ops.wm.save_as_mainfile(filepath=str(out/"signal_symphony_furnished.blend"))
