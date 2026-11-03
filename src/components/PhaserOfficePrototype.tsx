@@ -438,7 +438,23 @@ export function PhaserOfficePrototype() {
               this.add.text(0, -52, member.name, { fontSize: "9px", color: "#ffffff", backgroundColor: "#0f172a", padding: { x: 2, y: 1 } }).setOrigin(0.5),
             ]);
           }
-          agent.add(this.add.text(0, -53, "Cíntia", { fontSize: "10px", color: "#ffffff", backgroundColor: "#1e3a8a", padding: { x: 3, y: 1 } }).setOrigin(0.5));
+          const cintiaLabel = this.add.text(0, -53, "Cíntia", { fontSize: "10px", color: "#ffffff", backgroundColor: "#1e3a8a", padding: { x: 3, y: 1 } }).setOrigin(0.5);
+          agent.add(cintiaLabel);
+          // Afasta a etiqueta da Cíntia dos nomes dos colegas quando ela se aproxima.
+          // Só muda a posição do texto: não interfere em movimento, portas ou colisões.
+          const colleagueLabels = demoTeam.map((member) => ({
+            x: tile(member.col, member.row).x,
+            y: tile(member.col, member.row).y - 52,
+            width: member.name.length * 6 + 8,
+          }));
+          this.events.on("update", () => {
+            const labelY = agent.y - 53;
+            const near = colleagueLabels.some((label) =>
+              Math.abs(agent.x - label.x) < (label.width + 45) / 2 + 4 &&
+              Math.abs(labelY - label.y) < 13);
+            const targetX = near ? (agent.x < 320 ? -40 : 40) : 0;
+            cintiaLabel.x = Phaser.Math.Linear(cintiaLabel.x, targetX, 0.22);
+          });
           // Sensor de proximidade acompanha a posição real dos avatares.
           // A porta só fecha quando ninguém está próximo; sem alterar
           // autenticação, pathfinding, bloqueios ou lógica financeira.
