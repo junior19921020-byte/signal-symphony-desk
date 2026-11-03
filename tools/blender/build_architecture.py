@@ -20,7 +20,10 @@ def mat(name, color, metallic=0, roughness=0.5, alpha=1):
     bs.inputs["Roughness"].default_value=roughness
     if alpha<1:
         bs.inputs["Alpha"].default_value=alpha
-        if hasattr(m, "surface_render_method"):\n            m.surface_render_method="DITHERED"\n        else:\n            m.blend_method="BLEND"
+        if hasattr(m, "surface_render_method"):
+            m.surface_render_method="DITHERED"
+        else:
+            m.blend_method="BLEND"
     return m
 
 floor=mat("Hall - dark stone",(0.075,0.10,0.14),0.15)
