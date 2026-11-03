@@ -1,4 +1,4 @@
-"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v6)."""
+"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v7)."""
 import bpy
 import math
 from pathlib import Path
@@ -249,6 +249,35 @@ for name,center,size,finish in [
     ("Risk controlled finish",(14,-10.25),(11.25,8.8),risk_finish),
 ]:
     cube(name,(center[0],center[1],0.119),(size[0],size[1],0.014),finish)
+# Version 7: restore visible plank seams ABOVE the v6 department finish overlays.
+# Earlier plank seams were at z=0.115, hidden under the new finish top (z=0.126).
+plank_joint=mat("Visible oak plank grooves - walnut shadow",(0.16,0.095,0.055),0.02,0.88)
+plank_end=mat("Wood board end joints - subtle",(0.22,0.135,0.078),0.01,0.9)
+for x0,x1,y0,y1 in [
+    (-19.6,-8.4,-14.5,-5.95), # reception
+    (-19.6,-8.4,-5.1,14.55),  # research
+    (8.4,19.6,-14.5,-5.95),  # risk
+    (8.4,19.6,-5.1,14.55),   # trading
+    (-7.65,7.65,8.35,14.65), # executive walnut
+]:
+    # Long grain seams and staggered end joints read as individual wood boards.
+    row=0
+    y=y0+0.95
+    while y<y1-0.20:
+        segment("Restored visible wood plank groove",(x0,y),(x1,y),0.008,plank_joint,0.033,0.133 if x0 != -7.65 else 0.176)
+        y+=1.12
+        row+=1
+    y=y0
+    row=0
+    while y+1.12<y1:
+        offset=1.65 if row%2 else 0.0
+        x=x0+2.4+offset
+        while x<x1-0.3:
+            segment("Staggered wood board end",(x,y+0.07),(x,min(y+1.07,y1-0.08)),0.007,plank_end,0.021,0.133 if x0 != -7.65 else 0.176)
+            x+=4.8
+        y+=1.12
+        row+=1
+
 # Clear, understated center-hall inlay reserves the future company emblem location.
 for xa,xb,ya,yb in [
     (-3.3,3.3,-5.3,-5.3),(-3.3,3.3,-1.7,-1.7),
