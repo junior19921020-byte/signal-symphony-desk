@@ -93,6 +93,37 @@ cube("Boardroom conference hub",(0,11.5,0.90),(0.46,0.28,0.04),steel)
 for x in (-2.0,0,2.0):
     chair("Boardroom north chair",x,12.8)
     chair("Boardroom south chair",x,10.2,faces_positive_y=True)
+# Department-specific details stay in the optional furniture collection.
+# Reception waiting area, against the outer wall and clear of the entrance.
+cube("Reception waiting sofa seat",(-17.25,-8.65,0.48),(2.2,0.80,0.28),fabric)
+cube("Reception waiting sofa back",(-17.25,-8.25,0.91),(2.2,0.17,0.86),fabric)
+for x in (-18.25,-16.25):
+    cube("Reception sofa arm",(x,-8.65,0.68),(0.20,0.85,0.47),fabric)
+cube("Reception waiting coffee table",(-17.15,-10.10,0.40),(1.45,0.60,0.09),lightwood)
+for x in (-17.72,-16.58):
+    cube("Reception coffee table leg",(x,-10.10,0.20),(0.07,0.07,0.38),steel)
+
+# Research reference shelves, along the outside wall and behind the desks.
+for y in (3.5,9.0):
+    cube("Research reference cabinet",(-19.15,y,1.12),(0.45,2.05,2.10),oak)
+    for z in (0.55,1.15,1.75):
+        cube("Research shelf trim",(-18.90,y,z),(0.06,1.92,0.055),lightwood)
+
+# Trading market wall: thin status screens positioned high above workstations.
+for x in (11.3,14.0,16.7):
+    cube("Trading market wall display",(x,13.55,2.50),(2.05,0.085,0.90),screen)
+    cube("Trading market wall frame",(x,13.61,2.50),(2.13,0.035,0.98),steel)
+
+# Risk analysis: compact side cabinet for compliance files.
+cube("Risk filing cabinet",(18.45,-9.35,0.82),(0.72,1.55,1.52),steel)
+for z in (0.42,0.88,1.34):
+    cube("Risk filing drawer",(18.07,-9.35,z),(0.025,1.35,0.035),accent)
+
+# Executive room: a separate low credenza and a presentation display.
+cube("Executive credenza",(0,13.55,0.66),(3.5,0.50,1.22),oak)
+cube("Executive credenza top",(0,13.55,1.29),(3.65,0.57,0.08),lightwood)
+cube("Executive presentation display",(0,13.93,2.30),(2.35,0.085,0.85),screen)
+
 # Subtle plants in the room corners, not in door openings.
 green=material("Plant foliage",(0.065,0.22,0.13))
 for x,y in [(-18.5,12.5),(18.5,12.5),(-18.5,-7.3),(18.5,-7.3)]:
