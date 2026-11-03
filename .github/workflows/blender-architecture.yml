@@ -27,15 +27,24 @@ jobs:
           test -s blender-output/signal_symphony_architecture.blend
           test -s blender-output/signal_symphony_architecture.glb
           test -s blender-output/architecture.png
-          ls -lh blender-output/
-      - name: Upload diagnostic log if generation fails
+      - name: Generate optional furnished preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a blender --background --python-exit-code 1 --python tools/blender/furnish_architecture.py 2>&1 | tee blender-furniture.log
+          test -s blender-output/signal_symphony_furnished.blend
+          test -s blender-output/signal_symphony_furnished.glb
+          test -s blender-output/architecture_furnished.png
+      - name: Upload diagnostic logs if generation fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: blender-diagnostic-log
-          path: blender-build.log
+          path: |
+            blender-build.log
+            blender-furniture.log
           if-no-files-found: warn
-      - name: Upload 3D model and render
+      - name: Upload 3D models and renders
         uses: actions/upload-artifact@v4
         with:
           name: signal-symphony-architecture
