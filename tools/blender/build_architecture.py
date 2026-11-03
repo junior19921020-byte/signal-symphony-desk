@@ -1,4 +1,4 @@
-"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v4)."""
+"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v5)."""
 import bpy
 import math
 from pathlib import Path
@@ -193,6 +193,47 @@ for x in (-8,8):
         for i in range(1,n):
             y=ya+(yb-ya)*i/n
             cube("Glazing modular mullion",(x,y,1.78),(0.095,0.095,3.56),metal)
+
+# Version 5: distinguish executive, reception and risk circulation without furniture.
+executive=mat("Executive flooring - deep walnut",(0.24,0.14,0.085),0.08,0.62)
+welcome=mat("Reception arrival floor - graphite blue",(0.13,0.19,0.24),0.15,0.48)
+accent=mat("Executive frame - muted bronze",(0.40,0.30,0.19),0.48,0.38)
+# The executive room gets its own recognizable material and entrance border.
+cube("Executive suite inset floor",(0,11.5,0.145),(15.6,6.65,0.035),executive)
+for xa,xb in [(-7.85,-1.55),(1.55,7.85)]:
+    segment("Executive entrance bronze lintel",(xa,8.04),(xb,8.04),0.075,accent,0.095,3.57)
+for x in (-1.5,1.5):
+    cube("Executive doorway bronze reveal",(x,8.03,1.72),(0.10,0.10,3.42),accent)
+# The reception floor gets a defined welcome strip near the public entrance.
+cube("Reception welcome strip",(-14,-13.65,0.135),(10.8,1.35,0.025),welcome)
+# Mark clear transition between the public entrance and the internal circulation.
+cube("Entrance interior transition",(0,-13.55,0.14),(5.6,1.2,0.025),welcome)
+# Subtle department-specific boundary details, without blocking door openings.
+for x in (-8,8):
+    for ya,yb in [(-14.7,-12),(-9,-2),(1,8),(11,14.7)]:
+        segment("Glass partition base trim",(x,ya),(x,yb),0.08,trim,0.11,0.16)
+# A brighter neutral architectural lighting setup helps evaluate the layout.
+bpy.ops.object.light_add(type="AREA",location=(-13,-5,17))
+fill_left=bpy.context.object
+fill_left.name="Soft fill - research and reception"
+fill_left.data.energy=3500
+fill_left.data.shape="RECTANGLE"
+fill_left.data.size=20
+fill_left.data.size_y=20
+bpy.ops.object.light_add(type="AREA",location=(13,-5,17))
+fill_right=bpy.context.object
+fill_right.name="Soft fill - trading and risk"
+fill_right.data.energy=3500
+fill_right.data.shape="RECTANGLE"
+fill_right.data.size=20
+fill_right.data.size_y=20
+bpy.ops.object.light_add(type="AREA",location=(0,11,15))
+executive_light=bpy.context.object
+executive_light.name="Soft fill - executive suite"
+executive_light.data.energy=2300
+executive_light.data.shape="RECTANGLE"
+executive_light.data.size=16
+executive_light.data.size_y=9
 
 # Architectural camera.
 world=bpy.context.scene.world
