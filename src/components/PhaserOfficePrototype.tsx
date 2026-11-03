@@ -144,30 +144,45 @@ export function PhaserOfficePrototype() {
             wall.lineStyle(2, 0xffffff, 0.22);
             wall.lineBetween(topA.x + 5, topA.y + 7, bottomB.x - 5, bottomB.y - 8);
           }
-          // Marcos de porta puramente visuais: nao entram no conjunto blocked.
-          // Preservam as aberturas (indices 1, 4 e 7) e o pathfinding existente.
+          // Portas automáticas demonstrativas: as quatro passagens continuam
+          // livres no mapa lógico. O sensor controla apenas painéis visuais.
+          const automaticDoors: Array<{ col: number; row: number; openness: number;
+            graphics: Phaser.GameObjects.Graphics }> = [];
           for (const index of [1, 7]) {
             for (const [col, row] of [[index, 4], [4, index]]) {
               const p = tile(col, row);
-              // Pequena soleira e dois batentes baixos, sem cobrir o centro.
-              this.add.rectangle(p.x, p.y + 2, 35, 4, 0xb08d57).setDepth(p.y - 2);
-              this.add.rectangle(p.x - 23, p.y - 10, 4, 21, 0x94a3b8).setDepth(p.y - 1);
-              this.add.rectangle(p.x + 23, p.y - 10, 4, 21, 0x94a3b8).setDepth(p.y - 1);
-              this.add.rectangle(p.x, p.y - 22, 49, 4, 0xcbd5e1).setDepth(p.y - 1);
-              // Porta de vidro aberta: acabamento e sinalização sem colisão extra.
-              // O vão central permanece livre no mapa de navegação.
-              const door = this.add.graphics().setDepth(p.y - 1);
-              door.lineStyle(2, 0x7dd3fc, 0.8);
-              door.lineBetween(p.x - 18, p.y - 19, p.x - 18, p.y - 4);
-              door.lineBetween(p.x + 18, p.y - 19, p.x + 18, p.y - 4);
-              door.lineStyle(2, 0xf8fafc, 0.8);
-              door.lineBetween(p.x - 18, p.y - 19, p.x - 6, p.y - 19);
-              door.lineBetween(p.x + 6, p.y - 19, p.x + 18, p.y - 19);
-              door.fillStyle(0x38bdf8, 0.85);
-              door.fillRect(p.x - 17, p.y - 11, 3, 4);
-              door.fillRect(p.x + 14, p.y - 11, 3, 4);
+              const graphics = this.add.graphics().setDepth(p.y + 8);
+              automaticDoors.push({ col, row, openness: 0, graphics });
+              this.add.rectangle(p.x, p.y + 2, 47, 3, 0x64748b, 0.85).setDepth(p.y - 2);
             }
           }
+          const drawAutomaticDoor = (door: typeof automaticDoors[number]) => {
+            const p = tile(door.col, door.row);
+            const g = door.graphics;
+            g.clear();
+            const width = 46, height = 43;
+            const left = p.x - width / 2, top = p.y - height;
+            // Trilho superior e batentes permanecem fixos.
+            g.lineStyle(3, 0x64748b, 1);
+            g.lineBetween(left, top, left + width, top);
+            g.lineBetween(left, top, left, p.y);
+            g.lineBetween(left + width, top, left + width, p.y);
+            // Duas folhas de vidro deslizam lateralmente, sem teleportar.
+            const panelWidth = 21 * (1 - door.openness);
+            for (const side of [-1, 1]) {
+              const x = side < 0 ? left + 2 : left + width - 2 - panelWidth;
+              if (panelWidth < 0.5) continue;
+              g.fillStyle(0x7dd3fc, 0.29);
+              g.fillRect(x, top + 3, panelWidth, height - 6);
+              g.lineStyle(2, 0xbde9fb, 0.95);
+              g.strokeRect(x, top + 3, panelWidth, height - 6);
+              g.lineStyle(1, 0xffffff, 0.5);
+              g.lineBetween(x + panelWidth / 2, top + 8, x + panelWidth / 2, p.y - 9);
+            }
+            g.fillStyle(door.openness > 0.1 ? 0x22c55e : 0xf59e0b, 1);
+            g.fillCircle(p.x, top - 5, 2);
+          };
+          automaticDoors.forEach(drawAutomaticDoor);
           for (const key of blocked) {
             if (partitions.has(key)) continue;
             const [col, row] = key.split(",").map(Number);
@@ -389,6 +404,24 @@ export function PhaserOfficePrototype() {
             ]);
           }
           agent.add(this.add.text(0, -53, "Cíntia", { fontSize: "10px", color: "#ffffff", backgroundColor: "#1e3a8a", padding: { x: 3, y: 1 } }).setOrigin(0.5));
+          // Sensor de proximidade acompanha a posição real dos avatares.
+          // A porta só fecha quando ninguém está próximo; sem alterar
+          // autenticação, pathfinding, bloqueios ou lógica financeira.
+          this.events.on("update", (_time: number, delta: number) => {
+            const actors = [agent, ...(movingColleague ? [movingColleague] : [])];
+            for (const door of automaticDoors) {
+              const p = tile(door.col, door.row);
+              const nearby = actors.some((actor) =>
+                Phaser.Math.Distance.Between(actor.x, actor.y, p.x, p.y) < 69);
+              const target = nearby ? 1 : 0;
+              const step = Math.min(1, delta / 350);
+              const next = Phaser.Math.Linear(door.openness, target, step);
+              if (Math.abs(next - door.openness) > 0.001) {
+                door.openness = next;
+                drawAutomaticDoor(door);
+              }
+            }
+          });
           let walking = false;
           // Ciclo demonstrativo: deslocamento, monitoramento e pausa.
           // As duas casas ficam reservadas no mapa, sem acesso a trading real.
