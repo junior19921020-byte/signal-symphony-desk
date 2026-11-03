@@ -48,9 +48,9 @@ def desk(name,x,y,width=2.2,depth=1.05):
     cube(name+" monitor stand",(x,y+0.14,1.06),(0.075,0.075,0.18),steel)
     cube(name+" keyboard",(x,y-0.28,0.952),(0.72,0.21,0.025),steel)
 
-def chair(name,x,y):
+def chair(name,x,y,face_positive_y=False):
     cube(name+" seat",(x,y,0.53),(0.64,0.63,0.15),fabric)
-    cube(name+" back",(x,y+0.27,0.98),(0.65,0.12,0.94),fabric)
+    cube(name+" back",(x,y+(-0.27 if face_positive_y else 0.27),0.98),(0.65,0.12,0.94),fabric)
     cube(name+" support",(x,y,0.27),(0.09,0.09,0.46),steel)
     cube(name+" base",(x,y,0.10),(0.60,0.60,0.07),steel)
 
@@ -62,24 +62,24 @@ chair("Receptionist chair",-14,-9.55)
 # Research: two independent workstations and a reading table.
 for x,y in [(-16.8,6.3),(-12.4,6.3),(-16.8,1.4),(-12.4,1.4)]:
     desk("Research workstation",x,y)
-    chair("Research operator",x,y-1.15)
+    chair("Research operator",x,y-1.15,face_positive_y=True)
 cube("Research collaboration table",(-14,11.2,0.72),(3.5,1.55,0.12),lightwood)
 for x in (-15.2,-12.8):
     chair("Research meeting chair",x,9.95)
 # Trading: two rows of multi-screen desks, safely inside the trading department.
 for x,y in [(11.5,6.5),(16.3,6.5),(11.5,1.3),(16.3,1.3)]:
     desk("Trading station",x,y,2.6,1.2)
-    chair("Trading operator",x,y-1.25)
+    chair("Trading operator",x,y-1.25,face_positive_y=True)
     cube("Trading secondary display",(x+0.78,y+0.14,1.37),(0.66,0.065,0.48),screen)
 # Risk: compact analysis desks.
 for x,y in [(11.5,-10.1),(16.1,-10.1)]:
     desk("Risk analysis station",x,y,2.2,1.0)
-    chair("Risk analyst",x,y-1.12)
+    chair("Risk analyst",x,y-1.12,face_positive_y=True)
 # Executive room: board table and chairs; no corridor obstructions.
 cube("Boardroom meeting table",(0,11.5,0.79),(5.2,1.65,0.15),oak)
 for x in (-2.0,0,2.0):
     chair("Boardroom north chair",x,12.8)
-    chair("Boardroom south chair",x,10.2)
+    chair("Boardroom south chair",x,10.2,face_positive_y=True)
 # Subtle plants in the room corners, not in door openings.
 green=material("Plant foliage",(0.065,0.22,0.13))
 for x,y in [(-18.5,12.5),(18.5,12.5),(-18.5,-7.3),(18.5,-7.3)]:
