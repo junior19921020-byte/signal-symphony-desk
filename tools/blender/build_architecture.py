@@ -1,4 +1,4 @@
-"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v3)."""
+"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v4)."""
 import bpy
 import math
 from pathlib import Path
@@ -154,6 +154,45 @@ for name,a,b in [
 for x,y in [(-19.8,-14.7),(19.8,-14.7),(-19.8,14.7),(19.8,14.7),
             (-19.8,0),(19.8,0)]:
     cube("Perimeter pilaster",(x,y,2.10),(0.38,0.38,4.2),metal)
+
+# Version 4: more generous and legible circulation, entry, and department finishes.
+# Keep the 40 x 30 m footprint and preserve the furniture-free structure.
+# Side circulation shoulders visually distinguish the open hall from the rooms.
+trim=mat("Circulation edge - brushed slate",(0.16,0.24,0.30),0.25,0.38)
+threshold=mat("Interior thresholds - blue stone",(0.18,0.31,0.37),0.2,0.42)
+for x in (-6.05,6.05):
+    segment("Hall edge inlay",(x,-14.6),(x,7.8),0.018,trim,0.11,0.12)
+# Each opening has a clear threshold flush with the floor; no obstacles to movement.
+for x in (-8,8):
+    for ya,yb in [(-12,-9),(-2,1),(8,11)]:
+        cube("Department doorway floor threshold",(x,(ya+yb)/2,0.125),(0.38,yb-ya,0.035),threshold)
+cube("Director doorway floor threshold",(0,8,0.125),(3,0.38,0.035),threshold)
+# An extended exterior arrival platform helps the main entrance read clearly.
+cube("Entrance arrival landing",(0,-16.15,-0.08),(7,2.2,0.16),floor)
+for x in (-3.5,3.5):
+    segment("Entrance landing edge",(x,-17.25),(x,-15.05),0.045,trim,0.075,-0.01)
+# Warm-toned, understated floor plank joints in the four work departments.
+plank=mat("Wood floor joint - warm shadow",(0.24,0.15,0.10),0.02,0.8)
+for x0,x1,y0,y1 in [(-19.7,-8.3,-5.2,14.5),(8.3,19.7,-5.2,14.5),
+                    (-19.7,-8.3,-14.6,-5.8),(8.3,19.7,-14.6,-5.8)]:
+    y=y0+1.35
+    while y<y1-0.3:
+        segment("Department wood plank seam",(x0,y),(x1,y),0.006,plank,0.024,0.115)
+        y+=1.45
+# Exterior wall skirting and glazing bands strengthen architectural scale.
+for name,a,b in [
+    ("West wall skirting",(-19.80,-14.6),(-19.80,14.6)),
+    ("East wall skirting",(19.80,-14.6),(19.80,14.6)),
+    ("Rear wall skirting",(-19.7,14.78),(19.7,14.78)),
+]:
+    segment(name,a,b,0.22,metal,0.12,0.13)
+# Thin vertical framing makes long glass runs read as modular partitions.
+for x in (-8,8):
+    for ya,yb in [(-14.7,-12),(-9,-2),(1,8),(11,14.7)]:
+        n=max(1,int((yb-ya)/2.8))
+        for i in range(1,n):
+            y=ya+(yb-ya)*i/n
+            cube("Glazing modular mullion",(x,y,1.78),(0.095,0.095,3.56),metal)
 
 # Architectural camera.
 world=bpy.context.scene.world
