@@ -39,6 +39,41 @@ export function PhaserOfficePrototype() {
               g.strokePoints([{x,y:y-16},{x:x+32,y},{x,y:y+16},{x:x-32,y}], true);
             }
           }
+          // Paredes externas traseiras em perspectiva isométrica.
+          // Somente cenografia: não modifica blocked, portas nem navegação.
+          // As duas faces dianteiras permanecem abertas para visualizar as salas.
+          const exterior = this.add.graphics().setDepth(1);
+          const exteriorHeight = 43;
+          for (const side of [-1, 1]) {
+            for (let i = 0; i < 9; i++) {
+              const ax = 320 + side * i * 32;
+              const ay = 39 + i * 16;
+              const bx = ax + side * 32;
+              const by = ay + 16;
+              const topA = { x: ax, y: ay - exteriorHeight };
+              const topB = { x: bx, y: by - exteriorHeight };
+              const baseA = { x: ax, y: ay };
+              const baseB = { x: bx, y: by };
+              // Alvenaria clara com base mais escura e painéis de janela.
+              exterior.fillStyle(side < 0 ? 0x94a3b8 : 0xb6c7d8, 1);
+              exterior.fillPoints([baseA, baseB, topB, topA], true);
+              exterior.lineStyle(5, 0x475569, 1);
+              exterior.lineBetween(ax, ay - 2, bx, by - 2);
+              exterior.fillStyle(0x60a5fa, 0.65);
+              exterior.fillPoints([
+                { x: ax + side * 5, y: ay - 34 },
+                { x: bx - side * 5, y: by - 34 },
+                { x: bx - side * 5, y: by - 13 },
+                { x: ax + side * 5, y: ay - 13 },
+              ], true);
+              exterior.lineStyle(2, 0xe2e8f0, 1);
+              exterior.lineBetween(ax, ay - exteriorHeight, bx, by - exteriorHeight);
+              exterior.lineStyle(2, 0x334155, 0.9);
+              exterior.lineBetween(ax, ay - 12, bx, by - 12);
+              exterior.lineStyle(1, 0xffffff, 0.5);
+              exterior.lineBetween(ax + side * 8, ay - 31, bx - side * 8, by - 31);
+            }
+          }
           this.add.text(14, 12, "PROTÓTIPO • MOTOR PHASER", { color: "#facc15", fontSize: "15px" });
           this.add.text(14, 35, "Cena de teste — não conectada ao trading", { color: "#ffffff", fontSize: "11px" });
           // Portas em cada extremidade das divisorias, e cruzamento central livre.
