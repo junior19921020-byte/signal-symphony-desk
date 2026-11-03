@@ -55,11 +55,11 @@ W, D = 40.0, 30.0
 cube("Structural foundation",(0,0,-0.22),(W,D,0.44),wall)
 cube("Central circulation hall",(0,-1.5,0.035),(12,26,0.07),floor)
 zones=[
- ("Research and news",(-14,6),(12,17)),
- ("Trading",(14,6),(12,17)),
- ("Reception",(-14,-10.5),(12,8.5)),
- ("Risk management",(14,-10.5),(12,8.5)),
- ("Board and directors",(0,11.5),(12,7)),
+ ("Research and news",(-14,4.75),(12,20.5)),
+ ("Trading",(14,4.75),(12,20.5)),
+ ("Reception",(-14,-10.25),(12,9.5)),
+ ("Risk management",(14,-10.25),(12,9.5)),
+ ("Board and directors",(0,11.5),(16,7)),
 ]
 for name,(x,y),(w,d) in zones:
     cube(name+" floor",(x,y,0.05),(w,d,0.10),wood)
@@ -87,6 +87,26 @@ for xa,xb in [(-8,-1.5),(1.5,8)]:
     segment("Boardroom glazed front",(xa,8),(xb,8),3.5,glass,0.10)
     segment("Boardroom upper frame",(xa,8),(xb,8),0.11,metal,0.12,3.45)
 cube("Wide entrance threshold",(0,-14.8,0.08),(5,0.28,0.16),light)
+# Editable department floor labels.
+def floor_label(name, label, x, y, size):
+    curve=bpy.data.curves.new(name+" lettering","FONT")
+    curve.body=label
+    curve.size=size
+    curve.align_x="CENTER"
+    curve.align_y="CENTER"
+    obj=bpy.data.objects.new(name,curve)
+    bpy.context.collection.objects.link(obj)
+    obj.location=(x,y,0.13)
+    curve.materials.append(light)
+
+for name,label,x,y,size in [
+    ("Research sign","PESQUISA",-14,4.8,1.25),
+    ("Trading sign","TRADING",14,4.8,1.25),
+    ("Reception sign","RECEPCAO",-14,-10,1.1),
+    ("Risk sign","GESTAO DE RISCO",14,-10,0.9),
+    ("Director sign","DIRETORIA",0,11.7,1.2),
+]:
+    floor_label(name,label,x,y,size)
 # Architectural camera.
 world=bpy.context.scene.world
 world.color=(0.16,0.18,0.23)
@@ -102,7 +122,7 @@ cam=bpy.context.object
 direction=Vector((0,0,0))-cam.location
 cam.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
 cam.data.type="ORTHO"
-cam.data.ortho_scale=65
+cam.data.ortho_scale=53
 bpy.context.scene.camera=cam
 scene=bpy.context.scene
 scene.render.engine="BLENDER_EEVEE"
