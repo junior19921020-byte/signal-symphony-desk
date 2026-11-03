@@ -1,0 +1,49 @@
+name: Generate Blender office GLB
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/build_office_blender.py"
+      - ".github/workflows/generate-office-glb.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export-office:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+          blender --version
+      - name: Export office scene to GLB
+        run: |
+          mkdir -p build/office
+          blender --background --python scripts/build_office_blender.py -- --output build/office/signal-office.glb
+          test -s build/office/signal-office.glb
+      - name: Validate GLB header and size
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          p = Path("build/office/signal-office.glb")
+          data = p.read_bytes()
+          assert data[:4] == b"glTF", "Invalid GLB magic"
+          version, length = struct.unpack_from("<II", data, 4)
+          assert version == 2, f"Unsupported glTF version {version}"
+          assert length == len(data), "GLB file length mismatch"
+          assert len(data) > 1024, "GLB unexpectedly small"
+          print(f"GLB validated: {len(data):,} bytes")
+          PY
+      - name: Upload downloadable model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-office-blender-glb
+          path: build/office/signal-office.glb
+          if-no-files-found: error
+          retention-days: 30
