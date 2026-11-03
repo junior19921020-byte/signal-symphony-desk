@@ -10,7 +10,12 @@ def mat(name,color,metal=0,rough=.7,alpha=1):
  m=bpy.data.materials.new(name);m.diffuse_color=(*color,alpha);m.use_nodes=True
  p=m.node_tree.nodes.get("Principled BSDF");p.inputs["Base Color"].default_value=(*color,1);p.inputs["Metallic"].default_value=metal;p.inputs["Roughness"].default_value=rough
  if alpha<1:
-  p.inputs["Alpha"].default_value=alpha;m.surface_render_method="DITHERED"
+  p.inputs["Alpha"].default_value=alpha
+  # Blender 4.0 uses blend_method; Blender 4.2+ uses surface_render_method.
+  if hasattr(m, "surface_render_method"):
+   m.surface_render_method="DITHERED"
+  elif hasattr(m, "blend_method"):
+   m.blend_method="BLEND"
  return m
 concrete=mat("polished warm concrete",(.72,.72,.68));wood=mat("light oak",(.64,.45,.29));white=mat("warm white walls",(.88,.88,.84));black=mat("charcoal metal",(.065,.075,.08),.6);glass=mat("smoked glazing",(.43,.69,.74),.1,.12,.23);fabric=mat("sofa fabric",(.38,.46,.46));green=mat("foliage",(.16,.37,.22));screen=mat("monitor glass",(.08,.19,.24),.15,.2)
 def cube(name,loc,scale,material):
