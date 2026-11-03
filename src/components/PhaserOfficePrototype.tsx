@@ -154,6 +154,18 @@ export function PhaserOfficePrototype() {
               this.add.rectangle(p.x - 23, p.y - 10, 4, 21, 0x94a3b8).setDepth(p.y - 1);
               this.add.rectangle(p.x + 23, p.y - 10, 4, 21, 0x94a3b8).setDepth(p.y - 1);
               this.add.rectangle(p.x, p.y - 22, 49, 4, 0xcbd5e1).setDepth(p.y - 1);
+              // Porta de vidro aberta: acabamento e sinalização sem colisão extra.
+              // O vão central permanece livre no mapa de navegação.
+              const door = this.add.graphics().setDepth(p.y - 1);
+              door.lineStyle(2, 0x7dd3fc, 0.8);
+              door.lineBetween(p.x - 18, p.y - 19, p.x - 18, p.y - 4);
+              door.lineBetween(p.x + 18, p.y - 19, p.x + 18, p.y - 4);
+              door.lineStyle(2, 0xf8fafc, 0.8);
+              door.lineBetween(p.x - 18, p.y - 19, p.x - 6, p.y - 19);
+              door.lineBetween(p.x + 6, p.y - 19, p.x + 18, p.y - 19);
+              door.fillStyle(0x38bdf8, 0.85);
+              door.fillRect(p.x - 17, p.y - 11, 3, 4);
+              door.fillRect(p.x + 14, p.y - 11, 3, 4);
             }
           }
           for (const key of blocked) {
