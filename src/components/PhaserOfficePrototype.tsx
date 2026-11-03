@@ -153,34 +153,55 @@ export function PhaserOfficePrototype() {
               const p = tile(col, row);
               const graphics = this.add.graphics().setDepth(p.y + 8);
               automaticDoors.push({ col, row, openness: 0, graphics });
-              this.add.rectangle(p.x, p.y + 2, 47, 3, 0x64748b, 0.85).setDepth(p.y - 2);
             }
           }
           const drawAutomaticDoor = (door: typeof automaticDoors[number]) => {
             const p = tile(door.col, door.row);
             const g = door.graphics;
             g.clear();
-            const width = 46, height = 43;
-            const left = p.x - width / 2, top = p.y - height;
-            // Trilho superior e batentes permanecem fixos.
-            g.lineStyle(3, 0x64748b, 1);
-            g.lineBetween(left, top, left + width, top);
-            g.lineBetween(left, top, left, p.y);
-            g.lineBetween(left + width, top, left + width, p.y);
-            // Duas folhas de vidro deslizam lateralmente, sem teleportar.
-            const panelWidth = 21 * (1 - door.openness);
-            for (const side of [-1, 1]) {
-              const x = side < 0 ? left + 2 : left + width - 2 - panelWidth;
-              if (panelWidth < 0.5) continue;
-              g.fillStyle(0x7dd3fc, 0.29);
-              g.fillRect(x, top + 3, panelWidth, height - 6);
-              g.lineStyle(2, 0xbde9fb, 0.95);
-              g.strokeRect(x, top + 3, panelWidth, height - 6);
-              g.lineStyle(1, 0xffffff, 0.5);
-              g.lineBetween(x + panelWidth / 2, top + 8, x + panelWidth / 2, p.y - 9);
+            // O vão segue exatamente o mesmo eixo isométrico dos painéis
+            // adjacentes (inclinação 2:1), não a horizontal da tela.
+            const alongCol = door.row === 4;
+            const dx = alongCol ? 32 : -32;
+            const dy = 16;
+            const height = 47;
+            const left = { x: p.x - dx / 2, y: p.y - dy / 2 };
+            const right = { x: p.x + dx / 2, y: p.y + dy / 2 };
+            const lerp = (t: number) => ({
+              x: Phaser.Math.Linear(left.x, right.x, t),
+              y: Phaser.Math.Linear(left.y, right.y, t),
+            });
+            // Soleira, trilho superior e batentes fixos.
+            g.lineStyle(4, 0x475569, 1);
+            g.lineBetween(left.x, left.y, right.x, right.y);
+            g.lineStyle(3, 0xcbd5e1, 1);
+            g.lineBetween(left.x, left.y - height, right.x, right.y - height);
+            g.lineStyle(2, 0xe2e8f0, 0.95);
+            for (const edge of [left, right]) {
+              g.lineBetween(edge.x, edge.y, edge.x, edge.y - height);
             }
+            // Duas folhas deslizam ao longo da parede isométrica.
+            const remaining = (1 - door.openness) * 0.5;
+            for (const [from, to] of [[0, remaining], [1 - remaining, 1]]) {
+              if (to - from < 0.008) continue;
+              const a = lerp(from), b = lerp(to);
+              g.fillStyle(0x7dd3fc, 0.29);
+              g.fillPoints([
+                { x: a.x, y: a.y }, { x: b.x, y: b.y },
+                { x: b.x, y: b.y - height }, { x: a.x, y: a.y - height },
+              ], true);
+              g.lineStyle(2, 0xbde9fb, 0.95);
+              g.strokePoints([
+                { x: a.x, y: a.y }, { x: b.x, y: b.y },
+                { x: b.x, y: b.y - height }, { x: a.x, y: a.y - height },
+              ], true);
+              g.lineStyle(1, 0xffffff, 0.45);
+              const mid = lerp((from + to) / 2);
+              g.lineBetween(mid.x, mid.y - 8, mid.x, mid.y - height + 8);
+            }
+            const mid = lerp(0.5);
             g.fillStyle(door.openness > 0.1 ? 0x22c55e : 0xf59e0b, 1);
-            g.fillCircle(p.x, top - 5, 2);
+            g.fillCircle(mid.x, mid.y - height - 5, 2);
           };
           automaticDoors.forEach(drawAutomaticDoor);
           for (const key of blocked) {
