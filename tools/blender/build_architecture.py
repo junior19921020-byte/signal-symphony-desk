@@ -103,7 +103,7 @@ cam.data.type="ORTHO"
 cam.data.ortho_scale=30
 bpy.context.scene.camera=cam
 scene=bpy.context.scene
-scene.render.engine="BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
+scene.render.engine="BLENDER_EEVEE"
 scene.render.resolution_x=1600
 scene.render.resolution_y=1000
 scene.render.resolution_percentage=100
