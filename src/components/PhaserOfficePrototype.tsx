@@ -256,6 +256,24 @@ export function PhaserOfficePrototype() {
           const receptionDeskTile: [number, number] = [2, 7];
           const receptionDeskPosition = tile(...receptionDeskTile);
           blocked.add(receptionDeskTile.join(","));
+          // Cadeira da recepcionista atrás do balcão, no mesmo tile já
+          // reservado: não acrescenta colisões nem ocupa os corredores.
+          const receptionChair = this.add.graphics().setDepth(receptionDeskPosition.y + 4);
+          const chairX = receptionDeskPosition.x + 2;
+          const chairY = receptionDeskPosition.y - 20;
+          receptionChair.fillStyle(0x0f172a, 0.28);
+          receptionChair.fillEllipse(chairX, chairY + 9, 22, 7);
+          receptionChair.fillStyle(0x334155);
+          receptionChair.fillRoundedRect(chairX - 10, chairY - 23, 20, 21, 4);
+          receptionChair.lineStyle(2, 0x94a3b8);
+          receptionChair.strokeRoundedRect(chairX - 10, chairY - 23, 20, 21, 4);
+          receptionChair.fillStyle(0x2563eb);
+          receptionChair.fillRoundedRect(chairX - 7, chairY - 20, 14, 14, 3);
+          receptionChair.fillStyle(0x475569);
+          receptionChair.fillRoundedRect(chairX - 12, chairY - 5, 24, 9, 3);
+          receptionChair.lineStyle(3, 0x64748b);
+          receptionChair.lineBetween(chairX, chairY + 3, chairX, chairY + 12);
+          receptionChair.lineBetween(chairX - 9, chairY + 12, chairX + 9, chairY + 12);
           this.load.image("reception-desk-art", "/office-art/reception-desk.svg");
           this.load.once("complete", () => {
             if (!this.textures.exists("reception-desk-art")) return;
