@@ -256,36 +256,55 @@ export function PhaserOfficePrototype() {
           const receptionDeskTile: [number, number] = [2, 7];
           const receptionDeskPosition = tile(...receptionDeskTile);
           blocked.add(receptionDeskTile.join(","));
-          // Cadeira da recepcionista atrás do balcão, no mesmo tile já
-          // reservado: não acrescenta colisões nem ocupa os corredores.
-          const receptionChair = this.add.graphics().setDepth(receptionDeskPosition.y + 4);
-          const chairX = receptionDeskPosition.x + 2;
-          const chairY = receptionDeskPosition.y - 20;
-          receptionChair.fillStyle(0x0f172a, 0.28);
-          receptionChair.fillEllipse(chairX, chairY + 9, 22, 7);
-          receptionChair.fillStyle(0x334155);
-          receptionChair.fillRoundedRect(chairX - 10, chairY - 23, 20, 21, 4);
-          receptionChair.lineStyle(2, 0x94a3b8);
-          receptionChair.strokeRoundedRect(chairX - 10, chairY - 23, 20, 21, 4);
-          receptionChair.fillStyle(0x2563eb);
-          receptionChair.fillRoundedRect(chairX - 7, chairY - 20, 14, 14, 3);
-          receptionChair.fillStyle(0x475569);
-          receptionChair.fillRoundedRect(chairX - 12, chairY - 5, 24, 9, 3);
-          receptionChair.lineStyle(3, 0x64748b);
-          receptionChair.lineBetween(chairX, chairY + 3, chairX, chairY + 12);
-          receptionChair.lineBetween(chairX - 9, chairY + 12, chairX + 9, chairY + 12);
-          this.load.image("reception-desk-art", "/office-art/reception-desk.svg");
-          this.load.once("complete", () => {
-            if (!this.textures.exists("reception-desk-art")) return;
-            const receptionDesk = this.add.image(
-              receptionDeskPosition.x, receptionDeskPosition.y,
-              "reception-desk-art",
-            );
-            receptionDesk.setDisplaySize(62, 47);
-            receptionDesk.setOrigin(0.5, 0.84);
-            receptionDesk.setDepth(receptionDeskPosition.y + 6);
-          });
-          this.load.start();
+          // Cadeira atrás do balcão; a recepcionista pode sentar.
+          const receptionChair = this.add.container(
+            receptionDeskPosition.x - 7, receptionDeskPosition.y - 16,
+          ).setDepth(receptionDeskPosition.y - 9);
+          receptionChair.add([
+            this.add.ellipse(0, 8, 22, 7, 0x0f172a, 0.25),
+            this.add.rectangle(0, -14, 20, 23, 0x334155).setStrokeStyle(2, 0x94a3b8),
+            this.add.rectangle(0, -16, 14, 15, 0x2563eb),
+            this.add.rectangle(0, 0, 23, 9, 0x475569),
+            this.add.rectangle(0, 8, 3, 10, 0x64748b),
+          ]);
+          const rx = receptionDeskPosition.x, ry = receptionDeskPosition.y;
+          // Corpo do balcão à frente da cadeira.
+          const counter = this.add.graphics().setDepth(ry + 8);
+          counter.fillStyle(0x334155);
+          counter.fillPoints([
+            {x:rx-31,y:ry-20},{x:rx,y:ry-5},{x:rx,y:ry+13},{x:rx-31,y:ry-2},
+          ],true);
+          counter.fillStyle(0x475569);
+          counter.fillPoints([
+            {x:rx,y:ry-5},{x:rx+31,y:ry-20},{x:rx+31,y:ry-2},{x:rx,y:ry+13},
+          ],true);
+          counter.lineStyle(2,0x38bdf8);
+          counter.lineBetween(rx-30,ry-3,rx,ry+12);
+          counter.lineBetween(rx,ry+12,rx+30,ry-3);
+          counter.fillStyle(0xe8b77c);
+          counter.fillPoints([
+            {x:rx,y:ry-37},{x:rx+32,y:ry-21},
+            {x:rx,y:ry-5},{x:rx-32,y:ry-21},
+          ],true);
+          counter.lineStyle(2,0xffe2ae);
+          counter.strokePoints([
+            {x:rx,y:ry-37},{x:rx+32,y:ry-21},
+            {x:rx,y:ry-5},{x:rx-32,y:ry-21},
+          ],true);
+          // Monitor separado com pedestal sobre o tampo.
+          const monitor = this.add.container(rx+3,ry-33).setDepth(ry+12);
+          monitor.add([
+            this.add.rectangle(0,2,3,9,0x64748b),
+            this.add.rectangle(0,6,12,3,0x334155),
+            this.add.rectangle(0,-10,23,17,0x0f172a).setStrokeStyle(2,0x64748b),
+            this.add.rectangle(0,-10,17,11,0x075985),
+            this.add.rectangle(-3,-12,7,2,0x38bdf8),
+            this.add.rectangle(3,-8,8,2,0x7dd3fc),
+          ]);
+          this.add.text(rx,ry+3,"RECEPÇÃO",{
+            fontFamily:"monospace",fontSize:"7px",color:"#e0f2fe",
+            backgroundColor:"#17253d",
+          }).setOrigin(0.5).setDepth(ry+13);
           // Decoracao visual isolada: nao altera tiles, colisao, rotas ou servicos.
           // Os detalhes ficam em areas livres e nao sao interativos.
           const decor = this.add.graphics().setDepth(70);
@@ -492,6 +511,24 @@ export function PhaserOfficePrototype() {
             }
           });
           let walking = false;
+          let seated = false;
+          let seating = false;
+          const seatApproach: [number, number] = [2, 6];
+          const seatPoint = {x: receptionDeskPosition.x-7, y: receptionDeskPosition.y-16};
+          const sitDown = () => {
+            if (seated || seating) return;
+            seating = true;
+            walkMotion.pause(); oppositeMotion.pause();
+            this.tweens.add({
+              targets: agent, x: seatPoint.x, y: seatPoint.y, duration: 330,
+              onUpdate: () => agent.setDepth(receptionDeskPosition.y-7),
+              onComplete: () => {
+                seated = true; seating = false;
+                leftLeg.setVisible(false); rightLeg.setVisible(false);
+                agent.setDepth(receptionDeskPosition.y-7);
+              },
+            });
+          };
           // Ciclo demonstrativo: deslocamento, monitoramento e pausa.
           // As duas casas ficam reservadas no mapa, sem acesso a trading real.
           if (movingColleague) {
@@ -533,15 +570,19 @@ export function PhaserOfficePrototype() {
           }
 
           const walkTo = (goal: [number, number]) => {
-            if (walking || blocked.has(goal.join(","))) return;
-            const path = findPath(location, goal).slice(1);
-            if (!path.length) return;
+            if (walking || seating) return;
+            const wantsSeat = goal[0] === receptionDeskTile[0] && goal[1] === receptionDeskTile[1];
+            if (!wantsSeat && blocked.has(goal.join(","))) return;
+            const destination: [number, number] = wantsSeat ? seatApproach : goal;
+            const beginWalk = () => {
+            const path = findPath(location, destination).slice(1);
+            if (!path.length) { if (wantsSeat) sitDown(); return; }
             walking = true;
             walkMotion.resume();
             oppositeMotion.resume();
             const advance = () => {
               const next = path.shift();
-              if (!next) { walking = false; walkMotion.pause(); oppositeMotion.pause(); leftLeg.setAngle(0); rightLeg.setAngle(0); leftArm.setAngle(0); rightArm.setAngle(0); return; }
+              if (!next) { walking = false; walkMotion.pause(); oppositeMotion.pause(); leftLeg.setAngle(0); rightLeg.setAngle(0); leftArm.setAngle(0); rightArm.setAngle(0); if (wantsSeat) sitDown(); return; }
               const p = tile(...next);
               this.tweens.add({
                 targets: agent, x: p.x, y: p.y, duration: 230,
@@ -550,6 +591,19 @@ export function PhaserOfficePrototype() {
               });
             };
             advance();
+            };
+            if (seated) {
+              seated = false; seating = true;
+              this.tweens.add({
+                targets: agent, x: tile(...seatApproach).x, y: tile(...seatApproach).y,
+                duration: 330,
+                onComplete: () => {
+                  location = [...seatApproach];
+                  leftLeg.setVisible(true); rightLeg.setVisible(true);
+                  seating = false; beginWalk();
+                },
+              });
+            } else beginWalk();
           };
           // Zoom por pinca, sem controles sobrepostos ao escritorio.
           const camera = this.cameras.main;
