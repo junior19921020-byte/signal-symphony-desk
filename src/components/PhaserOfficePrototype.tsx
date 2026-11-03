@@ -276,7 +276,21 @@ export function PhaserOfficePrototype() {
           const rightArm = this.add.rectangle(11, -17, 5, 15, 0xf5c99a);
           const head = this.add.circle(0, -34, 9, 0xf5c99a);
           const hair = this.add.arc(0, -38, 9, 180, 360, false, 0x422006);
-          agent.add([shadow, leftLeg, rightLeg, body, leftArm, rightArm, head, hair]);
+          // Detalhes visuais pixel-art da Cíntia; preserva o container,
+          // as animações de caminhada e o mapa lógico de colisões.
+          const collar = this.add.rectangle(0, -25, 8, 3, 0xe2e8f0);
+          const belt = this.add.rectangle(0, -9, 15, 3, 0x1e40af);
+          const badge = this.add.rectangle(5, -19, 4, 5, 0xf8fafc);
+          const eyes = [
+            this.add.rectangle(-3, -34, 2, 2, 0x1e293b),
+            this.add.rectangle(3, -34, 2, 2, 0x1e293b),
+          ];
+          const shoes = [
+            this.add.rectangle(-4, 1, 7, 3, 0x0f172a),
+            this.add.rectangle(4, 1, 7, 3, 0x0f172a),
+          ];
+          agent.add([shadow, leftLeg, rightLeg, ...shoes, body, belt,
+            leftArm, rightArm, collar, badge, head, hair, ...eyes]);
           const walkMotion = this.tweens.add({
             targets: [leftLeg, rightArm], angle: { from: -15, to: 15 },
             duration: 180, yoyo: true, repeat: -1, paused: true,
@@ -316,6 +330,14 @@ export function PhaserOfficePrototype() {
               this.add.rectangle(0, -17, 15, 19, member.shirt),
               this.add.circle(0, -33, 8, 0xf5c99a),
               this.add.arc(0, -37, 8, 180, 360, false, 0x422006),
+              // Acabamentos de uniforme e expressão, sem lógica operacional.
+              this.add.rectangle(0, -25, 7, 3, 0xe2e8f0),
+              this.add.rectangle(0, -9, 14, 3, 0x334155),
+              this.add.rectangle(5, -18, 3, 4, 0xf8fafc),
+              this.add.rectangle(-3, -33, 2, 2, 0x1e293b),
+              this.add.rectangle(3, -33, 2, 2, 0x1e293b),
+              this.add.rectangle(-4, 1, 7, 3, 0x0f172a),
+              this.add.rectangle(4, 1, 7, 3, 0x0f172a),
               this.add.text(0, -52, member.name, { fontSize: "9px", color: "#ffffff", backgroundColor: "#0f172a", padding: { x: 2, y: 1 } }).setOrigin(0.5),
             ]);
           }
