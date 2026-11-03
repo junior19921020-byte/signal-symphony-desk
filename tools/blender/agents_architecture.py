@@ -50,24 +50,62 @@ def sphere(name, location, radius, mat):
     bpy.ops.object.shade_smooth()
     return obj
 
+def rounded_block(name, location, dimensions, mat, bevel=0.07):
+    obj = block(name, location, dimensions, mat)
+    modifier = obj.modifiers.new("Soft tailored edges", "BEVEL")
+    modifier.width = bevel
+    modifier.segments = 2
+    obj.modifiers.new("Weighted normals", "WEIGHTED_NORMAL")
+    return obj
+
+def ellipsoid(name, location, scale, mat):
+    obj = sphere(name, location, 1, mat)
+    obj.scale = scale
+    return obj
+
 def seated(name, x, y, tone, outfit, hairmat):
-    """Seat center matches furniture chair; faces desk toward positive Y."""
+    """A seated operator faces positive Y, matching the existing workstation chairs.
+
+    This optional visual-only model does not move furniture or alter trading agents.
+    Keep feet under the desk, hands over the keyboard and head above the chair back.
+    """
     prefix = name + " - "
-    block(prefix + "torso", (x, y, 1.17), (0.53, 0.34, 0.67), outfit)
-    block(prefix + "shirt collar", (x, y + 0.18, 1.40), (0.23, 0.025, 0.22), shirt)
-    sphere(prefix + "head", (x, y + 0.015, 1.76), 0.24, tone)
-    sphere(prefix + "hair", (x, y - 0.035, 1.91), 0.205, hairmat)
+    # Rounded jacket and shoulder silhouette, rather than rectangular mannequins.
+    rounded_block(prefix + "jacket", (x, y, 1.20), (0.51, 0.34, 0.61), outfit, 0.11)
+    rounded_block(prefix + "shirt front", (x, y + 0.178, 1.33),
+                  (0.19, 0.022, 0.35), shirt, 0.015)
+    rounded_block(prefix + "neck", (x, y + 0.015, 1.57),
+                  (0.15, 0.14, 0.15), tone, 0.035)
+    ellipsoid(prefix + "head", (x, y + 0.025, 1.79),
+              (0.235, 0.215, 0.275), tone)
+    # Hair cap sits above the face and does not obscure it.
+    ellipsoid(prefix + "hair cap", (x, y - 0.038, 1.963),
+              (0.240, 0.225, 0.115), hairmat)
+    ellipsoid(prefix + "hair back", (x, y - 0.145, 1.82),
+              (0.215, 0.095, 0.185), hairmat)
+    # Small jacket lapels and a dark tie create readable clothing at render scale.
     for side in (-1, 1):
-        block(prefix + "upper arm", (x + side * 0.34, y + 0.075, 1.19),
-              (0.15, 0.23, 0.43), outfit)
-        block(prefix + "forearm", (x + side * 0.34, y + 0.30, 0.99),
-              (0.14, 0.34, 0.14), tone)
-        block(prefix + "thigh", (x + side * 0.15, y + 0.30, 0.53),
-              (0.24, 0.60, 0.19), outfit)
-        block(prefix + "shin", (x + side * 0.15, y + 0.57, 0.31),
-              (0.19, 0.18, 0.43), outfit)
-        block(prefix + "shoe", (x + side * 0.15, y + 0.71, 0.095),
-              (0.21, 0.36, 0.15), shoes)
+        lapel = rounded_block(prefix + "lapel", (x + side * 0.105, y + 0.192, 1.40),
+                              (0.105, 0.027, 0.24), outfit, 0.018)
+        lapel.rotation_euler[1] = side * 0.22
+    rounded_block(prefix + "tie", (x, y + 0.199, 1.34),
+                  (0.052, 0.024, 0.23), shoes, 0.012)
+    for side in (-1, 1):
+        sx = x + side * 0.33
+        ellipsoid(prefix + "shoulder", (sx, y + 0.018, 1.40),
+                  (0.17, 0.18, 0.16), outfit)
+        rounded_block(prefix + "sleeve", (sx, y + 0.10, 1.21),
+                      (0.17, 0.23, 0.37), outfit, 0.065)
+        rounded_block(prefix + "forearm", (sx, y + 0.34, 1.02),
+                      (0.135, 0.31, 0.13), outfit, 0.05)
+        ellipsoid(prefix + "hand", (sx, y + 0.49, 1.02),
+                  (0.086, 0.11, 0.066), tone)
+        rounded_block(prefix + "trouser thigh", (x + side * 0.145, y + 0.31, 0.59),
+                      (0.23, 0.55, 0.22), outfit, 0.075)
+        rounded_block(prefix + "trouser shin", (x + side * 0.145, y + 0.57, 0.32),
+                      (0.18, 0.18, 0.40), outfit, 0.045)
+        rounded_block(prefix + "shoe", (x + side * 0.145, y + 0.71, 0.10),
+                      (0.21, 0.35, 0.15), shoes, 0.045)
 
 # Keep all characters within the existing furnished workstation positions.
 people = [
