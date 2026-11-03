@@ -19,7 +19,21 @@ jobs:
           sudo apt-get install -y blender
           blender --version
       - name: Generate architectural model
-        run: blender --background --python tools/blender/build_architecture.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background --python-exit-code 1 --python tools/blender/build_architecture.py 2>&1 | tee blender-build.log
+          test -s blender-output/signal_symphony_architecture.blend
+          test -s blender-output/signal_symphony_architecture.glb
+          test -s blender-output/architecture.png
+          ls -lh blender-output/
+      - name: Upload diagnostic log if generation fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-diagnostic-log
+          path: blender-build.log
+          if-no-files-found: warn
       - name: Upload 3D model and render
         uses: actions/upload-artifact@v4
         with:
