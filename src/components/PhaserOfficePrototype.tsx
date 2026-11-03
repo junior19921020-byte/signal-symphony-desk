@@ -136,6 +136,26 @@ export function PhaserOfficePrototype() {
             desk.strokePoints([{ x: p.x, y: p.y - 27 }, { x: p.x + 25, y: p.y - 15 }, { x: p.x, y: p.y - 3 }, { x: p.x - 25, y: p.y - 15 }], true);
             this.add.rectangle(p.x, p.y - 31, 20, 15, 0x0f172a).setStrokeStyle(2, 0x38bdf8).setDepth(p.y + 2);
             this.add.rectangle(p.x, p.y - 22, 3, 5, 0x94a3b8).setDepth(p.y + 3);
+            // Acabamento pixel-art das estacoes: gaveteiro, tampo em duas
+            // tonalidades e reflexo do monitor. Apenas geometria visual.
+            const detail = this.add.graphics().setDepth(p.y + 3);
+            detail.fillStyle(0x6b442d);
+            detail.fillPoints([
+              { x: p.x - 21, y: p.y - 13 },
+              { x: p.x - 13, y: p.y - 9 },
+              { x: p.x - 13, y: p.y + 2 },
+              { x: p.x - 21, y: p.y - 2 },
+            ], true);
+            detail.lineStyle(1, 0xe7b987);
+            detail.lineBetween(p.x - 20, p.y - 9, p.x - 14, p.y - 6);
+            detail.lineBetween(p.x - 20, p.y - 5, p.x - 14, p.y - 2);
+            detail.fillStyle(0xfde68a);
+            detail.fillRect(p.x - 18, p.y - 8, 2, 1);
+            detail.fillRect(p.x - 18, p.y - 4, 2, 1);
+            detail.lineStyle(2, 0xf8fafc, 0.65);
+            detail.lineBetween(p.x - 7, p.y - 35, p.x + 3, p.y - 35);
+            detail.lineStyle(1, 0x38bdf8, 0.8);
+            detail.lineBetween(p.x - 7, p.y - 29, p.x + 6, p.y - 29);
             // Cadeira ao lado da mesa, dentro do mesmo tile bloqueado.
             const chair = this.add.graphics().setDepth(p.y + 4);
             chair.fillStyle(0x1e293b);
