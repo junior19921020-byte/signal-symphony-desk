@@ -1,4 +1,4 @@
-"""Generate an editable, furniture-free architectural shell for Signal Symphony Desk."""
+"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v3)."""
 import bpy
 import math
 from pathlib import Path
@@ -107,6 +107,54 @@ for name,label,x,y,size in [
     ("Director sign","DIRETORIA",0,11.7,1.2),
 ]:
     floor_label(name,label,x,y,size)
+# Version 3: architectural detailing only — no furniture or agents.
+# Entrance: glazed sliding leaves with dark structural mullions.
+for x in (-2.5, 0, 2.5):
+    segment("Entrance vertical mullion", (x,-15.01),(x,-15.01),3.25,metal,0.10)
+for xa,xb in [(-2.43,-0.08),(0.08,2.43)]:
+    segment("Entrance glazed sliding leaf",(xa,-15),(xb,-15),3.15,glass,0.055)
+segment("Entrance overhead beam",(-2.5,-15),(2.5,-15),0.22,metal,0.18,3.22)
+
+# Full-height exterior window bays on the rear wall; dark framing over translucent glass.
+for xa,xb in [(-18,-12),(-10,-4),(4,10),(12,18)]:
+    segment("Rear window glazing",(xa,14.87),(xb,14.87),2.0,glass,0.07,1.35)
+    segment("Rear window upper rail",(xa,14.85),(xb,14.85),0.10,metal,0.10,3.32)
+    segment("Rear window lower rail",(xa,14.85),(xb,14.85),0.10,metal,0.10,1.30)
+    for x in (xa,xb):
+        segment("Rear window mullion",(x,14.83),(x,14.83),2.2,metal,0.10,1.25)
+
+# Glazed room entrances remain unobstructed: the top rail marks each opening.
+for x in (-8,8):
+    for ya,yb in [(-12,-9),(-2,1),(8,11)]:
+        segment("Department doorway lintel",(x,ya),(x,yb),0.14,metal,0.12,3.40)
+        for y in (ya,yb):
+            cube("Doorway vertical jamb",(x,y,1.73),(0.13,0.13,3.46),metal)
+segment("Director entrance lintel",(-1.5,8),(1.5,8),0.14,metal,0.12,3.40)
+for x in (-1.5,1.5):
+    cube("Director doorway jamb",(x,8,1.73),(0.13,0.13,3.46),metal)
+
+# Fine floor seams: visual circulation guides, not physical obstacles.
+seam=mat("Floor joint - muted graphite",(0.11,0.15,0.19),0.1)
+for x in (-5.6,-2.8,0,2.8,5.6):
+    segment("Hall floor seam longitudinal",(x,-14.5),(x,7.7),0.012,seam,0.025,0.11)
+for y in (-13,-10,-7,-4,-1,2,5):
+    segment("Hall floor seam transverse",(-5.9,y),(5.9,y),0.012,seam,0.025,0.11)
+
+# Exterior coping adds a readable perimeter silhouette in the isometric view.
+for name,a,b in [
+    ("West coping",(-20, -15),(-20,15)),
+    ("East coping",(20,-15),(20,15)),
+    ("Rear coping",(-20,15),(20,15)),
+    ("Front left coping",(-20,-15),(-2.5,-15)),
+    ("Front right coping",(2.5,-15),(20,-15)),
+]:
+    segment(name,a,b,0.12,metal,0.34,4.14)
+
+# Structural pilasters at the rear corners and along the exterior sides.
+for x,y in [(-19.8,-14.7),(19.8,-14.7),(-19.8,14.7),(19.8,14.7),
+            (-19.8,0),(19.8,0)]:
+    cube("Perimeter pilaster",(x,y,2.10),(0.38,0.38,4.2),metal)
+
 # Architectural camera.
 world=bpy.context.scene.world
 world.color=(0.16,0.18,0.23)
