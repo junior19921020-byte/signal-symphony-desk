@@ -1,4 +1,4 @@
-"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v5)."""
+"""Generate the editable, furniture-free architectural shell for Signal Symphony Desk (v6)."""
 import bpy
 import math
 from pathlib import Path
@@ -234,6 +234,35 @@ executive_light.data.energy=2300
 executive_light.data.shape="RECTANGLE"
 executive_light.data.size=16
 executive_light.data.size_y=9
+
+# Version 6: readable departmental zoning and circulation wayfinding.
+# Thin floor finishes are flush with the architecture; no furniture or navigation blockers.
+research_finish=mat("Research flooring - honey oak",(0.39,0.255,0.155),0.02,0.78)
+trading_finish=mat("Trading flooring - smoked oak",(0.275,0.175,0.115),0.05,0.65)
+risk_finish=mat("Risk flooring - slate oak",(0.30,0.225,0.17),0.04,0.72)
+reception_finish=mat("Reception flooring - light oak",(0.43,0.30,0.20),0.02,0.77)
+hall_inlay=mat("Hall compass inlay - soft steel",(0.25,0.37,0.44),0.35,0.4)
+for name,center,size,finish in [
+    ("Research warm finish",(-14,4.75),(11.25,19.8),research_finish),
+    ("Trading focused finish",(14,4.75),(11.25,19.8),trading_finish),
+    ("Reception arrival finish",(-14,-10.25),(11.25,8.8),reception_finish),
+    ("Risk controlled finish",(14,-10.25),(11.25,8.8),risk_finish),
+]:
+    cube(name,(center[0],center[1],0.119),(size[0],size[1],0.014),finish)
+# Clear, understated center-hall inlay reserves the future company emblem location.
+for xa,xb,ya,yb in [
+    (-3.3,3.3,-5.3,-5.3),(-3.3,3.3,-1.7,-1.7),
+    (-3.3,-3.3,-5.3,-1.7),(3.3,3.3,-5.3,-1.7),
+]:
+    segment("Company emblem reserved border",(xa,ya),(xb,yb),0.013,hall_inlay,0.075,0.143)
+# Separate the reception's public arrival zone from its workstation area visually.
+segment("Reception public approach marker",(-19.2,-11.8),(-8.6,-11.8),0.014,hall_inlay,0.07,0.148)
+# Floor signage must remain above the final floor finishes, not hidden beneath them.
+for obj in bpy.data.objects:
+    if obj.type=="FONT" and obj.name in {
+        "Research sign","Trading sign","Reception sign","Risk sign","Director sign"
+    }:
+        obj.location.z=0.195
 
 # Architectural camera.
 world=bpy.context.scene.world
