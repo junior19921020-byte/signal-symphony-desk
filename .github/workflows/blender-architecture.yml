@@ -16,14 +16,14 @@ jobs:
       - name: Install Blender
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender python3-numpy
+          sudo apt-get install -y blender python3-numpy libegl1 libgl1 libopengl0 libxrender1 libxi6 libxkbcommon0 libsm6 libxext6 libx11-6 xvfb mesa-utils
           blender --version
           blender --background --python-expr "import numpy; print('NumPy available:', numpy.__version__)"
       - name: Generate architectural model
         shell: bash
         run: |
           set -euo pipefail
-          blender --background --python-exit-code 1 --python tools/blender/build_architecture.py 2>&1 | tee blender-build.log
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a blender --background --python-exit-code 1 --python tools/blender/build_architecture.py 2>&1 | tee blender-build.log
           test -s blender-output/signal_symphony_architecture.blend
           test -s blender-output/signal_symphony_architecture.glb
           test -s blender-output/architecture.png
