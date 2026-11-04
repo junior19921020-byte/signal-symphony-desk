@@ -12,9 +12,11 @@ function GlbViewer() {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    import("@google/model-viewer").catch(() => {
-      setMessage("Não foi possível carregar o visualizador. Verifique sua conexão.");
-    });
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js";
+    script.onerror = () => setMessage("Não foi possível carregar o visualizador. Verifique sua conexão.");
+    document.head.appendChild(script);
     return () => {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     };
