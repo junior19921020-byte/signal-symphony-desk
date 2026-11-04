@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Visualizador GLB | Signal Symphony Desk</title>
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07111f;color:#e5f3ff;font:16px system-ui,sans-serif}
+main{max-width:1100px;margin:auto;padding:18px}h1{font-size:1.4rem;color:#69d6fa;margin:10px 0}
+p{line-height:1.5;color:#b8c8d8}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:16px 0}
+label{background:#174766;border:1px solid #6cb9dd;border-radius:10px;padding:12px 16px;cursor:pointer}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0}button{background:#182b40;color:white;border:1px solid #6a829c;border-radius:10px;padding:12px;cursor:pointer}
+model-viewer{display:block;width:100%;height:min(70vh,740px);min-height:420px;border:1px solid #45617a;border-radius:14px;background:radial-gradient(circle at center,#d9e7ec,#8195a5)}
+#status{font-size:14px;color:#a9d7eb;min-height:24px}a{color:#8cdbff}
+</style></head><body><main>
+<a href="/">← Signal Symphony Desk</a><h1>Escritório 3D — visualização real</h1>
+<p>Abra o arquivo <strong>signal-office.glb</strong> no seu celular. Arraste para girar, use dois dedos para aproximar e examine as cores e os materiais originais.</p>
+<div class="controls"><label for="file">Selecionar arquivo GLB</label><input id="file" type="file" accept=".glb,model/gltf-binary"/>
+<button id="reset" type="button">Restaurar câmera</button></div>
+<div id="status" role="status" aria-live="polite">Aguardando a seleção de um arquivo GLB.</div>
+<model-viewer id="scene" camera-controls touch-action="pan-y" shadow-intensity="1" exposure="1.1" environment-image="neutral" tone-mapping="neutral" interaction-prompt="auto" alt="Modelo 3D do escritório Signal Symphony Desk"></model-viewer>
+<p>O arquivo é aberto diretamente no navegador, sem enviar seu modelo para um servidor. Esta página é experimental e não altera operações, login ou agentes.</p>
+</main><script>
+const file=document.getElementById('file'),scene=document.getElementById('scene'),status=document.getElementById('status');let url=null;
+file.addEventListener('change',()=>{const selected=file.files&&file.files[0];if(!selected)return;if(!selected.name.toLowerCase().endsWith('.glb')){status.textContent='Selecione um arquivo com extensão .glb.';return;}if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(selected);status.textContent='Carregando '+selected.name+'…';scene.src=url;});
+scene.addEventListener('load',()=>{status.textContent='Modelo carregado! Arraste para girar e use dois dedos para zoom.';scene.jumpCameraToGoal();});
+scene.addEventListener('error',()=>{status.textContent='Não foi possível carregar o GLB. Confira se o arquivo está completo.';});
+document.getElementById('reset').addEventListener('click',()=>{scene.cameraOrbit='auto auto auto';scene.cameraTarget='auto auto auto';scene.fieldOfView='auto';scene.jumpCameraToGoal();});
+window.addEventListener('pagehide',()=>{if(url)URL.revokeObjectURL(url)});
+</script></body></html>
