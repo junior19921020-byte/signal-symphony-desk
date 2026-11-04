@@ -16,23 +16,30 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Install Blender
+      - name: Restore cached Blender
+        id: blender-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/signal-blender
+          key: signal-blender-4.2.0-linux-x64-v1
+      - name: Download Blender binary if cache is empty
+        if: steps.blender-cache.outputs.cache-hit != 'true'
         run: |
-          # Avoid indefinite waits on Ubuntu package mirrors.
-          sudo timeout 300s apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo DEBIAN_FRONTEND=noninteractive timeout 600s apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends blender python3-numpy
-          blender --version
-      - name: Verify NumPy inside Blender
-        env:
-          PYTHONPATH: /usr/lib/python3/dist-packages
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/signal-blender"
+          curl --fail --location --retry 3 --retry-delay 5 --connect-timeout 20 --max-time 600 \
+            https://download.blender.org/release/Blender4.2/blender-4.2.0-linux-x64.tar.xz \
+            -o /tmp/blender.tar.xz
+          tar -xJf /tmp/blender.tar.xz -C "$HOME/.cache/signal-blender" --strip-components=1
+          test -x "$HOME/.cache/signal-blender/blender"
+      - name: Configure Blender
         run: |
-          blender --background --python-expr "import numpy; print('Blender NumPy:', numpy.__version__)"
+          echo "$HOME/.cache/signal-blender" >> "$GITHUB_PATH"
+          "$HOME/.cache/signal-blender/blender" --background --factory-startup --python-expr "import numpy; print('Blender NumPy:', numpy.__version__)"
       - name: Export office scene to GLB
-        env:
-          PYTHONPATH: /usr/lib/python3/dist-packages
         run: |
           mkdir -p build/office
-          blender --background --python scripts/build_office_blender.py -- --output build/office/signal-office.glb
+          blender --background --factory-startup --python scripts/build_office_blender.py -- --output build/office/signal-office.glb
           test -s build/office/signal-office.glb
       - name: Validate GLB header and size
         run: |
