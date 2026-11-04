@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/glb-viewer")({
   component: GlbViewer,
@@ -50,7 +50,7 @@ function GlbViewer() {
         {src ? (
           <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid #60788a", background: "linear-gradient(#9cb4c2, #d5e0e5)", height: "min(70vh, 720px)", minHeight: 400 }}>
             {/** model-viewer is registered by the client-side dynamic import. */}
-            <model-viewer ref={viewerRef} src={src} alt="Modelo tridimensional do escritório Signal Symphony Desk" camera-controls auto-rotate shadow-intensity="1" exposure="1" style={{ width: "100%", height: "100%" }} />
+            {createElement("model-viewer", { ref: viewerRef, src, alt: "Modelo tridimensional do escritório Signal Symphony Desk", "camera-controls": true, "auto-rotate": true, "shadow-intensity": "1", exposure: "1", style: { width: "100%", height: "100%" } })}
           </div>
         ) : (
           <div style={{ height: 360, borderRadius: 18, border: "1px dashed #60788a", display: "grid", placeItems: "center", textAlign: "center", padding: 24 }}>Selecione o arquivo GLB para visualizar o escritório.</div>
