@@ -243,6 +243,29 @@ for label,x,y in [
 cube("main entrance brass threshold",(8.55,-7.15,.063),(2.7,.08,.025),accent)
 # Department zoning pass end.
 
+
+# Furniture integrity pass: ensure every visible chair has a grounded support.
+def chair_support(x,y):
+ cylinder("chair lift column",(x,y,.27),.055,.38,steel,12)
+ for k in range(5):
+  a=k*math.tau/5
+  dx,dy=math.cos(a),math.sin(a)
+  spoke=cube("chair base spoke",(x+dx*.19,y+dy*.19,.095),(.40,.055,.05),black)
+  spoke.rotation_euler.z=a
+  cylinder("chair caster",(x+dx*.37,y+dy*.37,.055),.055,.09,black,12)
+for x,y in [(-7.2,1.38),(-7.2,5.68)]+[(x,y+.78) for x in (-1.3,1.7,4.7) for y in (-4.6,-1.5)]:
+ chair_support(x,y)
+# The six meeting chairs were previously just seat cushions; give them legs.
+for i in range(6):
+ x=-9.0+i*.67
+ for dx in (-.17,.17):
+  for dy in (-.17,.17):
+   cube("meeting chair leg",(x+dx,-3.55+dy,.20),(.045,.045,.40),steel)
+# Reinforce the meeting table, which previously had no legs.
+for x in (-8.85,-5.75):
+ for y in (-4.9,-4.1):
+  cube("meeting table leg",(x,y,.36),(.075,.075,.72),black)
+
 # Lighting for Blender render preview; glTF exports mesh materials and lights if supported.
 world=bpy.context.scene.world
 if world:world.color=(.65,.65,.65)
