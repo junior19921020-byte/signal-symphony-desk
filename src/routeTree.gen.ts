@@ -10,33 +10,89 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ArchitecturePreviewRouteImport } from './routes/architecture-preview'
+import { Route as GlbViewerRouteImport } from './routes/glb-viewer'
+import { Route as Office3dPreviewRouteImport } from './routes/office-3d-preview'
+import { Route as PhaserPreviewRouteImport } from './routes/phaser-preview'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArchitecturePreviewRoute = ArchitecturePreviewRouteImport.update({
+  id: '/architecture-preview',
+  path: '/architecture-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GlbViewerRoute = GlbViewerRouteImport.update({
+  id: '/glb-viewer',
+  path: '/glb-viewer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Office3dPreviewRoute = Office3dPreviewRouteImport.update({
+  id: '/office-3d-preview',
+  path: '/office-3d-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PhaserPreviewRoute = PhaserPreviewRouteImport.update({
+  id: '/phaser-preview',
+  path: '/phaser-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/architecture-preview': typeof ArchitecturePreviewRoute
+  '/glb-viewer': typeof GlbViewerRoute
+  '/office-3d-preview': typeof Office3dPreviewRoute
+  '/phaser-preview': typeof PhaserPreviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/architecture-preview': typeof ArchitecturePreviewRoute
+  '/glb-viewer': typeof GlbViewerRoute
+  '/office-3d-preview': typeof Office3dPreviewRoute
+  '/phaser-preview': typeof PhaserPreviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/architecture-preview': typeof ArchitecturePreviewRoute
+  '/glb-viewer': typeof GlbViewerRoute
+  '/office-3d-preview': typeof Office3dPreviewRoute
+  '/phaser-preview': typeof PhaserPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/architecture-preview'
+    | '/glb-viewer'
+    | '/office-3d-preview'
+    | '/phaser-preview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/architecture-preview'
+    | '/glb-viewer'
+    | '/office-3d-preview'
+    | '/phaser-preview'
+  id:
+    | '__root__'
+    | '/'
+    | '/architecture-preview'
+    | '/glb-viewer'
+    | '/office-3d-preview'
+    | '/phaser-preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArchitecturePreviewRoute: typeof ArchitecturePreviewRoute
+  GlbViewerRoute: typeof GlbViewerRoute
+  Office3dPreviewRoute: typeof Office3dPreviewRoute
+  PhaserPreviewRoute: typeof PhaserPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +104,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/architecture-preview': {
+      id: '/architecture-preview'
+      path: '/architecture-preview'
+      fullPath: '/architecture-preview'
+      preLoaderRoute: typeof ArchitecturePreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/glb-viewer': {
+      id: '/glb-viewer'
+      path: '/glb-viewer'
+      fullPath: '/glb-viewer'
+      preLoaderRoute: typeof GlbViewerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/office-3d-preview': {
+      id: '/office-3d-preview'
+      path: '/office-3d-preview'
+      fullPath: '/office-3d-preview'
+      preLoaderRoute: typeof Office3dPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/phaser-preview': {
+      id: '/phaser-preview'
+      path: '/phaser-preview'
+      fullPath: '/phaser-preview'
+      preLoaderRoute: typeof PhaserPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArchitecturePreviewRoute: ArchitecturePreviewRoute,
+  GlbViewerRoute: GlbViewerRoute,
+  Office3dPreviewRoute: Office3dPreviewRoute,
+  PhaserPreviewRoute: PhaserPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

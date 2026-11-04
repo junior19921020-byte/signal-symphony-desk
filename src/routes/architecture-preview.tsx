@@ -23,7 +23,7 @@ function ArchitectureShell() {
   const tiles = Array.from({ length: 144 }, (_, i) => {
     const u = i % 12, v = Math.floor(i / 12), p = iso(u, v);
     return { key: i, points: poly([p, iso(u + 1, v), iso(u + 1, v + 1), iso(u, v + 1)]),
-      color: palette[room(u, v)][(u + v) % 2] };
+      color: palette[room(u, v)]![(u + v) % 2] };
   });
   // A partition is a true isometric segment with glass height, not a screen-space rectangle.
   const glass = (a: [number, number], b: [number, number], key: string) => {
@@ -38,7 +38,7 @@ function ArchitectureShell() {
   const walls: React.ReactNode[] = [];
   for (let i = 0; i < 12; i++) {
     // Back exterior walls with vertical glazing.
-    for (const [a,b] of [[[0,i],[0,i+1]],[[i,0],[i+1,0]]] as [number,number][][]) {
+    for (const [a,b] of [[[0,i],[0,i+1]],[[i,0],[i+1,0]]] as [[number,number],[number,number]][]) {
       const p=iso(...a),q=iso(...b),h=88;
       walls.push(<g key={`outer-${a.join("-")}-${b.join("-")}`}>
         <polygon points={poly([p,q,{x:q.x,y:q.y-h},{x:p.x,y:p.y-h}])} fill="#576778" stroke="#c9d3df" strokeWidth="3"/>
