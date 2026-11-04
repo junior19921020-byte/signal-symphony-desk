@@ -19,9 +19,16 @@ jobs:
       - name: Install Blender
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender python3-numpy
           blender --version
+      - name: Verify NumPy inside Blender
+        env:
+          PYTHONPATH: /usr/lib/python3/dist-packages
+        run: |
+          blender --background --python-expr "import numpy; print('Blender NumPy:', numpy.__version__)"
       - name: Export office scene to GLB
+        env:
+          PYTHONPATH: /usr/lib/python3/dist-packages
         run: |
           mkdir -p build/office
           blender --background --python scripts/build_office_blender.py -- --output build/office/signal-office.glb
