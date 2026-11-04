@@ -23,7 +23,7 @@ function ArchitectureShell() {
   const tiles = Array.from({ length: 144 }, (_, i) => {
     const u = i % 12, v = Math.floor(i / 12), p = iso(u, v);
     return { key: i, points: poly([p, iso(u + 1, v), iso(u + 1, v + 1), iso(u, v + 1)]),
-      color: palette[room(u, v)][(u + v) % 2] };
+      color: palette[room(u, v)]![(u + v) % 2] };
   });
   // A partition is a true isometric segment with glass height, not a screen-space rectangle.
   const glass = (a: [number, number], b: [number, number], key: string) => {
