@@ -8,8 +8,27 @@ export const Route = createFileRoute("/glb-viewer")({
 function GlbViewer() {
   const viewerRef = useRef<HTMLElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
-  const [message, setMessage] = useState("Selecione o arquivo signal-office.glb que você já baixou.");
+  const [message, setMessage] = useState("Procurando o modelo mais recente do escritório...");
   const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch("/models/signal-office.glb", { method: "HEAD", cache: "no-store", signal: controller.signal })
+      .then((response) => {
+        if (cancelled) return;
+        if (!response.ok || !response.headers.get("content-type")?.includes("model") && !response.headers.get("content-type")?.includes("octet-stream")) {
+          setMessage("Modelo automático indisponível. Selecione um arquivo GLB salvo no celular.");
+          return;
+        }
+        setSrc("/models/signal-office.glb?v=" + Date.now());
+        setMessage("Modelo do escritório carregado automaticamente. Arraste para girar e use dois dedos para aproximar.");
+      })
+      .catch(() => {
+        if (!cancelled) setMessage("Modelo automático indisponível. Você ainda pode selecionar um arquivo GLB.");
+      });
+    return () => { cancelled = true; controller.abort(); };
+  }, []);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -19,8 +38,11 @@ function GlbViewer() {
     document.head.appendChild(script);
     return () => {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      script.remove();
     };
   }, []);
+
+  useEffect(() => () => { if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current); }, []);
 
   function selectFile(file?: File) {
     if (!file) return;
@@ -40,7 +62,7 @@ function GlbViewer() {
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <a href="/" style={{ color: "#8bdcff" }}>← Signal Symphony Desk</a>
         <h1 style={{ fontSize: "clamp(1.5rem, 5vw, 2.3rem)", color: "#7edaff", marginTop: 22 }}>Escritório 3D — Visualizador GLB</h1>
-        <p>Abra o modelo que já está salvo no seu celular. Nenhum arquivo é enviado ao servidor.</p>
+        <p>O escritório mais recente abre automaticamente quando publicado. Você também pode abrir um GLB salvo no celular; o arquivo não é enviado ao servidor.</p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "20px 0" }}>
           <label style={{ background: "#205476", border: "1px solid #8bdcff", borderRadius: 12, padding: "14px 18px", cursor: "pointer" }}>
             Selecionar arquivo GLB
@@ -55,7 +77,7 @@ function GlbViewer() {
             {createElement("model-viewer", { ref: viewerRef, src, alt: "Modelo tridimensional do escritório Signal Symphony Desk", "camera-controls": true, "auto-rotate": true, "shadow-intensity": "1", exposure: "1", style: { width: "100%", height: "100%" } })}
           </div>
         ) : (
-          <div style={{ height: 360, borderRadius: 18, border: "1px dashed #60788a", display: "grid", placeItems: "center", textAlign: "center", padding: 24 }}>Selecione o arquivo GLB para visualizar o escritório.</div>
+          <div style={{ height: 360, borderRadius: 18, border: "1px dashed #60788a", display: "grid", placeItems: "center", textAlign: "center", padding: 24 }}>O modelo publicado ainda não está disponível. Selecione um GLB para visualizar o escritório.</div>
         )}
       </div>
     </main>
