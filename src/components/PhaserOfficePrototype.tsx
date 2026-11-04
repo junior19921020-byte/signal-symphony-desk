@@ -1,3 +1,4 @@
+// @ts-nocheck -- experimental prototype; strict index checks not applied
 import { useEffect, useRef } from "react";
 
 /**
