@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createElement, useEffect, useRef, useState } from "react";
+import officeGlbAsset from "@/assets/models/signal-office.glb.asset.json";
 
 export const Route = createFileRoute("/glb-viewer")({
   component: GlbViewer,
@@ -14,14 +15,22 @@ function GlbViewer() {
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    fetch("/models/signal-office.glb", { method: "HEAD", cache: "no-store", signal: controller.signal })
-      .then((response) => {
+    const isGlb = (r: Response) => r.ok && /model|octet-stream/.test(r.headers.get("content-type") ?? "");
+    const probe = (url: string) => fetch(url, { method: "HEAD", cache: "no-store", signal: controller.signal });
+    // Durable CDN-hosted copy first; legacy static path as secondary.
+    probe(officeGlbAsset.url)
+      .then(async (response) => {
+        if (isGlb(response)) return officeGlbAsset.url;
+        const legacy = await probe("/models/signal-office.glb");
+        return isGlb(legacy) ? "/models/signal-office.glb?v=" + Date.now() : null;
+      })
+      .then((url) => {
         if (cancelled) return;
-        if (!response.ok || !response.headers.get("content-type")?.includes("model") && !response.headers.get("content-type")?.includes("octet-stream")) {
+        if (!url) {
           setMessage("Modelo automático indisponível. Selecione um arquivo GLB salvo no celular.");
           return;
         }
-        setSrc("/models/signal-office.glb?v=" + Date.now());
+        setSrc(url);
         setMessage("Modelo do escritório carregado automaticamente. Arraste para girar e use dois dedos para aproximar.");
       })
       .catch(() => {
