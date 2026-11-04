@@ -77,6 +77,70 @@ for x in (-8.5,-4.6,-.7,3.2,7.1):
  cube("window",(x,7.39,1.8),(3.1,.05,1.45),glass)
 # plants throughout
 for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:plant(x,y)
+# Architectural and furniture detail pass: all details are actual exportable geometry.
+# This is intentionally independent of trading logic and optional AI agents.
+steel=mat("brushed steel",(.39,.43,.45),.7,.28)
+darkwood=mat("walnut joinery",(.28,.19,.13),.05,.48)
+upholstery=mat("soft blue upholstery",(.32,.43,.49),0,.92)
+accent=mat("brass accent",(.67,.53,.31),.72,.32)
+floorwood=mat("oak parquet flooring",(.74,.58,.42),0,.7)
+tile=mat("ceramic floor detail",(.78,.78,.75),0,.65)
+def cylinder(name,loc,radius,depth,material,vertices=16):
+ bpy.ops.mesh.primitive_cylinder_add(vertices=vertices,radius=radius,depth=depth,location=loc)
+ o=bpy.context.object;o.name=name;o.data.materials.append(material);return o
+# Room-specific floor materials and subtle plank seams.
+for x0,x1,y0,y1 in [(-10.85,-3.45,-7.3,-1.55),(-10.85,-3.45,-1.25,2.45),(-10.85,-3.45,2.75,7.3)]:
+ cube("room oak floor",( (x0+x1)/2,(y0+y1)/2,.012),(x1-x0,y1-y0,.024),floorwood)
+ for i in range(int((y1-y0)/.55)):
+  y=y0+.55*(i+1)
+  cube("parquet joint",((x0+x1)/2,y,.026),(x1-x0,.008,.002),darkwood)
+# Glass panels: charcoal framing and discrete vertical mullions.
+for y in (-7.45,-1.4,2.6,7.45):
+ if y in (-1.4,2.6):
+  cube("partition top rail",(-7.15,y,2.6),(7.7,.055,.085),black)
+  for x in (-9.7,-7.4,-5.1):
+   cube("partition mullion",(x,y,1.33),(.06,.065,2.65),black)
+for y0,y1 in [(-7.5,-1.4),(-1.4,2.6),(2.6,7.5)]:
+ cube("front glazing top rail",(-3.3,(y0+y1)/2,2.61),(.065,y1-y0,.085),black)
+ for y in (y0+.08,(y0+y1)/2,y1-.08):
+  cube("glass frame post",(-3.3,y,1.34),(.08,.075,2.68),black)
+# Reception desk with distinct fascia, modesty panel, and signage.
+cube("reception oak fascia",(8.8,-3.58,.64),(2.94,.12,1.2),darkwood)
+cube("reception counter trim",(8.8,-3.1,1.48),(3.05,.94,.07),floorwood)
+cube("reception signage",(8.8,-3.653,1.05),(1.8,.018,.22),accent)
+# Workstations: additional monitors, desk accessories, task-chair bases.
+for x in (-1.3,1.7,4.7):
+ for y in (-4.6,-1.5):
+  cube("secondary monitor",(x+.44,y-.17,1.08),(.36,.045,.3),screen)
+  cube("keyboard",(x,y+.08,.795),(.49,.17,.018),black)
+  cube("mouse",(x+.49,y+.1,.797),(.09,.13,.022),steel)
+  cylinder("chair pedestal",(x,y+.78,.21),.055,.4,steel)
+  for a in range(5):
+   theta=a*math.tau/5
+   cube("chair star base",(x+math.cos(theta)*.18,y+.78+math.sin(theta)*.18,.065),(.36,.06,.045),black)
+# Meeting room chair backs and central cable box.
+for i in range(6):
+ x=-9.0+i*.67
+ cube("meeting chair back",(x,-3.23,.82),(.46,.11,.65),upholstery)
+cube("meeting table inset",(-7.3,-4.5,.801),(.8,.14,.015),black)
+# Lounge cushions, side table and potted greenery with layered leaves.
+for x,y in ((-.15,3.3),(.5,3.3),(1.15,3.3)):
+ cube("sofa cushion",(x,y,.65),(.57,.55,.15),upholstery)
+cylinder("round side table",(4.25,3.05,.49),.37,.065,darkwood)
+cylinder("side table leg",(4.25,3.05,.26),.05,.44,steel)
+for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
+ for i in range(5):
+  a=i*math.tau/5
+  cylinder("plant foliage layer",(x+math.cos(a)*.18,y+math.sin(a)*.18,1.12),.23,.48,green,10)
+# Additional exterior window sills and framing.
+for x in (-8.5,-4.6,-.7,3.2,7.1):
+ cube("window sill",(x,7.30,1.02),(3.2,.23,.08),white)
+ cube("window head",(x,7.30,2.56),(3.2,.14,.08),black)
+ cube("window central mullion",(x,7.30,1.78),(.065,.09,1.5),black)
+# Subtle perimeter skirting to reinforce room depth.
+cube("north skirting",(0,7.34,.12),(21.9,.1,.24),darkwood)
+cube("west skirting",(-10.92,0,.12),(.1,14.9,.24),darkwood)
+
 # Lighting for Blender render preview; glTF exports mesh materials and lights if supported.
 world=bpy.context.scene.world
 if world:world.color=(.65,.65,.65)
