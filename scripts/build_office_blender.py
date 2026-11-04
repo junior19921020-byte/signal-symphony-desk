@@ -141,6 +141,55 @@ for x in (-8.5,-4.6,-.7,3.2,7.1):
 cube("north skirting",(0,7.34,.12),(21.9,.1,.24),darkwood)
 cube("west skirting",(-10.92,0,.12),(.1,14.9,.24),darkwood)
 
+# Architectural refinement: structural rhythm, zoning, and warm finishes.
+# All additions are mesh objects exported to GLB; no application routes change.
+ceiling=mat("warm ceiling ivory",(.91,.88,.81),0,.84)
+slate=mat("dark slate circulation",(.19,.23,.26),0,.75)
+warm_light=mat("warm luminous diffuser",(1.0,.79,.47),0,.4)
+terracotta=mat("terracotta upholstery",(.57,.30,.22),0,.9)
+# Distinct circulation spine and department thresholds.
+cube("central circulation spine",(0,.25,.032),(1.65,12.8,.035),slate)
+for y in (-5.7,-2.4,.9,4.2):
+ cube("brass corridor threshold",(0,y,.055),(1.65,.065,.018),accent)
+# Low architectural border on the open south and east elevations.
+for x in (-9,-5,-1,3,7):
+ cube("south perimeter pier",(x,-7.38,.45),(.12,.16,.9),black)
+for y in (-5,-1,3):
+ cube("east perimeter pier",(10.91,y,.45),(.16,.12,.9),black)
+# Rear wall panel rhythm and horizontal trim.
+for x in (-10.5,-7.3,-4.1,-.9,2.3,5.5,8.7):
+ cube("north wall timber batten",(x,7.29,1.33),(.065,.075,2.45),darkwood)
+cube("north wall continuous timber trim",(0,7.27,.78),(21.7,.10,.065),darkwood)
+# Thin suspended light fixtures: readable from elevated isometric camera.
+for x,y in [(-7.2,-4.5),(-7.2,.5),(-7.2,4.8),(-1.3,-3.1),(1.7,-3.1),(4.7,-3.1),(2.2,3.4),(8.5,-3.0)]:
+ cube("suspended luminaire frame",(x,y,2.54),(1.15,.27,.075),black)
+ cube("warm diffuser",(x,y,2.493),(1.04,.17,.018),warm_light)
+ for dx in (-.47,.47):
+  cube("luminaire suspension",(x+dx,y,2.68),(.018,.018,.31),steel)
+# Reception feature wall, entry mat and sideboard.
+cube("reception feature wall",(10.6,-2.8,1.36),(.16,3.5,2.72),darkwood)
+for yy in (-4.15,-3.55,-2.95,-2.35,-1.75):
+ cube("reception wall brass inlay",(10.49,yy,1.35),(.025,.025,2.3),accent)
+cube("entry mat",(8.5,-6.8,.036),(3.2,.95,.025),slate)
+cube("reception storage",(9.45,-.8,.48),(1.7,.48,.96),wood)
+# Lounge rug, upholstered seating and a more legible coffee table.
+cube("lounge area rug",(2.2,3.6,.036),(5.9,3.1,.022),slate)
+cube("lounge accent cushion",(3.4,4.1,.68),(.55,.55,.2),terracotta)
+cube("coffee tabletop",(2.1,3.4,.51),(1.18,.77,.055),darkwood)
+for xx in (1.67,2.53):
+ for yy in (3.15,3.65):
+  cube("coffee table metal leg",(xx,yy,.25),(.035,.035,.47),steel)
+# Small glass room door handles and clear doorway indicators.
+for yy in (-5.9,.1,4.6):
+ cube("glass door handle",(-3.24,yy,1.05),(.14,.035,.22),accent)
+# Plant stands and individual leaves to soften blocky geometry.
+for xx,yy in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
+ cylinder("planter base ring",(xx,yy,.08),.28,.07,black,20)
+ for k in range(7):
+  a=k*math.tau/7
+  cylinder("foliage detail",(xx+math.cos(a)*.27,yy+math.sin(a)*.27,1.2+(.12 if k%2 else 0)),.15,.35,green,8)
+# Architectural improvements end.
+
 # Lighting for Blender render preview; glTF exports mesh materials and lights if supported.
 world=bpy.context.scene.world
 if world:world.color=(.65,.65,.65)
