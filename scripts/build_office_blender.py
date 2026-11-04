@@ -190,6 +190,59 @@ for xx,yy in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
   cylinder("foliage detail",(xx+math.cos(a)*.27,yy+math.sin(a)*.27,1.2+(.12 if k%2 else 0)),.15,.35,green,8)
 # Architectural improvements end.
 
+# Department zoning pass: architectural cues for the complete trading company.
+# Keep circulation open and do not modify application code or existing furniture.
+research_floor=mat("research muted oak",(.62,.49,.37),0,.78)
+trading_floor=mat("trading graphite tile",(.30,.35,.38),0,.65)
+risk_floor=mat("risk cool stone",(.57,.64,.64),0,.72)
+executive_floor=mat("executive walnut floor",(.36,.27,.21),0,.68)
+entry_floor=mat("reception pale limestone",(.82,.79,.72),0,.75)
+lettering=mat("department lettering brass",(.85,.67,.39),.35,.4)
+# Thin, exportable floor overlays identify departments without covering furniture.
+for name,loc,size,material in [
+ ("research department floor",(-7.2,4.95,.042),(7.25,4.55,.022),research_floor),
+ ("trading department floor",(3.7,-2.8,.042),(6.25,7.0,.022),trading_floor),
+ ("risk department floor",(-7.2,-4.45,.042),(7.25,5.55,.022),risk_floor),
+ ("executive department floor",(3.5,5.9,.042),(6.7,2.75,.022),executive_floor),
+ ("reception department floor",(8.65,-4.45,.042),(4.1,5.45,.022),entry_floor),
+]:
+ cube(name,loc,size,material)
+# A glass-fronted executive suite across the rear right, with an open door gap.
+for name,a,b in [
+ ("executive west glass",(0.25,4.25),(0.25,7.38)),
+ ("executive south glass left",(0.25,4.25),(2.1,4.25)),
+ ("executive south glass right",(3.45,4.25),(6.85,4.25)),
+ ("trading glass north",(1.05,.85),(6.7,.85)),
+ ("risk glass threshold",(-10.75,-1.5),(-8.5,-1.5)),
+ ("research glass threshold",(-10.75,2.6),(-8.5,2.6)),
+]:
+ panel(name,a,b,2.55,glass,.035)
+ cube(name+" top rail",((a[0]+b[0])/2,(a[1]+b[1])/2,2.53),
+      (math.dist(a,b),.07,.065) if a[1]==b[1] else (.07,math.dist(a,b),.065),black)
+# Raised wall plaques are real meshes; convert font curves to meshes for GLB.
+def department_label(label,x,y,z=2.05,size=.27):
+ curve=bpy.data.curves.new(label+" lettering","FONT")
+ curve.body=label;curve.size=size;curve.extrude=.004
+ obj=bpy.data.objects.new(label+" department sign",curve)
+ bpy.context.collection.objects.link(obj)
+ obj.location=(x,y,z)
+ obj.rotation_euler=(math.pi/2,0,0)
+ obj.data.materials.append(lettering)
+ bpy.ops.object.select_all(action="DESELECT")
+ obj.select_set(True);bpy.context.view_layer.objects.active=obj
+ bpy.ops.object.convert(target="MESH")
+for label,x,y in [
+ ("PESQUISA",-9.9,7.27),
+ ("GESTAO DE RISCO",-9.9,-1.34),
+ ("DIRETORIA",1.05,7.27),
+ ("TRADING",2.0,.79),
+ ("RECEPCAO",7.5,-1.36),
+]:
+ department_label(label,x,y)
+# Entry orientation: door opening remains unobstructed; visual threshold only.
+cube("main entrance brass threshold",(8.55,-7.15,.063),(2.7,.08,.025),accent)
+# Department zoning pass end.
+
 # Lighting for Blender render preview; glTF exports mesh materials and lights if supported.
 world=bpy.context.scene.world
 if world:world.color=(.65,.65,.65)
