@@ -58,8 +58,8 @@ for y0,y1 in [(-7.5,-1.4),(-1.4,2.6),(2.6,7.5)]:
  panel("glass room front",(-3.3,y0),(-3.3,y1))
 # Meeting room, private offices
 cube("meeting table",(-7.3,-4.5,.74),(3.7,1.1,.1),wood)
-for i in range(6):
- cube("meeting chair",(-9.0+i*.67,-3.55,.46),(.48,.48,.2),fabric)
+for x,y in [(-8.55,-3.55),(-7.3,-3.55),(-6.05,-3.55),(-8.55,-5.45),(-7.3,-5.45),(-6.05,-5.45)]:
+ cube("meeting chair",(x,y,.46),(.48,.48,.2),fabric)
 desk(-7.2,.6);desk(-7.2,4.9)
 # Central shared workstation banks
 for x in (-1.3,1.7,4.7):
@@ -119,9 +119,9 @@ for x in (-1.3,1.7,4.7):
    theta=a*math.tau/5
    cube("chair star base",(x+math.cos(theta)*.18,y+.78+math.sin(theta)*.18,.065),(.36,.06,.045),black)
 # Meeting room chair backs and central cable box.
-for i in range(6):
- x=-9.0+i*.67
- cube("meeting chair back",(x,-3.23,.82),(.46,.11,.65),upholstery)
+for x,y in [(-8.55,-3.55),(-7.3,-3.55),(-6.05,-3.55),(-8.55,-5.45),(-7.3,-5.45),(-6.05,-5.45)]:
+ back_y=y+(.32 if y>-4.5 else -.32)
+ cube("meeting chair back",(x,back_y,.82),(.46,.11,.65),upholstery)
 cube("meeting table inset",(-7.3,-4.5,.801),(.8,.14,.015),black)
 # Lounge cushions, side table and potted greenery with layered leaves.
 for x,y in ((-.15,3.3),(.5,3.3),(1.15,3.3)):
@@ -203,15 +203,15 @@ for name,loc,size,material in [
  ("research department floor",(-7.2,4.95,.042),(7.25,4.55,.022),research_floor),
  ("trading department floor",(3.7,-2.8,.042),(6.25,7.0,.022),trading_floor),
  ("risk department floor",(-7.2,-4.45,.042),(7.25,5.55,.022),risk_floor),
- ("executive department floor",(3.5,5.9,.042),(6.7,2.75,.022),executive_floor),
+ ("executive department floor",(3.5,6.35,.042),(6.7,1.85,.022),executive_floor),
  ("reception department floor",(8.65,-4.45,.042),(4.1,5.45,.022),entry_floor),
 ]:
  cube(name,loc,size,material)
 # A glass-fronted executive suite across the rear right, with an open door gap.
 for name,a,b in [
- ("executive west glass",(0.25,4.25),(0.25,7.38)),
- ("executive south glass left",(0.25,4.25),(2.1,4.25)),
- ("executive south glass right",(3.45,4.25),(6.85,4.25)),
+ ("executive west glass",(0.25,5.4),(0.25,7.38)),
+ ("executive south glass left",(0.25,5.4),(2.1,5.4)),
+ ("executive south glass right",(3.45,5.4),(6.85,5.4)),
  ("trading glass north",(1.05,.85),(6.7,.85)),
  ("risk glass threshold",(-10.75,-1.5),(-8.5,-1.5)),
  ("research glass threshold",(-10.75,2.6),(-8.5,2.6)),
@@ -256,11 +256,10 @@ def chair_support(x,y):
 for x,y in [(-7.2,1.38),(-7.2,5.68)]+[(x,y+.78) for x in (-1.3,1.7,4.7) for y in (-4.6,-1.5)]:
  chair_support(x,y)
 # The six meeting chairs were previously just seat cushions; give them legs.
-for i in range(6):
- x=-9.0+i*.67
+for x,y in [(-8.55,-3.55),(-7.3,-3.55),(-6.05,-3.55),(-8.55,-5.45),(-7.3,-5.45),(-6.05,-5.45)]:
  for dx in (-.17,.17):
   for dy in (-.17,.17):
-   cube("meeting chair leg",(x+dx,-3.55+dy,.20),(.045,.045,.40),steel)
+   cube("meeting chair leg",(x+dx,y+dy,.20),(.045,.045,.40),steel)
 # Reinforce the meeting table, which previously had no legs.
 for x in (-8.85,-5.75):
  for y in (-4.9,-4.1):
