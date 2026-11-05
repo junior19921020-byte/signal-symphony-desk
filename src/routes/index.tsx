@@ -976,7 +976,7 @@ function AuditEvidenceDetails({ entry }: { entry: AuditEntry }) {
   return <details className="mt-2 rounded bg-slate-800 p-2">
     <summary className="cursor-pointer font-semibold text-slate-200">Evidências auditáveis • {ev.execution === "DEMO_LOCAL" ? "DEMO" : "Não verificável"} • Cotação {ev.quoteOrigin === "EXTERNO" ? "externa" : "desconhecida"}</summary>
     <div className="mt-2 font-semibold">Fonte da cotação</div>
-    <dl className="grid grid-cols-2 gap-x-2">{ev.quoteLines.map((l) => <><dt key={l.label + "t"} className="text-slate-400">{l.label}</dt><dd key={l.label} className="break-words">{l.value}</dd></>)}</dl>
+    <dl>{ev.quoteLines.map((l) => <div key={l.label} className="grid grid-cols-2 gap-x-2"><dt className="text-slate-400">{l.label}</dt><dd className="break-words">{l.value}</dd></div>)}</dl>
     <div className="mt-2 font-semibold">Decisões dos agentes</div>
     <ul>{ev.agents.map((a) => <li key={a.name}><span className="text-slate-400">{a.name}:</span> {a.value}</li>)}</ul>
     <div className="mt-2 font-semibold">Natureza da execução</div>
