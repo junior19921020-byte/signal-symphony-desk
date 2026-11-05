@@ -68,7 +68,7 @@ for x in (-1.3,1.7,4.7):
 # Keep the central corridor (x < 0.25) clear for access to the other rooms.
 sofa(2.2,3.25);sofa(5.1,3.3,math.pi/2)
 cube("coffee table",(3.5,3.1,.42),(1.1,.7,.12),wood)
-cube("executive refreshments",(9.5,5.9,.45),(1.6,.55,.9),darkwood)
+cube("executive refreshments",(9.5,5.9,.45),(1.6,.55,.9),wood)
 # Reception near right entry
 cube("reception desk",(8.8,-3.1,.72),(2.9,.85,1.44),wood)
 cube("reception monitor",(8.8,-3.2,1.65),(.55,.06,.42),screen)
