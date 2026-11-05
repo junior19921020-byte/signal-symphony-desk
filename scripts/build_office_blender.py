@@ -67,8 +67,8 @@ for x in (-1.3,1.7,4.7):
 # Executive lounge: both sofas belong to the same open executive suite.
 # Keep the central corridor (x < 0.25) clear for access to the other rooms.
 # Reference composition: lounge at left, formal executive workstation at right.
-sofa(2.55,4.9);sofa(2.2,3.45,math.pi/2)
-cube("coffee table",(3.65,3.65,.42),(1.1,.7,.12),wood)
+sofa(3.0,5.55);sofa(1.65,4.25,math.pi/2)
+cube("coffee table",(3.35,4.05,.42),(1.1,.7,.12),wood)
 # Removed redundant refreshments cabinet: executive credenza occupies this wall.
 # Reception near right entry
 cube("reception desk",(8.8,-3.1,.72),(2.9,.85,1.44),wood)
@@ -78,7 +78,7 @@ panel("reception glass partition",(7,-7.5),(7,-3.8),2.4)
 for x in (-8.5,-4.6,-.7,3.2,7.1):
  cube("window",(x,7.39,1.8),(3.1,.05,1.45),glass)
 # plants throughout
-for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:plant(x,y)
+for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.8,1.9),(9.7,5.7),(9.6,-6.4)]:plant(x,y)
 # Architectural and furniture detail pass: all details are actual exportable geometry.
 # This is intentionally independent of trading logic and optional AI agents.
 steel=mat("brushed steel",(.39,.43,.45),.7,.28)
@@ -126,10 +126,10 @@ for x,y in [(-8.55,-3.55),(-7.3,-3.55),(-6.05,-3.55),(-8.55,-5.45),(-7.3,-5.45),
  cube("meeting chair back",(x,back_y,.82),(.46,.11,.65),upholstery)
 cube("meeting table inset",(-7.3,-4.5,.801),(.8,.14,.015),black)
 # Lounge cushions, side table and potted greenery with layered leaves.
-for x,y in ((2.05,4.9),(2.55,4.9),(3.05,4.9)):
+for x,y in ((2.5,5.55),(3.0,5.55),(3.5,5.55)):
  cube("sofa cushion",(x,y,.64),(.46,.50,.10),upholstery)
-cylinder("round side table",(4.25,3.05,.49),.37,.065,darkwood)
-cylinder("side table leg",(4.25,3.05,.26),.05,.44,steel)
+cylinder("round side table",(4.55,5.45,.49),.37,.065,darkwood)
+cylinder("side table leg",(4.55,5.45,.26),.05,.44,steel)
 for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
  for i in range(5):
   a=i*math.tau/5
@@ -175,11 +175,11 @@ for yy in (-4.15,-3.55,-2.95,-2.35,-1.75):
 cube("entry mat",(8.5,-6.8,.036),(3.2,.95,.025),slate)
 cube("reception storage",(9.45,-.8,.48),(1.7,.48,.96),wood)
 # Lounge rug, upholstered seating and a more legible coffee table.
-cube("lounge area rug",(3.05,4.35,.056),(4.4,3.7,.022),slate)
-cube("lounge accent cushion",(2.55,4.9,.72),(.42,.42,.10),terracotta)
-cube("coffee tabletop",(3.65,3.65,.51),(1.18,.77,.055),darkwood)
-for xx in (3.22,4.08):
- for yy in (3.40,3.90):
+cube("lounge area rug",(3.0,4.65,.056),(4.4,3.5,.022),slate)
+cube("lounge accent cushion",(3.0,5.55,.72),(.42,.42,.10),terracotta)
+cube("coffee tabletop",(3.35,4.05,.51),(1.18,.77,.055),darkwood)
+for xx in (2.92,3.78):
+ for yy in (3.80,4.30):
   cube("coffee table metal leg",(xx,yy,.25),(.035,.035,.47),steel)
 # Small glass room door handles and clear doorway indicators.
 for yy in (-5.9,.1,4.6):
@@ -258,9 +258,9 @@ for z in (1.12,1.67,2.22):
 for xx in (4.84,6.56):
  cube("executive bookcase upright",(xx,7.1,1.67),(.09,.35,1.35),darkwood)
 # Meeting nook near entrance, away from the executive desk and lounge.
-cylinder("director round meeting table",(5.45,2.25,.72),.68,.09,darkwood,32)
-cylinder("director round meeting pedestal",(5.45,2.25,.35),.10,.68,black)
-for xx,yy in ((4.35,2.25),(6.55,2.25),(5.45,3.25)):
+cylinder("director round meeting table",(4.85,2.25,.72),.68,.09,darkwood,32)
+cylinder("director round meeting pedestal",(4.85,2.25,.35),.10,.68,black)
+for xx,yy in ((3.75,2.25),(5.95,2.25),(4.85,3.25)):
  cube("director meeting chair seat",(xx,yy,.47),(.48,.48,.13),fabric)
  cube("director meeting chair back",(xx,yy+.27,.81),(.48,.10,.67),fabric)
  for dx in (-.17,.17):
