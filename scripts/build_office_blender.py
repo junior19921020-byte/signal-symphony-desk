@@ -66,9 +66,10 @@ for x in (-1.3,1.7,4.7):
  for y in (-4.6,-1.5):desk(x,y)
 # Executive lounge: both sofas belong to the same open executive suite.
 # Keep the central corridor (x < 0.25) clear for access to the other rooms.
-sofa(2.2,3.25);sofa(5.1,3.3,math.pi/2)
-cube("coffee table",(3.5,3.1,.42),(1.1,.7,.12),wood)
-cube("executive refreshments",(9.5,5.9,.45),(1.6,.55,.9),wood)
+# Reference composition: lounge at left, formal executive workstation at right.
+sofa(2.55,4.9);sofa(2.2,3.45,math.pi/2)
+cube("coffee table",(3.45,4.0,.42),(1.1,.7,.12),wood)
+cube("executive refreshments",(9.65,6.75,.45),(1.6,.42,.9),wood)
 # Reception near right entry
 cube("reception desk",(8.8,-3.1,.72),(2.9,.85,1.44),wood)
 cube("reception monitor",(8.8,-3.2,1.65),(.55,.06,.42),screen)
@@ -174,11 +175,11 @@ for yy in (-4.15,-3.55,-2.95,-2.35,-1.75):
 cube("entry mat",(8.5,-6.8,.036),(3.2,.95,.025),slate)
 cube("reception storage",(9.45,-.8,.48),(1.7,.48,.96),wood)
 # Lounge rug, upholstered seating and a more legible coffee table.
-cube("lounge area rug",(3.5,3.3,.056),(5.6,2.7,.022),slate)
-cube("lounge accent cushion",(5.1,3.3,.68),(.55,.55,.2),terracotta)
-cube("coffee tabletop",(3.5,3.1,.51),(1.18,.77,.055),darkwood)
-for xx in (3.07,3.93):
- for yy in (2.85,3.35):
+cube("lounge area rug",(3.25,4.2,.056),(4.8,3.7,.022),slate)
+cube("lounge accent cushion",(2.55,4.9,.68),(.55,.55,.2),terracotta)
+cube("coffee tabletop",(3.45,4.0,.51),(1.18,.77,.055),darkwood)
+for xx in (3.02,3.88):
+ for yy in (3.75,4.25):
   cube("coffee table metal leg",(xx,yy,.25),(.035,.035,.47),steel)
 # Small glass room door handles and clear doorway indicators.
 for yy in (-5.9,.1,4.6):
@@ -214,7 +215,7 @@ for name,loc,size,material in [
 for name,a,b in [
  ("executive west glass",(0.25,1.2),(0.25,7.38)),
  ("executive south glass left",(0.25,1.2),(2.15,1.2)),
- ("executive south glass right",(3.65,1.2),(7.1,1.2)),
+ ("executive south glass right",(3.65,1.2),(10.95,1.2)),
  ("risk glass threshold",(-10.75,-1.5),(-8.5,-1.5)),
  ("research glass threshold",(-10.75,2.6),(-8.5,2.6)),
 ]:
@@ -223,23 +224,49 @@ for name,a,b in [
       (math.dist(a,b),.07,.065) if a[1]==b[1] else (.07,math.dist(a,b),.065),black)
 # Executive office redesign: wider footprint and restrained furnishings.
 # The rear coffee counter is moved out of the suite to avoid furniture collisions.
-cube("executive desk top",(7.7,5.9,.76),(1.75,.82,.09),darkwood)
-cube("executive desk front",(7.7,6.17,.38),(1.62,.13,.69),wood)
-for xx in (7.0,8.4):
- cube("executive desk support",(xx,5.9,.36),(.09,.67,.72),black)
-cube("executive desk inlay",(7.7,5.9,.814),(1.1,.38,.012),accent)
-cube("executive monitor",(7.7,6.07,1.05),(.52,.045,.32),screen)
-cube("executive chair seat",(7.7,5.0,.48),(.58,.56,.15),upholstery)
-cube("executive chair back",(7.7,4.73,.9),(.58,.13,.79),upholstery)
-cylinder("executive chair column",(7.7,5.0,.24),.06,.4,steel)
-for xx in (7.0,8.4):
- cube("executive visitor chair seat",(xx,4.25,.45),(.48,.48,.12),fabric)
- cube("executive visitor chair back",(xx,4.0,.75),(.48,.10,.55),fabric)
+cube("executive desk top",(8.0,4.95,.76),(2.15,1.02,.09),darkwood)
+cube("executive desk front",(8.0,5.26,.38),(1.92,.13,.69),darkwood)
+for xx in (7.1,8.9):
+ cube("executive desk support",(xx,4.95,.36),(.09,.67,.72),black)
+cube("executive desk inlay",(8.0,4.95,.814),(1.1,.38,.012),accent)
+cube("executive monitor",(8.0,5.15,1.05),(.52,.045,.32),screen)
+cube("executive chair seat",(8.0,6.05,.48),(.58,.56,.15),upholstery)
+cube("executive chair back",(8.0,6.35,.9),(.58,.13,.79),upholstery)
+cylinder("executive chair column",(8.0,6.05,.24),.06,.4,steel)
+for xx in (7.15,8.85):
+ cube("executive visitor chair seat",(xx,3.7,.45),(.48,.48,.12),fabric)
+ cube("executive visitor chair back",(xx,3.42,.75),(.48,.10,.55),fabric)
  for dx in (-.17,.17):
   for dy in (-.17,.17):
-   cube("executive visitor chair leg",(xx+dx,4.25+dy,.20),(.04,.04,.40),steel)
-cube("executive credenza",(9.7,6.9,.43),(1.4,.42,.86),darkwood)
-cube("executive credenza accent",(9.7,6.67,.65),(1.18,.02,.07),accent)
+   cube("executive visitor chair leg",(xx+dx,3.7+dy,.20),(.04,.04,.40),steel)
+cube("executive credenza",(9.75,6.9,.43),(1.4,.42,.86),darkwood)
+cube("executive credenza accent",(9.75,6.67,.65),(1.18,.02,.07),accent)
+# Executive reference: finish the partition against reception, with a 1.5m entry
+# on the corridor side.  Glass is transparent so the isometric view remains usable.
+panel("director reception boundary",(6.9,1.2),(6.9,-1.7),2.55,glass,.055)
+cube("director reception top rail",(6.9,-.25,2.55),(.075,2.9,.08),black)
+for yy in (1.2,-1.7):
+ cube("director reception jamb",(6.9,yy,1.3),(.085,.085,2.6),black)
+# Walnut feature wall, warm vertical slats, and legible decorative signage.
+cube("director feature wall",(10.79,4.55,1.35),(.16,4.5,2.7),darkwood)
+for yy in [2.5+i*.28 for i in range(15)]:
+ cube("director feature slat",(10.66,yy,1.35),(.045,.035,2.55),wood)
+cube("director feature light",(10.58,4.5,2.37),(.035,3.8,.045),warm_light)
+# Credenza shelving at the back, raised above the work surface.
+for z in (1.12,1.67,2.22):
+ cube("executive bookcase shelf",(5.7,7.1,z),(1.75,.35,.075),darkwood)
+for xx in (4.84,6.56):
+ cube("executive bookcase upright",(xx,7.1,1.67),(.09,.35,1.35),darkwood)
+# Meeting nook near entrance, away from the executive desk and lounge.
+cylinder("director round meeting table",(5.45,2.25,.72),.68,.09,darkwood,32)
+cylinder("director round meeting pedestal",(5.45,2.25,.35),.10,.68,black)
+for xx,yy in ((4.35,2.25),(6.55,2.25),(5.45,3.3)):
+ cube("director meeting chair seat",(xx,yy,.47),(.48,.48,.13),fabric)
+ cube("director meeting chair back",(xx,yy+.27,.81),(.48,.10,.67),fabric)
+ for dx in (-.17,.17):
+  for dy in (-.17,.17):
+   cube("director meeting chair leg",(xx+dx,yy+dy,.22),(.035,.035,.43),steel)
+# Reception-facing boundary is glass, while the feature wall is solid wood.
 # Raised wall plaques are real meshes; convert font curves to meshes for GLB.
 def department_label(label,x,y,z=2.05,size=.27):
  curve=bpy.data.curves.new(label+" lettering","FONT")
