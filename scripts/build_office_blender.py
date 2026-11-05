@@ -64,9 +64,10 @@ desk(-7.2,.6);desk(-7.2,4.9)
 # Central shared workstation banks
 for x in (-1.3,1.7,4.7):
  for y in (-4.6,-1.5):desk(x,y)
-# Lounge / coffee corner at rear
-sofa(.5,3.3);sofa(3.4,4.1,math.pi/2)
-cube("coffee table",(2.1,3.4,.42),(1.1,.7,.12),wood)
+# Executive lounge: both sofas belong to the same open executive suite.
+# Keep the central corridor (x < 0.25) clear for access to the other rooms.
+sofa(2.05,2.85);sofa(5.15,3.35,math.pi/2)
+cube("coffee table",(3.5,3.1,.42),(1.1,.7,.12),wood)
 cube("coffee counter",(8.65,3.75,.85),(3.4,.62,1.7),wood)
 # Reception near right entry
 cube("reception desk",(8.8,-3.1,.72),(2.9,.85,1.44),wood)
@@ -173,11 +174,11 @@ for yy in (-4.15,-3.55,-2.95,-2.35,-1.75):
 cube("entry mat",(8.5,-6.8,.036),(3.2,.95,.025),slate)
 cube("reception storage",(9.45,-.8,.48),(1.7,.48,.96),wood)
 # Lounge rug, upholstered seating and a more legible coffee table.
-cube("lounge area rug",(2.2,3.6,.036),(5.9,3.1,.022),slate)
-cube("lounge accent cushion",(3.4,4.1,.68),(.55,.55,.2),terracotta)
-cube("coffee tabletop",(2.1,3.4,.51),(1.18,.77,.055),darkwood)
-for xx in (1.67,2.53):
- for yy in (3.15,3.65):
+cube("lounge area rug",(3.55,3.05,.056),(5.6,2.7,.022),slate)
+cube("lounge accent cushion",(5.15,3.35,.68),(.55,.55,.2),terracotta)
+cube("coffee tabletop",(3.5,3.1,.51),(1.18,.77,.055),darkwood)
+for xx in (3.07,3.93):
+ for yy in (2.85,3.35):
   cube("coffee table metal leg",(xx,yy,.25),(.035,.035,.47),steel)
 # Small glass room door handles and clear doorway indicators.
 for yy in (-5.9,.1,4.6):
@@ -203,15 +204,15 @@ for name,loc,size,material in [
  ("research department floor",(-7.2,4.95,.042),(7.25,4.55,.022),research_floor),
  ("trading department floor",(3.7,-2.8,.042),(6.25,7.0,.022),trading_floor),
  ("risk department floor",(-7.2,-4.45,.042),(7.25,5.55,.022),risk_floor),
- ("executive department floor",(3.55,6.1,.042),(6.6,2.5,.022),executive_floor),
+ ("executive department floor",(3.55,4.25,.042),(6.6,6.1,.022),executive_floor),
  ("reception department floor",(8.65,-4.45,.042),(4.1,5.45,.022),entry_floor),
 ]:
  cube(name,loc,size,material)
-# A glass-fronted executive suite across the rear right, with an open door gap.
+# One continuous executive suite combines the former lounge and director office.\n# The west-side circulation spine remains outside the glass wall.\n# A 1.35m opening in the south glazing provides access without crossing furniture.
 for name,a,b in [
- ("executive west glass",(0.25,4.85),(0.25,7.38)),
- ("executive south glass left",(0.25,4.85),(2.1,4.85)),
- ("executive south glass right",(3.45,4.85),(6.85,4.85)),
+ ("executive west glass",(0.25,1.2),(0.25,7.38)),
+ ("executive south glass left",(0.25,1.2),(2.1,1.2)),
+ ("executive south glass right",(3.45,1.2),(6.85,1.2)),
  ("trading glass north",(1.05,.85),(6.7,.85)),
  ("risk glass threshold",(-10.75,-1.5),(-8.5,-1.5)),
  ("research glass threshold",(-10.75,2.6),(-8.5,2.6)),
