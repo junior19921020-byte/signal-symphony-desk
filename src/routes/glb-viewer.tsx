@@ -10,6 +10,15 @@ function GlbViewer() {
   const objectUrlRef = useRef<string | null>(null);
   const [message, setMessage] = useState("Procurando o modelo mais recente do escritório...");
   const [src, setSrc] = useState<string | null>(null);
+  const [cameraView, setCameraView] = useState<"overview" | "top" | "front">("overview");
+
+  function chooseCamera(view: "overview" | "top" | "front") {
+    setCameraView(view);
+    const viewer = viewerRef.current as (HTMLElement & { cameraOrbit?: string; jumpCameraToGoal?: () => void }) | null;
+    if (!viewer) return;
+    viewer.cameraOrbit = view === "top" ? "0deg 5deg auto" : view === "front" ? "0deg 75deg auto" : "35deg 55deg auto";
+    viewer.jumpCameraToGoal?.();
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -68,13 +77,17 @@ function GlbViewer() {
             Selecionar arquivo GLB
             <input type="file" accept=".glb,model/gltf-binary" onChange={(e) => selectFile(e.target.files?.[0])} style={{ position: "absolute", width: 1, height: 1, opacity: 0 }} />
           </label>
-          <button type="button" onClick={() => (viewerRef.current as (HTMLElement & { resetTurntableRotation?: () => void; jumpCameraToGoal?: () => void }) | null)?.resetTurntableRotation?.()} style={{ background: "#19314a", color: "#fff", border: "1px solid #72869d", borderRadius: 12, padding: "14px 18px" }}>Restaurar câmera</button>
+          {(["overview", "top", "front"] as const).map((view) => (
+            <button key={view} type="button" onClick={() => chooseCamera(view)} aria-pressed={cameraView === view} style={{ background: cameraView === view ? "#205476" : "#19314a", color: "#fff", border: "1px solid #72869d", borderRadius: 12, padding: "14px 18px", cursor: "pointer" }}>
+              {view === "overview" ? "Visão geral" : view === "top" ? "Vista superior" : "Vista frontal"}
+            </button>
+          ))}
         </div>
         <p role="status" style={{ color: "#b9eaff" }}>{message}</p>
         {src ? (
           <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid #60788a", background: "linear-gradient(#9cb4c2, #d5e0e5)", height: "min(70vh, 720px)", minHeight: 400 }}>
             {/** model-viewer is registered by the client-side dynamic import. */}
-            {createElement("model-viewer", { ref: viewerRef, src, alt: "Modelo tridimensional do escritório Signal Symphony Desk", "camera-controls": true, "auto-rotate": true, "shadow-intensity": "1", exposure: "1", style: { width: "100%", height: "100%" } })}
+            {createElement("model-viewer", { ref: viewerRef, src, alt: "Modelo tridimensional do escritório Signal Symphony Desk", "camera-controls": true, "auto-rotate": false, "camera-orbit": cameraView === "top" ? "0deg 5deg auto" : cameraView === "front" ? "0deg 75deg auto" : "35deg 55deg auto", "shadow-intensity": "1", exposure: "1", style: { width: "100%", height: "100%" } })}
           </div>
         ) : (
           <div style={{ height: 360, borderRadius: 18, border: "1px dashed #60788a", display: "grid", placeItems: "center", textAlign: "center", padding: 24 }}>O modelo publicado ainda não está disponível. Selecione um GLB para visualizar o escritório.</div>
