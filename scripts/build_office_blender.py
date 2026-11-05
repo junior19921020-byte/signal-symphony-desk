@@ -67,7 +67,7 @@ for x in (-1.3,1.7,4.7):
 # Executive lounge: both sofas belong to the same open executive suite.
 # Keep the central corridor (x < 0.25) clear for access to the other rooms.
 # Reference composition: lounge at left, formal executive workstation at right.
-sofa(3.0,5.55);sofa(1.65,4.25,math.pi/2)
+sofa(3.0,5.65);sofa(1.45,4.20,math.pi/2)
 cube("coffee table",(3.35,4.05,.42),(1.1,.7,.12),wood)
 # Removed redundant refreshments cabinet: executive credenza occupies this wall.
 # Reception near right entry
@@ -78,7 +78,7 @@ panel("reception glass partition",(7,-7.5),(7,-3.8),2.4)
 for x in (-8.5,-4.6,-.7,3.2,7.1):
  cube("window",(x,7.39,1.8),(3.1,.05,1.45),glass)
 # plants throughout
-for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.8,1.9),(9.7,5.7),(9.6,-6.4)]:plant(x,y)
+for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.95,2.0),(9.6,-6.4)]:plant(x,y)
 # Architectural and furniture detail pass: all details are actual exportable geometry.
 # This is intentionally independent of trading logic and optional AI agents.
 steel=mat("brushed steel",(.39,.43,.45),.7,.28)
@@ -130,7 +130,7 @@ for x,y in ((2.5,5.55),(3.0,5.55),(3.5,5.55)):
  cube("sofa cushion",(x,y,.64),(.46,.50,.10),upholstery)
 cylinder("round side table",(4.55,5.45,.49),.37,.065,darkwood)
 cylinder("side table leg",(4.55,5.45,.26),.05,.44,steel)
-for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
+for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.95,2.0),(9.6,-6.4)]:
  for i in range(5):
   a=i*math.tau/5
   cylinder("plant foliage layer",(x+math.cos(a)*.18,y+math.sin(a)*.18,1.12),.23,.48,green,10)
@@ -185,7 +185,7 @@ for xx in (2.92,3.78):
 for yy in (-5.9,.1,4.6):
  cube("glass door handle",(-3.24,yy,1.05),(.14,.035,.22),accent)
 # Plant stands and individual leaves to soften blocky geometry.
-for xx,yy in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
+for xx,yy in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.95,2.0),(9.6,-6.4)]:
  cylinder("planter base ring",(xx,yy,.08),.28,.07,black,20)
  for k in range(7):
   a=k*math.tau/7
@@ -224,12 +224,12 @@ for name,a,b in [
       (math.dist(a,b),.07,.065) if a[1]==b[1] else (.07,math.dist(a,b),.065),black)
 # Executive office redesign: wider footprint and restrained furnishings.
 # The rear coffee counter is moved out of the suite to avoid furniture collisions.
-cube("executive desk top",(8.0,4.95,.76),(2.15,1.02,.09),darkwood)
-cube("executive desk front",(8.0,5.26,.38),(1.92,.13,.69),darkwood)
+cube("executive desk top",(8.0,5.0,.76),(2.15,1.02,.09),darkwood)
+cube("executive desk front",(8.0,4.72,.38),(1.92,.13,.69),darkwood)
 for xx in (7.1,8.9):
  cube("executive desk support",(xx,4.95,.36),(.09,.67,.72),black)
-cube("executive desk inlay",(8.0,4.95,.814),(1.1,.38,.012),accent)
-cube("executive monitor",(8.0,5.15,1.05),(.52,.045,.32),screen)
+cube("executive desk inlay",(8.0,5.0,.814),(1.1,.38,.012),accent)
+cube("executive monitor",(8.0,5.23,1.05),(.52,.045,.32),screen)
 cube("executive chair seat",(8.0,6.05,.48),(.58,.56,.15),upholstery)
 cube("executive chair back",(8.0,6.35,.9),(.58,.13,.79),upholstery)
 cylinder("executive chair column",(8.0,6.05,.24),.06,.4,steel)
@@ -239,8 +239,8 @@ for xx in (7.15,8.85):
  for dx in (-.17,.17):
   for dy in (-.17,.17):
    cube("executive visitor chair leg",(xx+dx,3.7+dy,.20),(.04,.04,.40),steel)
-cube("executive credenza",(9.75,6.9,.43),(1.4,.42,.86),darkwood)
-cube("executive credenza accent",(9.75,6.67,.65),(1.18,.02,.07),accent)
+cube("executive credenza",(9.65,6.95,.43),(1.4,.42,.86),darkwood)
+cube("executive credenza accent",(9.65,6.72,.65),(1.18,.02,.07),accent)
 # Executive reference: finish the partition against reception, with a 1.5m entry
 # on the corridor side.  Glass is transparent so the isometric view remains usable.
 panel("director reception boundary",(6.9,1.2),(6.9,-1.7),2.55,glass,.055)
@@ -260,7 +260,7 @@ for xx in (4.84,6.56):
 # Meeting nook near entrance, away from the executive desk and lounge.
 cylinder("director round meeting table",(4.85,2.25,.72),.68,.09,darkwood,32)
 cylinder("director round meeting pedestal",(4.85,2.25,.35),.10,.68,black)
-for xx,yy in ((3.75,2.25),(5.95,2.25),(4.85,3.25)):
+for xx,yy in ((3.75,2.25),(5.95,2.25),(4.85,3.35)):
  cube("director meeting chair seat",(xx,yy,.47),(.48,.48,.13),fabric)
  cube("director meeting chair back",(xx,yy+.27,.81),(.48,.10,.67),fabric)
  for dx in (-.17,.17):
