@@ -66,9 +66,9 @@ for x in (-1.3,1.7,4.7):
  for y in (-4.6,-1.5):desk(x,y)
 # Executive lounge: both sofas belong to the same open executive suite.
 # Keep the central corridor (x < 0.25) clear for access to the other rooms.
-sofa(2.05,2.85);sofa(5.15,3.35,math.pi/2)
+sofa(2.2,3.25);sofa(5.1,3.3,math.pi/2)
 cube("coffee table",(3.5,3.1,.42),(1.1,.7,.12),wood)
-cube("coffee counter",(8.65,3.75,.85),(3.4,.62,1.7),wood)
+cube("executive refreshments",(9.5,5.9,.45),(1.6,.55,.9),wood)
 # Reception near right entry
 cube("reception desk",(8.8,-3.1,.72),(2.9,.85,1.44),wood)
 cube("reception monitor",(8.8,-3.2,1.65),(.55,.06,.42),screen)
@@ -174,8 +174,8 @@ for yy in (-4.15,-3.55,-2.95,-2.35,-1.75):
 cube("entry mat",(8.5,-6.8,.036),(3.2,.95,.025),slate)
 cube("reception storage",(9.45,-.8,.48),(1.7,.48,.96),wood)
 # Lounge rug, upholstered seating and a more legible coffee table.
-cube("lounge area rug",(3.55,3.05,.056),(5.6,2.7,.022),slate)
-cube("lounge accent cushion",(5.15,3.35,.68),(.55,.55,.2),terracotta)
+cube("lounge area rug",(3.5,3.3,.056),(5.6,2.7,.022),slate)
+cube("lounge accent cushion",(5.1,3.3,.68),(.55,.55,.2),terracotta)
 cube("coffee tabletop",(3.5,3.1,.51),(1.18,.77,.055),darkwood)
 for xx in (3.07,3.93):
  for yy in (2.85,3.35):
@@ -204,16 +204,17 @@ for name,loc,size,material in [
  ("research department floor",(-7.2,4.95,.042),(7.25,4.55,.022),research_floor),
  ("trading department floor",(3.7,-2.8,.042),(6.25,7.0,.022),trading_floor),
  ("risk department floor",(-7.2,-4.45,.042),(7.25,5.55,.022),risk_floor),
- ("executive department floor",(3.55,4.25,.042),(6.6,6.1,.022),executive_floor),
+ ("executive department floor",(5.45,4.3,.042),(10.0,6.15,.022),executive_floor),
  ("reception department floor",(8.65,-4.45,.042),(4.1,5.45,.022),entry_floor),
 ]:
  cube(name,loc,size,material)
-# One continuous executive suite combines the former lounge and director office.\n# The west-side circulation spine remains outside the glass wall.\n# A 1.35m opening in the south glazing provides access without crossing furniture.
+# Single open executive suite: former lounge and director room share one interior.
+# Leave the central circulation strip west of x=0.25 and a clear door gap.
+# Do not duplicate the old trading-north glass wall inside the new suite.
 for name,a,b in [
  ("executive west glass",(0.25,1.2),(0.25,7.38)),
- ("executive south glass left",(0.25,1.2),(2.1,1.2)),
- ("executive south glass right",(3.45,1.2),(6.85,1.2)),
- ("trading glass north",(1.05,.85),(6.7,.85)),
+ ("executive south glass left",(0.25,1.2),(2.15,1.2)),
+ ("executive south glass right",(3.65,1.2),(7.1,1.2)),
  ("risk glass threshold",(-10.75,-1.5),(-8.5,-1.5)),
  ("research glass threshold",(-10.75,2.6),(-8.5,2.6)),
 ]:
@@ -222,23 +223,23 @@ for name,a,b in [
       (math.dist(a,b),.07,.065) if a[1]==b[1] else (.07,math.dist(a,b),.065),black)
 # Executive office redesign: wider footprint and restrained furnishings.
 # The rear coffee counter is moved out of the suite to avoid furniture collisions.
-cube("executive desk top",(4.65,6.45,.76),(1.75,.82,.09),darkwood)
-cube("executive desk front",(4.65,6.72,.38),(1.62,.13,.69),wood)
-for xx in (3.95,5.35):
- cube("executive desk support",(xx,6.45,.36),(.09,.67,.72),black)
-cube("executive desk inlay",(4.65,6.45,.814),(1.1,.38,.012),accent)
-cube("executive monitor",(4.65,6.62,1.05),(.52,.045,.32),screen)
-cube("executive chair seat",(4.65,5.52,.48),(.58,.56,.15),upholstery)
-cube("executive chair back",(4.65,5.25,.9),(.58,.13,.79),upholstery)
-cylinder("executive chair column",(4.65,5.52,.24),.06,.4,steel)
-for xx in (3.95,5.35):
- cube("executive visitor chair seat",(xx,5.25,.45),(.48,.48,.12),fabric)
- cube("executive visitor chair back",(xx,5.0,.75),(.48,.10,.55),fabric)
+cube("executive desk top",(7.7,5.9,.76),(1.75,.82,.09),darkwood)
+cube("executive desk front",(7.7,6.17,.38),(1.62,.13,.69),wood)
+for xx in (7.0,8.4):
+ cube("executive desk support",(xx,5.9,.36),(.09,.67,.72),black)
+cube("executive desk inlay",(7.7,5.9,.814),(1.1,.38,.012),accent)
+cube("executive monitor",(7.7,6.07,1.05),(.52,.045,.32),screen)
+cube("executive chair seat",(7.7,5.0,.48),(.58,.56,.15),upholstery)
+cube("executive chair back",(7.7,4.73,.9),(.58,.13,.79),upholstery)
+cylinder("executive chair column",(7.7,5.0,.24),.06,.4,steel)
+for xx in (7.0,8.4):
+ cube("executive visitor chair seat",(xx,4.25,.45),(.48,.48,.12),fabric)
+ cube("executive visitor chair back",(xx,4.0,.75),(.48,.10,.55),fabric)
  for dx in (-.17,.17):
   for dy in (-.17,.17):
-   cube("executive visitor chair leg",(xx+dx,5.25+dy,.20),(.04,.04,.40),steel)
-cube("executive credenza",(1.15,6.9,.43),(1.4,.42,.86),darkwood)
-cube("executive credenza accent",(1.15,6.67,.65),(1.18,.02,.07),accent)
+   cube("executive visitor chair leg",(xx+dx,4.25+dy,.20),(.04,.04,.40),steel)
+cube("executive credenza",(9.7,6.9,.43),(1.4,.42,.86),darkwood)
+cube("executive credenza accent",(9.7,6.67,.65),(1.18,.02,.07),accent)
 # Raised wall plaques are real meshes; convert font curves to meshes for GLB.
 def department_label(label,x,y,z=2.05,size=.27):
  curve=bpy.data.curves.new(label+" lettering","FONT")
