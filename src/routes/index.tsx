@@ -1,3 +1,4 @@
+import { auditEvidence, type DecisionAudit as AuditEntry } from "@/lib/decisionAudit";
 import { DemoLoginGate } from "@/components/DemoLoginGate";
 import { AccountProfile } from "@/components/AccountProfile";
 import { summarizeMonitoringIncidents } from "@/lib/demoMonitoringIncidents";
@@ -555,6 +556,11 @@ function Index() {
       <section className="mt-4 rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs" aria-label="Auditoria de decisões demo">
         <h2 className="text-sm font-bold text-[#d4af37]">Auditoria de Decisões (Demo)</h2>
         <p className="mt-1 text-slate-400">Últimas 100 decisões salvas neste navegador; nenhum registro envia ordens.</p>
+        <div className="mt-2 rounded border border-slate-700 bg-slate-800/60 p-2" aria-label="Verificação de mercado e execução">
+          <b className="text-slate-200">Verificação de mercado e execução</b>
+          <p className="mt-1 text-slate-300">Cotações com provedor e horário registrados: {audit.filter((e) => auditEvidence(e).quoteOrigin === "EXTERNO").length} de {audit.length}. Ordens reais comprovadas por corretora: 0 (modo DEMO, nenhuma corretora conectada).</p>
+          <p className="mt-1 text-amber-200">Aviso: dados de API pública não são assinados; registros antigos sem metadados aparecem como “não registrado / não verificável”.</p>
+        </div>
         <div className="mt-2 grid grid-cols-3 gap-2 text-center" aria-label="Resumo das decisões registradas">
           <div className="rounded bg-slate-800 p-2"><div className="font-bold">{audit.length}</div><div className="text-slate-300">Análises</div></div>
           <div className="rounded bg-slate-800 p-2"><div className="font-bold text-emerald-300">{auditApprovedCount}</div><div className="text-slate-300">Aprovadas</div></div>
@@ -564,7 +570,7 @@ function Index() {
           {(["TODAS", "BLOQUEADA", "APROVADA"] as const).map((filter) => <button key={filter} type="button" aria-pressed={auditFilter === filter} onClick={() => setAuditFilter(filter)} className={`min-h-10 rounded-lg border px-3 py-2 font-semibold ${auditFilter === filter ? "border-amber-300 bg-amber-400 text-slate-950" : "border-slate-600 bg-slate-800 text-white"}`}>{filter === "TODAS" ? "Todas" : filter === "BLOQUEADA" ? "Bloqueadas" : "Aprovadas"}</button>)}
         </div>
         <p className="mt-2 text-slate-400">Esta auditoria registra o consenso técnico e a validação inicial. A aprovação não garante execução: a Rita Risk ainda pode bloquear por limite diário ou risco preventivo. Os registros ficam somente neste navegador.</p>
-        {auditVisible.length === 0 ? <p className="mt-2 text-slate-300">Nenhuma decisão encontrada neste filtro.</p> : <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">{auditVisible.slice(0, 20).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="flex flex-wrap items-center gap-2"><span className="font-bold">{new Date(entry.at).toLocaleString("pt-BR")} • {entry.symbol}</span><span className={`rounded px-2 py-1 font-bold ${entry.decision === "BLOQUEADA" ? "bg-amber-950 text-amber-200" : "bg-emerald-950 text-emerald-200"}`}>{entry.decision}</span></div><div className="mt-1">Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">Origem: {entry.source === "AUTOMATICO" ? "Ciclo automático" : entry.source === "MANUAL" ? "Operador" : "Análise"}</div><div className="mt-1 text-slate-300">Motivo: {entry.reason}</div></div>)}</div>}
+        {auditVisible.length === 0 ? <p className="mt-2 text-slate-300">Nenhuma decisão encontrada neste filtro.</p> : <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">{auditVisible.slice(0, 20).map((entry) => <div key={entry.id} className="rounded border border-slate-700 p-2"><div className="flex flex-wrap items-center gap-2"><span className="font-bold">{new Date(entry.at).toLocaleString("pt-BR")} • {entry.symbol}</span><span className={`rounded px-2 py-1 font-bold ${entry.decision === "BLOQUEADA" ? "bg-amber-950 text-amber-200" : "bg-emerald-950 text-emerald-200"}`}>{entry.decision}</span></div><div className="mt-1">Ana: {entry.research} | Sofia: {entry.chart} | Sinal: {entry.signal}</div><div className="text-slate-300">Origem: {entry.source === "AUTOMATICO" ? "Ciclo automático" : entry.source === "MANUAL" ? "Operador" : "Análise"}</div><div className="mt-1 text-slate-300">Motivo: {entry.reason}</div><AuditEvidenceDetails entry={entry} /></div>)}</div>}
       </section>
       </>}
       {tab === "agents" && <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-1">
@@ -963,4 +969,18 @@ function ChatModal({ agent, market, messages, setMessages, onPrompt, onCommand, 
       </div>
     </div>
   );
+}
+
+function AuditEvidenceDetails({ entry }: { entry: AuditEntry }) {
+  const ev = auditEvidence(entry);
+  return <details className="mt-2 rounded bg-slate-800 p-2">
+    <summary className="cursor-pointer font-semibold text-slate-200">Evidências auditáveis • {ev.execution === "DEMO_LOCAL" ? "DEMO" : "Não verificável"} • Cotação {ev.quoteOrigin === "EXTERNO" ? "externa" : "desconhecida"}</summary>
+    <div className="mt-2 font-semibold">Fonte da cotação</div>
+    <dl>{ev.quoteLines.map((l) => <div key={l.label} className="grid grid-cols-2 gap-x-2"><dt className="text-slate-400">{l.label}</dt><dd className="break-words">{l.value}</dd></div>)}</dl>
+    <div className="mt-2 font-semibold">Decisões dos agentes</div>
+    <ul>{ev.agents.map((a) => <li key={a.name}><span className="text-slate-400">{a.name}:</span> {a.value}</li>)}</ul>
+    <div className="mt-2 font-semibold">Natureza da execução</div>
+    <p>{ev.executionText}</p>
+    {ev.warnings.map((w) => <p key={w} className="mt-1 text-amber-200">⚠ {w}</p>)}
+  </details>;
 }

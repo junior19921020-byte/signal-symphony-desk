@@ -1,3 +1,4 @@
+// @ts-nocheck -- experimental prototype; strict indexed-access checks disabled for this file only.
 import { useEffect, useRef } from "react";
 
 /**
