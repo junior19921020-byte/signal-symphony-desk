@@ -58,7 +58,11 @@ export function parseAuditHistory(raw: string | null): DecisionAudit[] {
         x.approved === (x.decision === "APROVADA") &&
         typeof x.reason === "string" && x.reason.length <= 1000 &&
         ["ANALISE", "MANUAL", "AUTOMATICO"].includes(x.source ?? "");
-    }).slice(0, 100).map((x) => ({ ...x, quote: parseQuote((x as { quote?: unknown }).quote) }));
+    }).slice(0, 100).map((x) => {
+      const { quote, ...rest } = x as DecisionAudit & { quote?: unknown };
+      const q = parseQuote(quote);
+      return q ? { ...rest, quote: q } : rest;
+    });
   } catch {
     return [];
   }
