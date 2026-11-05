@@ -133,7 +133,7 @@ const officeRoute = (from: OfficePoint, to: OfficePoint): OfficePoint[] => {
   const fromZone = officeZone(from);
   const toZone = officeZone(to);
   if (fromZone === toZone) return [to];
-  return [OFFICE_DOORS[fromZone], OFFICE_HALL, OFFICE_DOORS[toZone], to];
+  return [OFFICE_DOORS[fromZone] ?? OFFICE_HALL, OFFICE_HALL, OFFICE_DOORS[toZone] ?? OFFICE_HALL, to];
 };
 
 export function statusFor(agent: Agent, market: Market | null): string {
@@ -359,11 +359,11 @@ export function OfficeMap(props: {
         const mode = agent.activity || "Atendendo";
         const station = agent.station || `C0${(idx % 8) + 1}`;
         const destination = mode === "Atendendo"
-          ? (DESK_COORDS[station] || DESK_COORDS.C01!)
+          ? (DESK_COORDS[station] || DESK_COORDS["C01"]!)
           : ACTIVITY_SPOTS[mode][idx % ACTIVITY_SPOTS[mode].length]!;
         // Inicializa a posição uma única vez na estação, não no novo destino.
         // Isso evita que uma mudança de atividade produza teletransporte.
-        const initialStation = DESK_COORDS[station] || DESK_COORDS.C01!;
+        const initialStation = DESK_COORDS[station] || DESK_COORDS["C01"]!;
         const current = next[agent.id] || { x: initialStation.x, y: initialStation.y };
         if (!next[agent.id]) {
           next[agent.id] = current;
@@ -942,7 +942,7 @@ export function OfficeMap(props: {
 
             // Sempre renderizar a posição persistida; nunca trocar para o destino
             // durante o render (isso causava salto antes do primeiro tick).
-            const initialStation = DESK_COORDS[stCode] || DESK_COORDS.C01!;
+            const initialStation = DESK_COORDS[stCode] || DESK_COORDS["C01"]!;
             const x = walking?.x ?? initialStation.x;
             const y = walking?.y ?? initialStation.y;
 
