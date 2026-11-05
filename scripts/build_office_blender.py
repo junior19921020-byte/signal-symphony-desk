@@ -67,8 +67,8 @@ for x in (-1.3,1.7,4.7):
 # Executive lounge: both sofas belong to the same open executive suite.
 # Keep the central corridor (x < 0.25) clear for access to the other rooms.
 # Reference composition: lounge at left, formal executive workstation at right.
-sofa(3.0,5.55);sofa(1.65,4.25,math.pi/2)
-cube("coffee table",(3.35,4.05,.42),(1.1,.7,.12),wood)
+sofa(3.1,5.65);sofa(1.5,4.25,math.pi/2)
+cube("coffee table",(3.45,4.05,.42),(1.1,.7,.12),wood)
 # Removed redundant refreshments cabinet: executive credenza occupies this wall.
 # Reception near right entry
 cube("reception desk",(8.8,-3.1,.72),(2.9,.85,1.44),wood)
@@ -130,7 +130,7 @@ for x,y in ((2.5,5.55),(3.0,5.55),(3.5,5.55)):
  cube("sofa cushion",(x,y,.64),(.46,.50,.10),upholstery)
 cylinder("round side table",(4.55,5.45,.49),.37,.065,darkwood)
 cylinder("side table leg",(4.55,5.45,.26),.05,.44,steel)
-for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
+for x,y in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.7,5.7),(9.6,-6.4)]:
  for i in range(5):
   a=i*math.tau/5
   cylinder("plant foliage layer",(x+math.cos(a)*.18,y+math.sin(a)*.18,1.12),.23,.48,green,10)
@@ -177,15 +177,15 @@ cube("reception storage",(9.45,-.8,.48),(1.7,.48,.96),wood)
 # Lounge rug, upholstered seating and a more legible coffee table.
 cube("lounge area rug",(3.0,4.65,.056),(4.4,3.5,.022),slate)
 cube("lounge accent cushion",(3.0,5.55,.72),(.42,.42,.10),terracotta)
-cube("coffee tabletop",(3.35,4.05,.51),(1.18,.77,.055),darkwood)
-for xx in (2.92,3.78):
+cube("coffee tabletop",(3.45,4.05,.51),(1.18,.77,.055),darkwood)
+for xx in (3.02,3.88):
  for yy in (3.80,4.30):
   cube("coffee table metal leg",(xx,yy,.25),(.035,.035,.47),steel)
 # Small glass room door handles and clear doorway indicators.
 for yy in (-5.9,.1,4.6):
  cube("glass door handle",(-3.24,yy,1.05),(.14,.035,.22),accent)
 # Plant stands and individual leaves to soften blocky geometry.
-for xx,yy in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(5.6,2.1),(9.7,5.7),(9.6,-6.4)]:
+for xx,yy in [(-10,-6.5),(-10,6.5),(-2.2,6.5),(9.7,5.7),(9.6,-6.4)]:
  cylinder("planter base ring",(xx,yy,.08),.28,.07,black,20)
  for k in range(7):
   a=k*math.tau/7
@@ -224,21 +224,21 @@ for name,a,b in [
       (math.dist(a,b),.07,.065) if a[1]==b[1] else (.07,math.dist(a,b),.065),black)
 # Executive office redesign: wider footprint and restrained furnishings.
 # The rear coffee counter is moved out of the suite to avoid furniture collisions.
-cube("executive desk top",(8.0,4.95,.76),(2.15,1.02,.09),darkwood)
-cube("executive desk front",(8.0,5.26,.38),(1.92,.13,.69),darkwood)
+cube("executive desk top",(8.0,5.15,.76),(2.15,1.02,.09),darkwood)
+cube("executive desk front",(8.0,5.46,.38),(1.92,.13,.69),darkwood)
 for xx in (7.1,8.9):
- cube("executive desk support",(xx,4.95,.36),(.09,.67,.72),black)
-cube("executive desk inlay",(8.0,4.95,.814),(1.1,.38,.012),accent)
-cube("executive monitor",(8.0,5.15,1.05),(.52,.045,.32),screen)
-cube("executive chair seat",(8.0,6.05,.48),(.58,.56,.15),upholstery)
-cube("executive chair back",(8.0,6.35,.9),(.58,.13,.79),upholstery)
-cylinder("executive chair column",(8.0,6.05,.24),.06,.4,steel)
+ cube("executive desk support",(xx,5.15,.36),(.09,.67,.72),black)
+cube("executive desk inlay",(8.0,5.15,.814),(1.1,.38,.012),accent)
+cube("executive monitor",(8.0,5.35,1.05),(.52,.045,.32),screen)
+cube("executive chair seat",(8.0,6.25,.48),(.58,.56,.15),upholstery)
+cube("executive chair back",(8.0,6.55,.9),(.58,.13,.79),upholstery)
+cylinder("executive chair column",(8.0,6.25,.24),.06,.4,steel)
 for xx in (7.15,8.85):
- cube("executive visitor chair seat",(xx,3.7,.45),(.48,.48,.12),fabric)
- cube("executive visitor chair back",(xx,3.42,.75),(.48,.10,.55),fabric)
+ cube("executive visitor chair seat",(xx,4.0,.45),(.48,.48,.12),fabric)
+ cube("executive visitor chair back",(xx,3.72,.75),(.48,.10,.55),fabric)
  for dx in (-.17,.17):
   for dy in (-.17,.17):
-   cube("executive visitor chair leg",(xx+dx,3.7+dy,.20),(.04,.04,.40),steel)
+   cube("executive visitor chair leg",(xx+dx,4.0+dy,.20),(.04,.04,.40),steel)
 cube("executive credenza",(9.75,6.9,.43),(1.4,.42,.86),darkwood)
 cube("executive credenza accent",(9.75,6.67,.65),(1.18,.02,.07),accent)
 # Executive reference: finish the partition against reception, with a 1.5m entry
@@ -313,6 +313,11 @@ for x in (-8.85,-5.75):
  for y in (-4.9,-4.1):
   cube("meeting table leg",(x,y,.36),(.075,.075,.72),black)
 
+# Prevent plants from intersecting the executive round table and its chairs.
+for obj in bpy.data.objects:
+ if obj.type == "MESH" and ("foliage" in obj.name.lower() or "plant leaves" in obj.name.lower()):
+  if 3.9 < obj.location.x < 6.1 and 1.35 < obj.location.y < 3.15:
+   raise RuntimeError("Executive meeting area blocked by plant: " + obj.name)
 # Lighting for Blender render preview; glTF exports mesh materials and lights if supported.
 world=bpy.context.scene.world
 if world:world.color=(.65,.65,.65)
