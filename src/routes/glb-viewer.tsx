@@ -20,6 +20,17 @@ function GlbViewer() {
     viewer.jumpCameraToGoal?.();
   }
 
+  function adjustZoom(factor: number) {
+    const viewer = viewerRef.current as (HTMLElement & {
+      getCameraOrbit?: () => { theta: number; phi: number; radius: number };
+      cameraOrbit?: string;
+    }) | null;
+    const orbit = viewer?.getCameraOrbit?.();
+    if (!viewer || !orbit) return;
+    const radius = Math.max(0.5, Math.min(200, orbit.radius * factor));
+    viewer.cameraOrbit = `${orbit.theta}rad ${orbit.phi}rad ${radius}m`;
+  }
+
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -82,6 +93,10 @@ function GlbViewer() {
               {view === "overview" ? "Visão geral" : view === "top" ? "Vista superior" : "Vista frontal"}
             </button>
           ))}
+        </div>
+        <div role="group" aria-label="Controles de aproximação da câmera" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+          <button type="button" disabled={!src} onClick={() => adjustZoom(0.7)} style={{ background: "#19314a", color: "#fff", border: "1px solid #72869d", borderRadius: 12, padding: "12px 18px", cursor: "pointer" }}>+ Aproximar</button>
+          <button type="button" disabled={!src} onClick={() => adjustZoom(1.4)} style={{ background: "#19314a", color: "#fff", border: "1px solid #72869d", borderRadius: 12, padding: "12px 18px", cursor: "pointer" }}>− Afastar</button>
         </div>
         <p role="status" style={{ color: "#b9eaff" }}>{message}</p>
         {src ? (
