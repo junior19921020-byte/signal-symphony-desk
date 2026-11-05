@@ -12,6 +12,31 @@ function GlbViewer() {
   const [src, setSrc] = useState<string | null>(null);
   const [cameraView, setCameraView] = useState<"overview" | "top" | "front">("overview");
 
+  // Blender exports Z-up coordinates to glTF Y-up: (x, y, z) -> (x, z, -y).
+  // These are fixed architectural sector centers, not agent positions.
+  const sectors = [
+    { id: "reception", label: "Recepção", target: "8.6m 0.8m 4.4m" },
+    { id: "trading", label: "Mesa de operações", target: "3m 0.8m 2.8m" },
+    { id: "risk", label: "Gestão de riscos", target: "-7.2m 0.8m 4.5m" },
+    { id: "research", label: "Pesquisa", target: "-7.2m 0.8m -4.9m" },
+    { id: "meeting", label: "Reuniões", target: "-7.3m 0.8m 4.5m" },
+    { id: "executive", label: "Diretoria", target: "3.5m 0.8m -6.2m" },
+  ] as const;
+  const [selectedSector, setSelectedSector] = useState<string>("all");
+
+  function chooseSector(id: string, target: string) {
+    setSelectedSector(id);
+    const viewer = viewerRef.current as (HTMLElement & {
+      cameraTarget?: string;
+      cameraOrbit?: string;
+      jumpCameraToGoal?: () => void;
+    }) | null;
+    if (!viewer) return;
+    viewer.cameraTarget = target;
+    viewer.cameraOrbit = id === "all" ? "35deg 55deg auto" : "35deg 50deg 8m";
+    viewer.jumpCameraToGoal?.();
+  }
+
   function chooseCamera(view: "overview" | "top" | "front") {
     setCameraView(view);
     const viewer = viewerRef.current as (HTMLElement & { cameraOrbit?: string; jumpCameraToGoal?: () => void }) | null;
@@ -83,6 +108,16 @@ function GlbViewer() {
             </button>
           ))}
         </div>
+        <section aria-label="Navegar pelos setores do escritório" style={{ margin: "16px 0" }}>
+          <h2 style={{ fontSize: 18, marginBottom: 10 }}>Explorar setores</h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" disabled={!src} aria-pressed={selectedSector === "all"} onClick={() => chooseSector("all", "auto auto auto")} style={{ background: selectedSector === "all" ? "#205476" : "#19314a", color: "#fff", border: "1px solid #72869d", borderRadius: 10, padding: "10px 14px" }}>Escritório inteiro</button>
+            {sectors.map((sector) => (
+              <button key={sector.id} type="button" disabled={!src} aria-pressed={selectedSector === sector.id} onClick={() => chooseSector(sector.id, sector.target)} style={{ background: selectedSector === sector.id ? "#205476" : "#19314a", color: "#fff", border: "1px solid #72869d", borderRadius: 10, padding: "10px 14px" }}>{sector.label}</button>
+            ))}
+          </div>
+          <p style={{ fontSize: 13, color: "#b9eaff" }}>Selecione um setor para centralizar a câmera. Arraste para girar e use a pinça para ajustar o zoom.</p>
+        </section>
         <p role="status" style={{ color: "#b9eaff" }}>{message}</p>
         {src ? (
           <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid #60788a", background: "linear-gradient(#9cb4c2, #d5e0e5)", height: "min(70vh, 720px)", minHeight: 400 }}>
